@@ -10,4 +10,6 @@ uint32_t ms(uint32_t ms);
 uint32_t seconds(float s);
 
 // Enables periodic timer interrupts
-void periodic_timer_enable(uint8_t timer_num, uint32_t period);
+// Priority is 0-7 where 0 is highest priority
+void periodic_timer_enable(uint8_t timer_num, uint32_t period,
+                           void (*task)(void), uint8_t priority);

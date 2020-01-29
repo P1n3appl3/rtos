@@ -19,6 +19,27 @@ static TimerConfig timers[] = {
     {SYSCTL_PERIPH_TIMER5, INT_TIMER5A, TIMER5_BASE},
 };
 
+void default_timer_handler(void) {
+    while (1) {}
+}
+
+void (*tasks[])(void) = {default_timer_handler, default_timer_handler,
+                         default_timer_handler, default_timer_handler,
+                         default_timer_handler, default_timer_handler};
+
+#define TIMERHANDLER(x)                                                        \
+    void timer##x##a_handler(void) {                                           \
+        ROM_TimerIntClear(TIMER##x##_BASE, TIMER_A);                           \
+        (*tasks[x])();                                                         \
+    }
+
+TIMERHANDLER(0)
+TIMERHANDLER(1)
+TIMERHANDLER(2)
+TIMERHANDLER(3)
+TIMERHANDLER(4)
+TIMERHANDLER(5)
+
 uint32_t us(uint32_t us) {
     return us * 80000 - 1;
 }
@@ -31,12 +52,15 @@ uint32_t seconds(float s) {
     return us(s * 1000000);
 }
 
-void periodic_timer_enable(uint8_t timer_num, uint32_t period) {
+void periodic_timer_enable(uint8_t timer_num, uint32_t period,
+                           void (*task)(void), uint8_t priority) {
     TimerConfig config = timers[timer_num];
     ROM_SysCtlPeripheralEnable(config.sysctl_periph);
     ROM_TimerConfigure(config.base, TIMER_CFG_PERIODIC);
     ROM_TimerLoadSet(config.base, TIMER_A, period);
     ROM_IntEnable(config.intterrupt);
+    ROM_IntPrioritySet(config.intterrupt, priority << 5);
+    tasks[timer_num] = task;
     ROM_TimerIntEnable(config.base, TIMER_TIMA_TIMEOUT);
     ROM_TimerEnable(config.base, TIMER_BOTH);
 }

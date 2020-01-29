@@ -1,37 +1,13 @@
-/**
- * @file      OS.h
- * @brief     Real Time Operating System for Labs 1, 2, 3 and 4
- * @details   EE445M/EE380L.6
- * @version   V1.0
- * @author    Valvano
- * @copyright Copyright 2020 by Jonathan W. Valvano, valvano@mail.utexas.edu,
- * @warning   AS-IS
- * @note      For more information see  http://users.ece.utexas.edu/~valvano/
- * @date      Jan 12, 2020
-
- ******************************************************************************/
-
-
-
- 
-#ifndef __OS_H
-#define __OS_H  1
+#pragma once
 #include <stdint.h>
 
 /**
- * \brief Times assuming a 80 MHz
- */      
-#define TIME_1MS    80000          
-#define TIME_2MS    (2*TIME_1MS)  
-#define TIME_500US  (TIME_1MS/2)  
-#define TIME_250US  (TIME_1MS/5)  
-
-/**
- * \brief Semaphore structure. Feel free to change the type of semaphore, there are lots of good solutions
- */  
-struct  Sema4{
-  int32_t Value;   // >0 means free, otherwise means busy        
-// add other components here, if necessary to implement blocking
+ * \brief Semaphore structure. Feel free to change the type of semaphore, there
+ * are lots of good solutions
+ */
+struct Sema4 {
+    int32_t Value; // >0 means free, otherwise means busy
+    // add other components here, if necessary to implement blocking
 };
 typedef struct Sema4 Sema4Type;
 
@@ -43,45 +19,45 @@ typedef struct Sema4 Sema4Type;
  * @return none
  * @brief  Initialize OS
  */
-void OS_Init(void); 
+void OS_Init(void);
 
 // ******** OS_InitSemaphore ************
-// initialize semaphore 
+// initialize semaphore
 // input:  pointer to a semaphore
 // output: none
-void OS_InitSemaphore(Sema4Type *semaPt, int32_t value); 
+void OS_InitSemaphore(Sema4Type* semaPt, int32_t value);
 
 // ******** OS_Wait ************
-// decrement semaphore 
+// decrement semaphore
 // Lab2 spinlock
 // Lab3 block if less than zero
 // input:  pointer to a counting semaphore
 // output: none
-void OS_Wait(Sema4Type *semaPt); 
+void OS_Wait(Sema4Type* semaPt);
 
 // ******** OS_Signal ************
-// increment semaphore 
+// increment semaphore
 // Lab2 spinlock
-// Lab3 wakeup blocked thread if appropriate 
+// Lab3 wakeup blocked thread if appropriate
 // input:  pointer to a counting semaphore
 // output: none
-void OS_Signal(Sema4Type *semaPt); 
+void OS_Signal(Sema4Type* semaPt);
 
 // ******** OS_bWait ************
 // Lab2 spinlock, set to 0
 // Lab3 block if less than zero
 // input:  pointer to a binary semaphore
 // output: none
-void OS_bWait(Sema4Type *semaPt); 
+void OS_bWait(Sema4Type* semaPt);
 
 // ******** OS_bSignal ************
 // Lab2 spinlock, set to 1
-// Lab3 wakeup blocked thread if appropriate 
+// Lab3 wakeup blocked thread if appropriate
 // input:  pointer to a binary semaphore
 // output: none
-void OS_bSignal(Sema4Type *semaPt); 
+void OS_bSignal(Sema4Type* semaPt);
 
-//******** OS_AddThread *************** 
+//******** OS_AddThread ***************
 // add a foregound thread to the scheduler
 // Inputs: pointer to a void/void foreground task
 //         number of bytes allocated for its stack
@@ -90,16 +66,15 @@ void OS_bSignal(Sema4Type *semaPt);
 // stack size must be divisable by 8 (aligned to double word boundary)
 // In Lab 2, you can ignore both the stackSize and priority fields
 // In Lab 3, you can ignore the stackSize fields
-int OS_AddThread(void(*task)(void), 
-   uint32_t stackSize, uint32_t priority);
+int OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority);
 
-//******** OS_Id *************** 
+//******** OS_Id ***************
 // returns the thread ID for the currently running thread
 // Inputs: none
-// Outputs: Thread ID, number greater than zero 
+// Outputs: Thread ID, number greater than zero
 uint32_t OS_Id(void);
 
-//******** OS_AddPeriodicThread *************** 
+//******** OS_AddPeriodicThread ***************
 // add a background periodic task
 // typically this function receives the highest priority
 // Inputs: pointer to a void/void background function
@@ -114,12 +89,13 @@ uint32_t OS_Id(void);
 // In lab 2, this command will be called 0 or 1 times
 // In lab 2, the priority field can be ignored
 // In lab 3, this command will be called 0 1 or 2 times
-// In lab 3, there will be up to four background threads, and this priority field 
+// In lab 3, there will be up to four background threads, and this priority
+// field
 //           determines the relative priority of these four threads
-int OS_AddPeriodicThread(void(*task)(void), 
-   uint32_t period, uint32_t priority);
+int OS_AddPeriodicThread(void (*task)(void), uint32_t period,
+                         uint32_t priority);
 
-//******** OS_AddSW1Task *************** 
+//******** OS_AddSW1Task ***************
 // add a background task to run whenever the SW1 (PF4) button is pushed
 // Inputs: pointer to a void/void background function
 //         priority 0 is the highest, 5 is the lowest
@@ -130,11 +106,12 @@ int OS_AddPeriodicThread(void(*task)(void),
 // This task does not have a Thread ID
 // In labs 2 and 3, this command will be called 0 or 1 times
 // In lab 2, the priority field can be ignored
-// In lab 3, there will be up to four background threads, and this priority field 
+// In lab 3, there will be up to four background threads, and this priority
+// field
 //           determines the relative priority of these four threads
-int OS_AddSW1Task(void(*task)(void), uint32_t priority);
+int OS_AddSW1Task(void (*task)(void), uint32_t priority);
 
-//******** OS_AddSW2Task *************** 
+//******** OS_AddSW2Task ***************
 // add a background task to run whenever the SW2 (PF0) button is pushed
 // Inputs: pointer to a void/void background function
 //         priority 0 is highest, 5 is lowest
@@ -145,9 +122,10 @@ int OS_AddSW1Task(void(*task)(void), uint32_t priority);
 // This task does not have a Thread ID
 // In lab 2, this function can be ignored
 // In lab 3, this command will be called will be called 0 or 1 times
-// In lab 3, there will be up to four background threads, and this priority field 
+// In lab 3, there will be up to four background threads, and this priority
+// field
 //           determines the relative priority of these four threads
-int OS_AddSW2Task(void(*task)(void), uint32_t priority);
+int OS_AddSW2Task(void (*task)(void), uint32_t priority);
 
 // ******** OS_Sleep ************
 // place this thread into a dormant state
@@ -155,32 +133,33 @@ int OS_AddSW2Task(void(*task)(void), uint32_t priority);
 // output: none
 // You are free to select the time resolution for this function
 // OS_Sleep(0) implements cooperative multitasking
-void OS_Sleep(uint32_t sleepTime); 
+void OS_Sleep(uint32_t sleepTime);
 
 // ******** OS_Kill ************
 // kill the currently running thread, release its TCB and stack
 // input:  none
 // output: none
-void OS_Kill(void); 
+void OS_Kill(void);
 
 // ******** OS_Suspend ************
 // suspend execution of currently running thread
 // scheduler will choose another thread to execute
-// Can be used to implement cooperative multitasking 
+// Can be used to implement cooperative multitasking
 // Same function as OS_Sleep(0)
 // input:  none
 // output: none
 void OS_Suspend(void);
 
-// temporarily prevent foreground thread switch (but allow background interrupts)
+// temporarily prevent foreground thread switch (but allow background
+// interrupts)
 unsigned long OS_LockScheduler(void);
 // resume foreground thread switching
 void OS_UnLockScheduler(unsigned long previous);
- 
+
 // ******** OS_Fifo_Init ************
 // Initialize the Fifo to be empty
 // Inputs: size
-// Outputs: none 
+// Outputs: none
 // In Lab 2, you can ignore the size field
 // In Lab 3, you should implement the user-defined fifo size
 // In Lab 3, you can put whatever restrictions you want on size
@@ -190,19 +169,19 @@ void OS_Fifo_Init(uint32_t size);
 
 // ******** OS_Fifo_Put ************
 // Enter one data sample into the Fifo
-// Called from the background, so no waiting 
+// Called from the background, so no waiting
 // Inputs:  data
 // Outputs: true if data is properly saved,
 //          false if data not saved, because it was full
-// Since this is called by interrupt handlers 
+// Since this is called by interrupt handlers
 //  this function can not disable or enable interrupts
-int OS_Fifo_Put(uint32_t data);  
+int OS_Fifo_Put(uint32_t data);
 
 // ******** OS_Fifo_Get ************
 // Remove one data sample from the Fifo
 // Called in foreground, will spin/block if empty
 // Inputs:  none
-// Outputs: data 
+// Outputs: data
 uint32_t OS_Fifo_Get(void);
 
 // ******** OS_Fifo_Size ************
@@ -210,7 +189,7 @@ uint32_t OS_Fifo_Get(void);
 // Inputs: none
 // Outputs: returns the number of elements in the Fifo
 //          greater than zero if a call to OS_Fifo_Get will return right away
-//          zero or less than zero if the Fifo is empty 
+//          zero or less than zero if the Fifo is empty
 //          zero or less than zero if a call to OS_Fifo_Get will spin or block
 int32_t OS_Fifo_Size(void);
 
@@ -225,7 +204,7 @@ void OS_MailBox_Init(void);
 // Inputs:  data to be sent
 // Outputs: none
 // This function will be called from a foreground thread
-// It will spin/block if the MailBox contains data not yet received 
+// It will spin/block if the MailBox contains data not yet received
 void OS_MailBox_Send(uint32_t data);
 
 // ******** OS_MailBox_Recv ************
@@ -233,43 +212,36 @@ void OS_MailBox_Send(uint32_t data);
 // Inputs:  none
 // Outputs: data received
 // This function will be called from a foreground thread
-// It will spin/block if the MailBox is empty 
+// It will spin/block if the MailBox is empty
 uint32_t OS_MailBox_Recv(void);
 
 // ******** OS_Time ************
-// return the system time 
+// return the system time
 // Inputs:  none
 // Outputs: time in 12.5ns units, 0 to 4294967295
-// The time resolution should be less than or equal to 1us, and the precision 32 bits
-// It is ok to change the resolution and precision of this function as long as 
-//   this function and OS_TimeDifference have the same resolution and precision 
+// The time resolution should be less than or equal to 1us, and the precision 32
+// bits It is ok to change the resolution and precision of this function as long
+// as
+//   this function and OS_TimeDifference have the same resolution and precision
 uint32_t OS_Time(void);
 
 // ******** OS_TimeDifference ************
 // Calculates difference between two times
 // Inputs:  two times measured with OS_Time
-// Outputs: time difference in 12.5ns units 
-// The time resolution should be less than or equal to 1us, and the precision at least 12 bits
-// It is ok to change the resolution and precision of this function as long as 
-//   this function and OS_Time have the same resolution and precision 
+// Outputs: time difference in 12.5ns units
+// The time resolution should be less than or equal to 1us, and the precision at
+// least 12 bits It is ok to change the resolution and precision of this
+// function as long as
+//   this function and OS_Time have the same resolution and precision
 uint32_t OS_TimeDifference(uint32_t start, uint32_t stop);
 
-// ******** OS_ClearMsTime ************
-// sets the system time to zero (from Lab 1)
-// Inputs:  none
-// Outputs: none
-// You are free to change how this works
+// sets the system time to zero
 void OS_ClearMsTime(void);
 
-// ******** OS_MsTime ************
-// reads the current time in msec (from Lab 1)
-// Inputs:  none
-// Outputs: time in ms units
-// You are free to select the time resolution for this function
-// It is ok to make the resolution to match the first call to OS_AddPeriodicThread
+// reads the current time in ms
 uint32_t OS_MsTime(void);
 
-//******** OS_Launch *************** 
+//******** OS_Launch ***************
 // start the scheduler, enable interrupts
 // Inputs: number of 12.5ns clock cycles for each time slice
 //         you may select the units of this parameter
@@ -287,11 +259,11 @@ void OS_Launch(uint32_t theTimeSlice);
  * @return 0 if successful and 1 on failure (e.g., can't open)
  * @brief  redirect printf output into this file
  */
-int OS_RedirectToFile(char *name);
-
+int OS_RedirectToFile(char* name);
 
 /**
- * @details close the file for writing, redirect stream I/O (printf) back to the UART
+ * @details close the file for writing, redirect stream I/O (printf) back to the
+ * UART
  * @param  none
  * @return 0 if successful and 1 on failure (e.g., trouble writing)
  * @brief  Stop streaming printf to file
@@ -300,16 +272,14 @@ int OS_EndRedirectToFile(void);
 
 /**
  * @details redirect stream I/O (printf) to the UART0
- * @return 0 if successful and 1 on failure 
+ * @return 0 if successful and 1 on failure
  * @brief  redirect printf output to the UART0
  */
 int OS_RedirectToUART(void);
 
 /**
  * @details redirect stream I/O (printf) to the ST7735 LCD
- * @return 0 if successful and 1 on failure 
+ * @return 0 if successful and 1 on failure
  * @brief  redirect printf output to the ST7735
  */
- int OS_RedirectToST7735(void);
-
-#endif
+int OS_RedirectToST7735(void);
