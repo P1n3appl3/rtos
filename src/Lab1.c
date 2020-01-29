@@ -19,7 +19,6 @@
 // realistic analog signal on PE3 J6/A2/PE2 analog channel 1 J7/A1/PE1 analog
 // channel 2 J8/A0/PE0 analog channel 3
 
-#include "../inc/Timer4A.h"
 #include <ADC.h>
 #include <IRDistance.h>
 #include <Interpreter.h>
@@ -27,8 +26,9 @@
 #include <OS.h>
 #include <ST7735.h>
 #include <launchpad.h>
+#include <startup.h>
 #include <stdint.h>
-#include <tivaware/hw_ints.h>
+#include <timer.h>
 #include <tivaware/hw_memmap.h>
 #include <tivaware/rom.h>
 #include <tivaware/sysctl.h>
@@ -40,25 +40,15 @@ int32_t ADCdata, FilterOutput, Distance;
 uint32_t FilterWork;
 
 // periodic task
-void DAStask(void) { // runs at 10Hz in background
-  PF1 ^= 0x01;
+void timer4a_handler(void) { // runs at 10Hz in background
+  ROM_TimerIntClear(TIMER4_BASE, TIMER_A);
+  led_toggle(RED_LED);
   ADCdata = ADC_In(); // channel set when calling ADC_Init
-  PF1 ^= 0x01;
+  led_toggle(RED_LED);
   FilterOutput = Median(ADCdata); // 3-wide median filter
   Distance = IRDistance_Convert(FilterOutput, 0);
   FilterWork++; // calculation finished
-  PF1 ^= 0x01;
-}
-
-void timer_init(uint32_t base, uint32_t peripheral, uint32_t interrupt,
-                uint32_t period) {
-  // ex. TIMER0_BASE, SYSCTL_PERIPH_TIMER0, INT_TIMER0A
-  ROM_SysCtlPeripheralEnable(peripheral);
-  ROM_TimerConfigure(base, TIMER_CFG_PERIODIC);
-  ROM_TimerLoadSet(base, TIMER_A, period);
-  ROM_IntEnable(interrupt);
-  ROM_TimerIntEnable(base, TIMER_TIMA_TIMEOUT);
-  ROM_TimerEnable(base, TIMER_BOTH);
+  led_toggle(RED_LED);
 }
 
 //*******************lab 1 main **********
@@ -67,12 +57,11 @@ int main(void) {
                      SYSCTL_OSC_MAIN);
   ST7735_InitR(INITR_REDTAB); // LCD initialization
   launchpad_init();
-  ADC_Init(0); // channel 3 is PE0 <- connect an IR distance sensor to J5 to get
+  ADC_Init(3); // channel 3 is PE0 <- connect an IR distance sensor to J5 to get
                // a realistic analog signal
-  Timer4A_Init(&DAStask, 80000000 / 10, 1); // 10 Hz sampling, priority=1
-  timer_init(TIMER4_BASE, SYSCTL_PERIPH_TIMER4, INT_TIMER4A, 80000000 / 10);
+  periodic_timer_enable(4, 80000000 / 10, 1);
   OS_ClearMsTime(); // start a periodic interrupt to maintain time
-  EnableInterrupts();
+  enable_interrupts();
   while (1) {
     Interpreter();
   }

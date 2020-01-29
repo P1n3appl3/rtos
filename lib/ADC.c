@@ -16,14 +16,27 @@
 // software start
 // return with error 1, if channelNum>11,
 // otherwise initialize ADC and return 0 (success)
+
+typedef struct {
+  uint32_t port;
+  uint32_t pin;
+} ADCConfig;
+
+ADCConfig adcs[12] = {
+    {SYSCTL_PERIPH_GPIOE, GPIO_PIN_3}, {SYSCTL_PERIPH_GPIOE, GPIO_PIN_2},
+    {SYSCTL_PERIPH_GPIOE, GPIO_PIN_1}, {SYSCTL_PERIPH_GPIOE, GPIO_PIN_0},
+    {SYSCTL_PERIPH_GPIOD, GPIO_PIN_3}, {SYSCTL_PERIPH_GPIOD, GPIO_PIN_2},
+    {SYSCTL_PERIPH_GPIOD, GPIO_PIN_1}, {SYSCTL_PERIPH_GPIOD, GPIO_PIN_0},
+    {SYSCTL_PERIPH_GPIOE, GPIO_PIN_5}, {SYSCTL_PERIPH_GPIOE, GPIO_PIN_4},
+    {SYSCTL_PERIPH_GPIOB, GPIO_PIN_4}, {SYSCTL_PERIPH_GPIOB, GPIO_PIN_5}};
+
 int ADC_Init(uint32_t channelNum) {
-  // TODO: switch to PE0
-  ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);  // enable ADC0
-  ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE); // enable for AIN0 on E3
-  ROM_GPIOPinTypeADC(GPIO_PORTE_BASE, GPIO_PIN_3);
+  ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);    // enable ADC0
+  ROM_SysCtlPeripheralEnable(adcs[channelNum].port); // enable for AIN0 on E3
+  ROM_GPIOPinTypeADC(GPIO_PORTE_BASE, adcs[channelNum].pin);
   ROM_ADCSequenceConfigure(ADC0_BASE, 3, ADC_TRIGGER_PROCESSOR, 0);
   ROM_ADCSequenceStepConfigure(ADC0_BASE, 3, 0,
-                               ADC_CTL_CH0 | ADC_CTL_IE | ADC_CTL_END);
+                               channelNum | ADC_CTL_IE | ADC_CTL_END);
 
   ROM_ADCSequenceEnable(ADC0_BASE, 3);
 
@@ -31,6 +44,7 @@ int ADC_Init(uint32_t channelNum) {
 
   return 0;
 }
+
 // software start sequencer 3 and return 12 bit ADC result
 static uint32_t pui32ADC0Value[1];
 uint32_t ADC_In(void) {
