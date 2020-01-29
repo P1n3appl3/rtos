@@ -1,4 +1,3 @@
-#include "RTOS_Labs_common/OS.h"
 #include "CortexM.h"
 #include "LaunchPad.h"
 #include "PLL.h"
@@ -12,6 +11,7 @@
 #include "tivaware/hw_memmap.h"
 #include "tivaware/sysctl.h"
 #include "tivaware/timer.h"
+#include <OS.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -31,11 +31,11 @@ uint32_t JitterHistogram[JITTERSIZE] = {
 void SysTick_Handler(void) {} // end SysTick_Handler
 
 unsigned long OS_LockScheduler(void) {
-    // lab 4 might need this for disk formating
-    return 0; // replace with solution
+  // lab 4 might need this for disk formating
+  return 0; // replace with solution
 }
 void OS_UnLockScheduler(unsigned long previous) {
-    // lab 4 might need this for disk formating
+  // lab 4 might need this for disk formating
 }
 
 void SysTick_Init(unsigned long period) {}
@@ -57,7 +57,7 @@ void OS_Init(void){
 // initialize semaphore
 // input:  pointer to a semaphore
 // output: none
-void OS_InitSemaphore(Sema4Type* semaPt, int32_t value){
+void OS_InitSemaphore(Sema4Type *semaPt, int32_t value){
     // put Lab 2 (and beyond) solution here
 
 };
@@ -68,7 +68,7 @@ void OS_InitSemaphore(Sema4Type* semaPt, int32_t value){
 // Lab3 block if less than zero
 // input:  pointer to a counting semaphore
 // output: none
-void OS_Wait(Sema4Type* semaPt){
+void OS_Wait(Sema4Type *semaPt){
     // put Lab 2 (and beyond) solution here
 
 };
@@ -79,7 +79,7 @@ void OS_Wait(Sema4Type* semaPt){
 // Lab3 wakeup blocked thread if appropriate
 // input:  pointer to a counting semaphore
 // output: none
-void OS_Signal(Sema4Type* semaPt){
+void OS_Signal(Sema4Type *semaPt){
     // put Lab 2 (and beyond) solution here
 
 };
@@ -89,7 +89,7 @@ void OS_Signal(Sema4Type* semaPt){
 // Lab3 block if less than zero
 // input:  pointer to a binary semaphore
 // output: none
-void OS_bWait(Sema4Type* semaPt){
+void OS_bWait(Sema4Type *semaPt){
     // put Lab 2 (and beyond) solution here
 
 };
@@ -99,7 +99,7 @@ void OS_bWait(Sema4Type* semaPt){
 // Lab3 wakeup blocked thread if appropriate
 // input:  pointer to a binary semaphore
 // output: none
-void OS_bSignal(Sema4Type* semaPt){
+void OS_bSignal(Sema4Type *semaPt){
     // put Lab 2 (and beyond) solution here
 
 };
@@ -114,9 +114,9 @@ void OS_bSignal(Sema4Type* semaPt){
 // In Lab 2, you can ignore both the stackSize and priority fields
 // In Lab 3, you can ignore the stackSize fields
 int OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
-    // put Lab 2 (and beyond) solution here
+  // put Lab 2 (and beyond) solution here
 
-    return 0; // replace this line with solution
+  return 0; // replace this line with solution
 };
 
 //******** OS_Id ***************
@@ -124,9 +124,9 @@ int OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
 // Inputs: none
 // Outputs: Thread ID, number greater than zero
 uint32_t OS_Id(void) {
-    // put Lab 2 (and beyond) solution here
+  // put Lab 2 (and beyond) solution here
 
-    return 0; // replace this line with solution
+  return 0; // replace this line with solution
 };
 
 //******** OS_AddPeriodicThread ***************
@@ -150,9 +150,9 @@ uint32_t OS_Id(void) {
 //           determines the relative priority of these four threads
 int OS_AddPeriodicThread(void (*task)(void), uint32_t period,
                          uint32_t priority) {
-    // put Lab 2 (and beyond) solution here
+  // put Lab 2 (and beyond) solution here
 
-    return 0; // replace this line with solution
+  return 0; // replace this line with solution
 };
 
 /*----------------------------------------------------------------------------
@@ -174,9 +174,9 @@ void GPIOPortF_Handler(void) {}
 // field
 //           determines the relative priority of these four threads
 int OS_AddSW1Task(void (*task)(void), uint32_t priority) {
-    // put Lab 2 (and beyond) solution here
+  // put Lab 2 (and beyond) solution here
 
-    return 0; // replace this line with solution
+  return 0; // replace this line with solution
 };
 
 //******** OS_AddSW2Task ***************
@@ -194,9 +194,9 @@ int OS_AddSW1Task(void (*task)(void), uint32_t priority) {
 // field
 //           determines the relative priority of these four threads
 int OS_AddSW2Task(void (*task)(void), uint32_t priority) {
-    // put Lab 2 (and beyond) solution here
+  // put Lab 2 (and beyond) solution here
 
-    return 0; // replace this line with solution
+  return 0; // replace this line with solution
 };
 
 // ******** OS_Sleep ************
@@ -215,10 +215,11 @@ void OS_Sleep(uint32_t sleepTime){
 // input:  none
 // output: none
 void OS_Kill(void) {
-    // put Lab 2 (and beyond) solution here
+  // put Lab 2 (and beyond) solution here
 
-    EnableInterrupts(); // end of atomic section
-    for (;;) {};        // can not return
+  EnableInterrupts(); // end of atomic section
+  for (;;) {
+  }; // can not return
 };
 
 // ******** OS_Suspend ************
@@ -256,9 +257,9 @@ void OS_Fifo_Init(uint32_t size){
 // Since this is called by interrupt handlers
 //  this function can not disable or enable interrupts
 int OS_Fifo_Put(uint32_t data) {
-    // put Lab 2 (and beyond) solution here
+  // put Lab 2 (and beyond) solution here
 
-    return 0; // replace this line with solution
+  return 0; // replace this line with solution
 };
 
 // ******** OS_Fifo_Get ************
@@ -267,9 +268,9 @@ int OS_Fifo_Put(uint32_t data) {
 // Inputs:  none
 // Outputs: data
 uint32_t OS_Fifo_Get(void) {
-    // put Lab 2 (and beyond) solution here
+  // put Lab 2 (and beyond) solution here
 
-    return 0; // replace this line with solution
+  return 0; // replace this line with solution
 };
 
 // ******** OS_Fifo_Size ************
@@ -280,9 +281,9 @@ uint32_t OS_Fifo_Get(void) {
 //          zero or less than zero if the Fifo is empty
 //          zero or less than zero if a call to OS_Fifo_Get will spin or block
 int32_t OS_Fifo_Size(void) {
-    // put Lab 2 (and beyond) solution here
+  // put Lab 2 (and beyond) solution here
 
-    return 0; // replace this line with solution
+  return 0; // replace this line with solution
 };
 
 // ******** OS_MailBox_Init ************
@@ -314,9 +315,9 @@ void OS_MailBox_Send(uint32_t data){
 // This function will be called from a foreground thread
 // It will spin/block if the MailBox is empty
 uint32_t OS_MailBox_Recv(void) {
-    // put Lab 2 (and beyond) solution here
+  // put Lab 2 (and beyond) solution here
 
-    return 0; // replace this line with solution
+  return 0; // replace this line with solution
 };
 
 // ******** OS_Time ************
@@ -328,9 +329,9 @@ uint32_t OS_MailBox_Recv(void) {
 // as
 //   this function and OS_TimeDifference have the same resolution and precision
 uint32_t OS_Time(void) {
-    // put Lab 2 (and beyond) solution here
+  // put Lab 2 (and beyond) solution here
 
-    return 0; // replace this line with solution
+  return 0; // replace this line with solution
 };
 
 // ******** OS_TimeDifference ************
@@ -342,25 +343,21 @@ uint32_t OS_Time(void) {
 // function as long as
 //   this function and OS_Time have the same resolution and precision
 uint32_t OS_TimeDifference(uint32_t start, uint32_t stop) {
-    // put Lab 2 (and beyond) solution here
+  // put Lab 2 (and beyond) solution here
 
-    return 0; // replace this line with solution
+  return 0; // replace this line with solution
 };
 
 uint32_t CURRENT_MS;
 
-void increment_global_time(void) {
-
-}
+void increment_global_time(void) {}
 
 void OS_ClearMsTime(void) {
-    periodic_timer_enable(5, ms(1), increment_global_time, );
-    CURRENT_MS = 0;
+  periodic_timer_enable(5, ms(1), increment_global_time, );
+  CURRENT_MS = 0;
 }
 
-uint32_t OS_MsTime(void) {
-    return CURRENT_MS;
-}
+uint32_t OS_MsTime(void) { return CURRENT_MS; }
 
 //******** OS_Launch ***************
 // start the scheduler, enable interrupts
@@ -378,27 +375,19 @@ void OS_Launch(uint32_t theTimeSlice){
 //******** I/O Redirection ***************
 // redirect terminal I/O to UART
 
-int fputc(int ch, FILE* f) {
-    UART_OutChar(ch);
-    return ch;
+int fputc(int ch, FILE *f) {
+  UART_OutChar(ch);
+  return ch;
 }
 
-int fgetc(FILE* f) {
-    char ch = UART_InChar(); // receive from keyboard
-    UART_OutChar(ch);        // echo
-    return ch;
+int fgetc(FILE *f) {
+  char ch = UART_InChar(); // receive from keyboard
+  UART_OutChar(ch);        // echo
+  return ch;
 }
-int OS_RedirectToFile(char* name) {
-    return 1;
-}
-int OS_RedirectToUART(void) {
-    return 1;
-}
+int OS_RedirectToFile(char *name) { return 1; }
+int OS_RedirectToUART(void) { return 1; }
 
-int OS_RedirectToST7735(void) {
-    return 1;
-}
+int OS_RedirectToST7735(void) { return 1; }
 
-int OS_EndRedirectToFile(void) {
-    return 1;
-}
+int OS_EndRedirectToFile(void) { return 1; }
