@@ -40,7 +40,7 @@ int32_t ADCdata, FilterOutput, Distance;
 uint32_t FilterWork;
 
 // periodic task
-void timer4a_handler(void) { // runs at 10Hz in background
+void DAStask(void) { // runs at 10Hz in background
   ROM_TimerIntClear(TIMER4_BASE, TIMER_A);
   led_toggle(RED_LED);
   ADCdata = ADC_In(); // channel set when calling ADC_Init
@@ -51,7 +51,6 @@ void timer4a_handler(void) { // runs at 10Hz in background
   led_toggle(RED_LED);
 }
 
-//*******************lab 1 main **********
 int main(void) {
   ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
                      SYSCTL_OSC_MAIN);
@@ -59,7 +58,7 @@ int main(void) {
   launchpad_init();
   ADC_Init(3); // channel 3 is PE0 <- connect an IR distance sensor to J5 to get
                // a realistic analog signal
-  periodic_timer_enable(4, 80000000 / 10, 1);
+  periodic_timer_enable(4, 80000000 / 10, &DAStask, 1);
   OS_ClearMsTime(); // start a periodic interrupt to maintain time
   enable_interrupts();
   while (1) {
