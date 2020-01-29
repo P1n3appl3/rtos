@@ -7,15 +7,15 @@
 #include <stdio.h>
 
 void launchpad_init(void) {
-    // Port F
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+    // Port F
     ROM_GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, 0xE);
     ROM_GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, 0x11);
     ROM_GPIOPadConfigSet(GPIO_PORTF_BASE, 0x11, GPIO_STRENGTH_2MA,
-                         GPIO_PIN_TYPE_STD_WPD);
+                         GPIO_PIN_TYPE_STD_WPU);
     // UART
-    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
-    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
     ROM_GPIOPinConfigure(GPIO_PA0_U0RX);
     ROM_GPIOPinConfigure(GPIO_PA1_U0TX);
     ROM_GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_1 | GPIO_PIN_0);
@@ -30,11 +30,11 @@ void launchpad_init(void) {
 }
 
 bool left_switch(void) {
-    return ROM_GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_4);
+    return !ROM_GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_4);
 }
 
 bool right_switch(void) {
-    return ROM_GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_0);
+    return !ROM_GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_0);
 }
 
 void led_toggle(uint8_t led) {
