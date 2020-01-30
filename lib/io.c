@@ -47,31 +47,13 @@ void uart_init(void) {
 
 int _read(int file, char* ptr, int len) {
     int recieved = 0;
-    uint8_t current = '\0';
-    while (len--) {
-        rxfifo_get(&current);
-        switch (current) {
-        case '\r':
-            putchar('\n');
-            putchar('\r');
-            if (recieved == 0) {
-                break;
-            }
-            *ptr++ = '\n';
-            return recieved + 1;
-        case 127:
-            if (recieved > 0) {
-                putchar('\b');
-                putchar(' ');
-                putchar('\b');
-                --ptr;
-                --recieved;
-            }
+    if (file != 0) { // stdin is uart
+        printf("ERROR: can only read from stdin with stdio functions");
+        return 0;
+    }
+    for (; len--; recieved++) {
+        if (!rxfifo_get((uint8_t*)(ptr)++)) {
             break;
-        default:
-            putchar(current);
-            *ptr++ = current;
-            ++recieved;
         }
     }
     return recieved;

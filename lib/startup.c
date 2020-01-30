@@ -288,15 +288,16 @@ void enable_interrupts(void) {
     __asm("CPSIE  I\n");
 }
 
-void start_critical(void) {
+void wait_for_interrupts(void) {
+    __asm("WFI\n");
+}
+
+// TODO: check that these actually work
+uint32_t start_critical(void) {
     __asm("MRS    R0, PRIMASK\n"
           "CPSID  I\n");
 }
 
-void end_critical(void) {
+void end_critical(uint32_t x) {
     __asm("MSR    PRIMASK, R0\n");
-}
-
-void wait_for_interrupts(void) {
-    __asm("WFI\n");
 }

@@ -191,7 +191,7 @@ uint32_t OS_MsTime(void);
 void OS_Launch(uint32_t theTimeSlice);
 
 // open the file for writing, redirect stream I/O (printf) to this file
-// if the file exists it will append to the end<br>
+// if the file exists it will append to the end
 // If the file doesn't exist, it will create a new file with the name
 // input: an ASCII string up to seven characters
 // returns: 0 if successful and 1 on failure (e.g., can't open)

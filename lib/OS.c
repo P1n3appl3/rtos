@@ -1,6 +1,7 @@
 #include "OS.h"
 #include "ST7735.h"
 #include "launchpad.h"
+#include "startup.h"
 #include "timer.h"
 #include "tivaware/hw_ints.h"
 #include "tivaware/hw_memmap.h"
@@ -86,8 +87,8 @@ void OS_Sleep(uint32_t sleepTime) {
 
 void OS_Kill(void) {
     // put Lab 2 (and beyond) solution here
-    EnableInterrupts(); // end of atomic section
-    for (;;) {};        // can not return
+    enable_interrupts(); // end of atomic section
+    for (;;) {};         // can not return
 }
 
 void OS_Suspend(void) {
@@ -157,19 +158,10 @@ void OS_Launch(uint32_t theTimeSlice) {
     // put Lab 2 (and beyond) solution here
 }
 
-int fputc(int ch, FILE* f) {
-    UART_OutChar(ch);
-    return ch;
-}
-
-int fgetc(FILE* f) {
-    char ch = UART_InChar(); // receive from keyboard
-    UART_OutChar(ch);        // echo
-    return ch;
-}
 int OS_RedirectToFile(char* name) {
     return 1;
 }
+
 int OS_RedirectToUART(void) {
     return 1;
 }

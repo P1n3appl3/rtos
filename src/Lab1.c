@@ -10,6 +10,7 @@
 #include "tivaware/rom.h"
 #include "tivaware/sysctl.h"
 #include "tivaware/timer.h"
+#include <io.h>
 #include <stdint.h>
 #include <timer.h>
 
@@ -20,7 +21,6 @@ uint32_t FilterWork;
 
 // periodic task
 void DAStask(void) { // runs at 10Hz in background
-    ROM_TimerIntClear(TIMER4_BASE, TIMER_A);
     led_toggle(RED_LED);
     ADCdata = ADC_In(); // channel set when calling ADC_Init
     led_toggle(RED_LED);
@@ -35,9 +35,10 @@ int main(void) {
                        SYSCTL_OSC_MAIN);
     ST7735_InitR(INITR_REDTAB); // LCD initialization
     launchpad_init();
+    uart_init();
     ADC_Init(3); // channel 3 is PE0 <- connect an IR distance sensor to J5 to
                  // get a realistic analog signal
-    periodic_timer_enable(4, 80000000 / 10, &DAStask, 1);
+    periodic_timer_enable(4, ms(100), &DAStask, 1);
     OS_ClearMsTime(); // start a periodic interrupt to maintain time
     enable_interrupts();
     while (1) { Interpreter(); }
