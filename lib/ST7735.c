@@ -1238,7 +1238,20 @@ void ST7735_OutUDec2(uint32_t n, uint32_t l) {
 //        pt      pointer to a null terminated string to be printed
 //        value   signed integer to be printed
 void ST7735_Message(uint32_t d, uint32_t l, char* pt, int32_t value) {
-    // write this as part of Labs 1 and 2
+  if (d == 0){
+    ST7735_SetCursor(0, l);
+  }
+  else{
+    ST7735_SetCursor(0, 8+l);
+  }
+  ST7735_OutString(pt);
+  if (value < 0){
+    ST7735_OutChar('-');
+    ST7735_OutUDec(-value);
+  }
+  else{
+    ST7735_OutUDec(value);
+  }
 }
 
 //-----------------------ST7735_OutUDec4-----------------------
