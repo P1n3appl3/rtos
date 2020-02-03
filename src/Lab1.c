@@ -37,9 +37,8 @@ int noreturn main(void) {
     launchpad_init();
     uart_init();
     ST7735_InitR(INITR_REDTAB); // LCD init
-    // channel 3 is PE0
     // connect an IR distance sensor to J5 to get a realistic analog signal
-    ADC_Init(3);
+    ADC_Init(3); // channel 3 is PE0
     // periodic_timer_enable(4, ms(100), &DAStask, 1);
     // OS_ClearMsTime(); // start a periodic interrupt to maintain time
     enable_interrupts();

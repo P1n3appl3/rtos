@@ -13,12 +13,13 @@
         NAME##putidx = NAME##getidx = 0;                                       \
         end_critical(sr);                                                      \
     }                                                                          \
-    bool NAME##fifo_put(TYPE data) {                                           \
-        if ((NAME##putidx - NAME##getidx) & ~(SIZE - 1)) {                     \
-            return false;                                                      \
-        }                                                                      \
+    bool NAME##fifo_empty() { return NAME##putidx == NAME##getidx; }           \
+    bool NAME##fifo_full() {                                                   \
+        return (NAME##putidx - NAME##getidx) & ~(SIZE - 1);                    \
+    }                                                                          \
+    void NAME##fifo_put(TYPE data) {                                           \
+        while (NAME##fifo_full()) {}                                           \
         NAME##fifo[NAME##putidx++ & (SIZE - 1)] = data;                        \
-        return true;                                                           \
     }                                                                          \
     bool NAME##fifo_get(TYPE* datapt) {                                        \
         if (NAME##putidx == NAME##getidx) {                                    \
@@ -26,10 +27,6 @@
         }                                                                      \
         *datapt = NAME##fifo[NAME##getidx++ & (SIZE - 1)];                     \
         return true;                                                           \
-    }                                                                          \
-    bool NAME##fifo_empty() { return NAME##putidx == NAME##getidx; }           \
-    bool NAME##fifo_full() {                                                   \
-        return (NAME##putidx - NAME##getidx) & ~(SIZE - 1);                    \
     }                                                                          \
     uint16_t NAME##fifo_size(void) {                                           \
         return ((uint16_t)(NAME##putidx - NAME##getidx));                      \

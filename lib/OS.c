@@ -141,7 +141,7 @@ uint32_t OS_TimeDifference(uint32_t start, uint32_t stop) {
 uint32_t CURRENT_MS;
 
 void increment_global_time(void) {
-    CURRENT_MS += 1;
+    ++CURRENT_MS;
 }
 
 void OS_ClearMsTime(void) {

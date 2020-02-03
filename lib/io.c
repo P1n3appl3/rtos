@@ -16,20 +16,18 @@ ADDFIFO(rx, 128, uint8_t)
 
 static void hw_to_sw_fifo() {
     do {
-        if (!rxfifo_put(ROM_UARTCharGet(UART0_BASE))) {
-            puts("\n\rERROR: UART recieving fifo overflowed");
-            while (1) {}
-        }
+        rxfifo_put(ROM_UARTCharGet(UART0_BASE));
     } while (ROM_UARTCharsAvail(UART0_BASE));
 }
 
 static void sw_to_hw_fifo() {
     uint8_t temp;
-    do {
+    while (ROM_UARTSpaceAvail(UART0_BASE)) {
         if (!txfifo_get(&temp)) {
             break;
         }
-    } while (ROM_UARTCharPutNonBlocking(UART0_BASE, temp));
+        ROM_UARTCharPutNonBlocking(UART0_BASE, temp);
+    }
 }
 
 void uart0_handler(void) {
@@ -63,16 +61,12 @@ void uart_init(void) {
 }
 
 bool putchar(char x) {
-    ROM_UARTCharPut(UART0_BASE, x);
-    return true;
     // Skip the buffer and go straight to the hardware fifo if possible
     if (txfifo_empty() && ROM_UARTCharPutNonBlocking(UART0_BASE, x)) {
         return true;
     }
-    ROM_UARTIntDisable(UART0_BASE, UART_INT_TX);
-    while (!txfifo_put(x)) {}
+    txfifo_put(x);
     sw_to_hw_fifo();
-    ROM_UARTIntEnable(UART0_BASE, UART_INT_TX);
     return true;
 }
 
@@ -85,6 +79,16 @@ char getchar(void) {
 bool puts(const char* str) {
     for (; *str;) { putchar(*str++); }
     putchar('\n');
-    putchar('\r');
     return true;
+}
+
+uint16_t gets(char* str, uint16_t len) {
+    char temp = '\0';
+    uint16_t count = 0;
+    while (temp != '\n' && len--) {
+        temp = getchar();
+        str[count++] = temp;
+    }
+    str[--count] = '\0';
+    return count;
 }
