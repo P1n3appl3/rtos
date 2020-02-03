@@ -3,8 +3,6 @@
 #include "tivaware/pin_map.h"
 #include "tivaware/rom.h"
 #include "tivaware/sysctl.h"
-#include "tivaware/uart.h"
-#include <stdio.h>
 
 void launchpad_init(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);

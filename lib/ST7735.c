@@ -3,7 +3,6 @@
 #include "eDisk.h"
 #include "tm4c123gh6pm.h"
 #include <stdint.h>
-#include <stdio.h>
 // these defines are in two places, here and in eDisk.c
 #define SDC_CS_PB0 1
 #define SDC_CS_PD7 0

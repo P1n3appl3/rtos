@@ -22,6 +22,10 @@ bool fs_list_files(void);
 // returns false on failure (e.g., trouble writing to flash)
 bool fs_create_file(char* name);
 
+// input: file name is a single ASCII letter
+// returns false on failure (e.g., trouble writing to flash)
+bool fs_delete_file(char* name);
+
 // Open the file, read into RAM last block
 // name is a single ASCII letter
 // returns false on failure (e.g., trouble writing to flash)
@@ -48,7 +52,3 @@ bool fs_close_wfile(void);
 // close the reading file
 // returns false on failure (e.g., wasn't open)
 bool fs_close_rfile(void);
-
-// input: file name is a single ASCII letter
-// returns false on failure (e.g., trouble writing to flash)
-bool fs_delete(char* name);

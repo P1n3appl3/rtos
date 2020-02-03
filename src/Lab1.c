@@ -1,18 +1,19 @@
 #include "ADC.h"
 #include "IRDistance.h"
-#include "Interpreter.h"
 #include "LPF.h"
 #include "OS.h"
 #include "ST7735.h"
+#include "interpreter.h"
+#include "interrupts.h"
+#include "io.h"
 #include "launchpad.h"
-#include "startup.h"
+#include "timer.h"
 #include "tivaware/hw_memmap.h"
 #include "tivaware/rom.h"
 #include "tivaware/sysctl.h"
 #include "tivaware/timer.h"
-#include <io.h>
 #include <stdint.h>
-#include <timer.h>
+#include <stdnoreturn.h>
 
 // PE3 Ain3 sampled at 10Hz, sequencer 3, by DAS, using software start in ISR
 
@@ -30,16 +31,17 @@ void DAStask(void) { // runs at 10Hz in background
     led_toggle(RED_LED);
 }
 
-int main(void) {
+int noreturn main(void) {
     ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
                        SYSCTL_OSC_MAIN);
-    ST7735_InitR(INITR_REDTAB); // LCD initialization
     launchpad_init();
     uart_init();
-    ADC_Init(3); // channel 3 is PE0 <- connect an IR distance sensor to J5 to
-                 // get a realistic analog signal
-    periodic_timer_enable(4, ms(100), &DAStask, 1);
-    OS_ClearMsTime(); // start a periodic interrupt to maintain time
+    ST7735_InitR(INITR_REDTAB); // LCD init
+    // channel 3 is PE0
+    // connect an IR distance sensor to J5 to get a realistic analog signal
+    ADC_Init(3);
+    // periodic_timer_enable(4, ms(100), &DAStask, 1);
+    // OS_ClearMsTime(); // start a periodic interrupt to maintain time
     enable_interrupts();
-    while (1) { Interpreter(); }
+    while (1) { interpreter(); }
 }

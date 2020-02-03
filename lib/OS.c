@@ -1,14 +1,13 @@
 #include "OS.h"
 #include "ST7735.h"
+#include "interrupts.h"
 #include "launchpad.h"
-#include "startup.h"
 #include "timer.h"
 #include "tivaware/hw_ints.h"
 #include "tivaware/hw_memmap.h"
 #include "tivaware/sysctl.h"
 #include "tivaware/timer.h"
 #include <stdint.h>
-#include <stdio.h>
 
 // Performance Measurements
 int32_t MaxJitter; // largest time jitter between interrupts in usec

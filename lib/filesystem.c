@@ -1,10 +1,8 @@
-#include "eFile.h"
+#include "filesystem.h"
 #include "OS.h"
 #include "eDisk.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 
 bool fs_init(void) {
     return false;
@@ -23,6 +21,10 @@ bool fs_list_files(void) {
 }
 
 bool fs_create_file(char* name) {
+    return false;
+}
+
+bool fs_delete_file(char* name) {
     return false;
 }
 
@@ -47,9 +49,5 @@ bool fs_close_wfile(void) {
 }
 
 bool fs_close_rfile(void) {
-    return false;
-}
-
-bool fs_delete(char* name) {
     return false;
 }
