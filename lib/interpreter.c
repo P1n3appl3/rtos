@@ -3,6 +3,7 @@
 #include "ST7735.h"
 #include "io.h"
 #include "launchpad.h"
+#include "printf.h"
 #include <stdint.h>
 
 // Print jitter histogram
@@ -14,12 +15,10 @@ void Jitter(int32_t MaxJitter, uint32_t const JitterSize,
 char command[128];
 
 void interpreter(void) {
-    puts("abcdefhijklmnopqrstuvwxyz");
-    puts("0123456789ABCDEF0123456789ABCDEF");
-    puts("Input a character:");
+    printf("abcdefhijklmnopqrstuvwxyz\n\r");
+    printf("0123456789ABCDEF0123456789ABCDEF\n\r");
+    printf("Input a character: ");
     char temp = getchar();
     led_toggle(RED_LED);
-    puts("You input the character:");
-    putchar(temp);
-    puts("");
+    printf("\n\rYou input the character: %d\n\r", temp);
 }
