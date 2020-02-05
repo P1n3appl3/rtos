@@ -52,7 +52,7 @@ WTIMERHANDLER(4)
 WTIMERHANDLER(5)
 
 uint32_t us(uint32_t us) {
-    return us * 80000 - 1; // TODO: check if -1 is needed
+    return us * 80 - 1; // TODO: check if -1 is needed
 }
 
 uint32_t ms(uint32_t ms) {

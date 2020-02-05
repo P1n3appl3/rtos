@@ -23,7 +23,7 @@ uint32_t FilterWork;
 // periodic task
 void DAStask(void) { // runs at 10Hz in background
     led_toggle(RED_LED);
-    ADCdata = ADC_In(); // channel set when calling ADC_Init
+    ADCdata = ADC_in(); // channel set when calling ADC_init
     led_toggle(RED_LED);
     FilterOutput = Median(ADCdata); // 3-wide median filter
     Distance = IRDistance_Convert(FilterOutput, 0);
@@ -38,9 +38,9 @@ int noreturn main(void) {
     uart_init();
     ST7735_InitR(INITR_REDTAB); // LCD init
     // connect an IR distance sensor to J5 to get a realistic analog signal
-    ADC_Init(3); // channel 3 is PE0
-    // periodic_timer_enable(4, ms(100), &DAStask, 1);
-    // OS_ClearMsTime(); // start a periodic interrupt to maintain time
+    ADC_init(3); // channel 3 is PE0
+    periodic_timer_enable(4, ms(100), &DAStask, 1);
+    OS_ClearMsTime(); // start a periodic interrupt to maintain time
     enable_interrupts();
     while (1) { interpreter(); }
 }

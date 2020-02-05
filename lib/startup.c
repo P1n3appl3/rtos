@@ -209,6 +209,7 @@ __attribute__((section(".interrupt_table"))) void (*const _vector_table[])(
     0,
     0,
     0,
+    0,
     timer5a_handler,
     timer5b_handler,
     wide_timer0a_handler,
