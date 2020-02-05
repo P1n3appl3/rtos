@@ -282,7 +282,14 @@ void ST7735_OutUDec(uint32_t n);
 //        line    row from top, 0 to 7 for each device
 //        pt      pointer to a null terminated string to be printed
 //        value   signed integer to be printed
-void ST7735_Message(uint32_t d, uint32_t l, char* pt, int32_t value);
+void ST7735_Message_Num(uint32_t d, uint32_t l, char* pt, int32_t value);
+
+//------------ST7735_Message------------
+// String draw
+// Input: device  0 is on top, 1 is on bottom
+//        line    row from top, 0 to 7 for each device
+//        pt      pointer to a null terminated string to be printed
+void ST7735_Message(uint32_t d, uint32_t l, char* pt);
 
 //-----------------------ST7735_OutUDec4-----------------------
 // Output a 32-bit number in unsigned 4-digit decimal format

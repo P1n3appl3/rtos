@@ -19,16 +19,20 @@
 
 int32_t ADCdata, FilterOutput, Distance;
 uint32_t FilterWork;
+extern bool heartbeat_enabled;
 
 // periodic task
 void DAStask(void) { // runs at 10Hz in background
-    led_toggle(RED_LED);
+    if (heartbeat_enabled)
+        led_toggle(RED_LED);
     ADCdata = ADC_in(); // channel set when calling ADC_init
-    led_toggle(RED_LED);
+    if (heartbeat_enabled)
+        led_toggle(RED_LED);
     FilterOutput = Median(ADCdata); // 3-wide median filter
     Distance = IRDistance_Convert(FilterOutput, 0);
     FilterWork++; // calculation finished
-    led_toggle(RED_LED);
+    if (heartbeat_enabled)
+        led_toggle(RED_LED);
 }
 
 int noreturn main(void) {

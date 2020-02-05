@@ -85,10 +85,10 @@ bool puts(const char* str) {
 uint16_t gets(char* str, uint16_t len) {
     char temp = '\0';
     uint16_t count = 0;
-    while (temp != '\n' && len--) {
+    while (temp != '\n' && temp != '\r' && len--) {
         temp = getchar();
         str[count++] = temp;
     }
-    str[--count] = '\0';
+    str[count] = '\0';
     return count;
 }

@@ -19,8 +19,8 @@ const int32_t C[4] = {0, 0, 0, 0};
 const int32_t IRmax[4] = {494, 494, 494, 494};
 int32_t IRDistance_Convert(int32_t adcSample,
                            uint32_t sensor) { // returns left distance in mm
-  if (adcSample < IRmax[sensor]) {
-    return 800;
-  }
-  return A[sensor] / (adcSample + B[sensor]) + C[sensor];
+    if (adcSample < IRmax[sensor]) {
+        return 800;
+    }
+    return A[sensor] / (adcSample + B[sensor]) + C[sensor];
 }

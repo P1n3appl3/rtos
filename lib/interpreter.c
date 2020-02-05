@@ -41,13 +41,47 @@ bool is_whitespace(char c) {
     }
 }
 
+bool is_numeric_char(const char c) {
+    return c >= '0' && c <= '9';
+}
+
+bool is_numeric_str(const char* c) {
+    c += c[0] == '-' || c[0] == '+';
+    while (*c) {
+        if (!is_numeric_char(*c++)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+#define is_numeric(X)                                                          \
+    _Generic((X), char : is_numeric_char, char* : is_numeric_str)
+
+int32_t atoi(char* s) {
+    bool neg = false;
+    uint8_t i = 0;
+    switch (s[i]) {
+    case '-': neg = true;
+    case '+': ++i; break;
+    }
+    int32_t result = 0;
+    for (; s[i] && i < 11; ++i) { // TODO: error on overflowing 32 bits
+        if (!is_numeric(s[i])) {
+            return 0;
+        }
+        result *= 10;
+        result += s[i] - '0';
+    }
+    return neg ? -result : result;
+}
+
 char raw_command[128];
 char* current;
 char token[32];
 
 bool next_token() {
     while (is_whitespace(*current)) { ++current; }
-    printf("\ncurrent is %d\n", &current);
     if (!*current) {
         token[0] = '\0';
         return false; // TODO: currently seems to never return false
@@ -58,6 +92,8 @@ bool next_token() {
     return true;
 }
 
+volatile bool heartbeat_enabled = true;
+
 void interpreter(void) {
     printf("> ");
     gets(raw_command, sizeof(raw_command));
@@ -67,17 +103,18 @@ void interpreter(void) {
         printf("ERROR: enter a command\n");
         return;
     }
-    if (streq(token, "help")) {
+    if (streq(token, "help") || streq(token, "h")) {
         printf(
             "Available commands:\n"
-            "\thelp\t\t\t\tprint this help string\n\n"
-            "\tled COLOR [ACTION]\t\tmanipulates the launchpad LEDs\n"
+            "\thelp\t\t\t\t\tprint this help string\n\n"
+            "\tled COLOR [ACTION]\t\t\tmanipulates the launchpad LEDs\n"
             "\t\tCOLOR: red, green, or blue\n"
             "\t\tACTION: on, off, or toggle\n\n"
-            "\tadc\t\t\t\tread a value from the ADC\n\n"
-            "\tlcd [top|bottom] [row #] STRING\tprint a string to the LCD\n\n"
-            "\ttime [get|reset]\t\t\tget or reset the OS time\n"
-            "\t\treset: reset the OS time to 0\n\n");
+            "\tadc\t\t\t\t\tread a value from the ADC\n\n"
+            "\tlcd 'STRING' [top|bottom] [row #]\tprint a string to the LCD\n\n"
+            "\theartbeat [enable|disable]\t\tturn on or off the red LED "
+            "heartbeat\n\n"
+            "\ttime [get|reset]\t\t\tget or reset the OS time\n\n");
     } else if (streq(token, "led")) {
         if (!next_token()) {
             printf("ERROR: expected another argument for color\n");
@@ -101,17 +138,74 @@ void interpreter(void) {
             led_write(led, true);
         } else if (streq(token, "off") || streq(token, "0")) {
             led_write(led, false);
+        } else {
+            printf("ERROR: invalid action '%s'\nTry on, off, or toggle\n",
+                   token);
+            return;
         }
     } else if (streq(token, "adc")) {
         printf("ADC reading: %d\n", ADC_in());
     } else if (streq(token, "lcd")) {
-        printf("unimplemented\n");
+        uint8_t line = 0;
+        char quote_type = '\0';
+        char* str;
+        bool bottom;
+        while (*current) {
+            if (*current == '\'')
+                quote_type = '\'';
+            else if (*current == '"')
+                quote_type = '"';
+            if (quote_type) {
+                break;
+            }
+            ++current;
+        }
+        if (!quote_type) {
+            printf("ERROR: expected quoted string\n");
+            return;
+        }
+        str = ++current;
+        while (*current && *current != quote_type) { ++current; }
+        if (!*current) {
+            printf("ERROR: missing closing quote\n");
+            return;
+        }
+        *current++ = '\0';
+        if (!next_token() || streq(token, "top")) {
+            bottom = false;
+        } else if (streq(token, "bottom")) {
+            bottom = true;
+        } else {
+            printf("ERROR: expected 'top' or 'bottom', got '%s'\n", token);
+        }
+        if (next_token()) {
+            int32_t temp = atoi(token);
+            if (temp < 8 && temp >= 0 && is_numeric(token)) {
+                line = temp;
+            } else {
+                printf("ERROR: expected a number in [0, 7], got '%s'\n", token);
+                return;
+            }
+        }
+        ST7735_Message(bottom, line, str);
+    } else if (streq(token, "heartbeat")) {
+        if (!next_token()) {
+            heartbeat_enabled = !heartbeat_enabled;
+        } else if (streq(token, "enable")) {
+            heartbeat_enabled = true;
+        } else if (streq(token, "disable")) {
+            heartbeat_enabled = false;
+        } else {
+            printf("ERROR: expected 'enable' or 'disable', got '%s'\n", token);
+        }
     } else if (streq(token, "time")) {
         if (!next_token() || streq(token, "get")) {
             printf("Current time: %dms\n", OS_MsTime());
         } else if (streq(token, "reset")) {
             printf("OS time reset\n");
             OS_ClearMsTime();
+        } else {
+            printf("ERROR: expected 'get' or 'reset', got '%s'\n", token);
         }
     } else {
         printf("ERROR: invalid command '%s'\n", token);

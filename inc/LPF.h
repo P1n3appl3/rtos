@@ -22,8 +22,8 @@
       ISBN: 978-1469998749, Jonathan Valvano, copyright (c) 2020
    "Embedded Systems: Real Time Interfacing to ARM Cortex M Microcontrollers",
       ISBN: 978-1463590154, Jonathan Valvano, copyright (c) 2020
-   "Embedded Systems: Real-Time Operating Systems for ARM Cortex-M Microcontrollers",
-      ISBN: 978-1466468863, Jonathan Valvano, copyright (c) 2020
+   "Embedded Systems: Real-Time Operating Systems for ARM Cortex-M
+ Microcontrollers", ISBN: 978-1466468863, Jonathan Valvano, copyright (c) 2020
 
  Copyright 2020 by Jonathan W. Valvano, valvano@mail.utexas.edu
     You may use, edit, run or distribute this file
@@ -193,11 +193,12 @@ int32_t Median(int32_t newdata);
 
 /**
  * 60-Hz notch high-Q, IIR filter, assuming fs=2000 Hz.
- * Assumes the ADC is sampled at 2 kHz. 
+ * Assumes the ADC is sampled at 2 kHz.
  * Assumes this filter is executed at 2 kHz. <br>
- * y(n) = (256x(n) -503x(n-1) + 256x(n-2) + 498y(n-1)-251y(n-2))/256 (2k sampling)<br>
+ * y(n) = (256x(n) -503x(n-1) + 256x(n-2) + 498y(n-1)-251y(n-2))/256 (2k
+ * sampling)<br>
  * @param data new ADC data
  * @return result filter output
  * @brief  60-Hz notch high-Q, IIR filter
  */
- long Filter(long data);
+long Filter(long data);
