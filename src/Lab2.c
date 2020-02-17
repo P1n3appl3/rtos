@@ -35,6 +35,8 @@
 #include "interpreter.h"
 #include "launchpad.h"
 #include "timer.h"
+#include "tivaware/rom.h"
+#include "tivaware/sysctl.h"
 #include "tm4c123gh6pm.h"
 #include <stdint.h>
 
@@ -251,7 +253,6 @@ void Display(void) {
 // inputs:  none
 // outputs: none
 
-/*
 short IntTerm;   // accumulated error, RPM-sec
 short PrevError; // previous error, RPM
 short Coeff[3];  // PID coefficients
@@ -272,7 +273,6 @@ void PID(void) {
     }
     for (;;) {} // done
 }
-*/
 
 //--------------end of Task 4-----------------------------
 
@@ -354,6 +354,7 @@ void Thread1(void) {
     Count1 = 0;
     for (;;) {
         PD0 ^= 0x01; // heartbeat
+        led_toggle(RED_LED);
         Count1++;
         OS_Suspend(); // cooperative multitasking
     }
@@ -675,6 +676,9 @@ int TestmainFIFO(void) { // TestmainFIFO
 
 //*******************Trampoline for selecting main to execute**********
 int main(void) { // main
+    ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
+                       SYSCTL_OSC_MAIN);
+    launchpad_init();
     Testmain1();
     return 0;
 }

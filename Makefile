@@ -8,23 +8,18 @@ OBJS += $(addprefix $(build_dir)/,$(notdir $(ASM_SRCS:.s=.o)))
 DEPS = $(OBJS:%.o=%.d)
 
 CC = clang --target=thumbv7em-unknown-none-eabi -Wno-keyword-macro -fshort-enums
-ASSEMBLER = clang --target=thumbv7em-unknown-none-eabi 
+ASSEMBLER = clang --target=thumbv7em-unknown-none-eabi
 
-ASMFLAGS = -ggdb3 -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -Wall -c -mthumb
-ASMFLAGS += -mfloat-abi=hard -Os
-CFLAGS = -ggdb3 -mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -Wall -pedantic
-CFLAGS += -fdata-sections -ffunction-sections -MD -MP -std=c2x -ffreestanding
-CFLAGS += -mfloat-abi=hard -Iinc -c -Os
-RELEASEFLAGS = -mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -Wall -pedantic
-RELEASEFLAGS += -std=c2x -ffreestanding -mfloat-abi=hard -Iinc -T misc/tm4c.ld
-RELEASEFLAGS += -nodefaultlibs -nostdlib -O3
+ARCHFLAGS = -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard
+COMMONFLAGS = -ggdb3 -nodefaultlibs -nostdlib -Wall -flto -O0
 
-OPENOCD = openocd -c 'source [find board/ek-tm4c123gxl.cfg]'
+ASMFLAGS = -c $(COMMONFLAGS) $(ARCHFLAGS)
+CFLAGS = -c $(COMMONFLAGS) $(ARCHFLAGS) -fdata-sections -ffunction-sections
+CFLAGS += -pedantic -ffreestanding -MD -MP -std=c2x -Iinc
+
+OPENOCD = openocd -c "source [find board/ek-tm4c123gxl.cfg]"
 
 all: $(build_dir)/$(target)
-
-release:
-	$(CC) $(RELEASEFLAGS) -o out/out.elf $(SRCS)
 
 $(build_dir)/%.o: src/%.c
 	$(CC) -o $@ $< $(CFLAGS)
@@ -36,8 +31,7 @@ $(build_dir)/%.o: lib/%.s
 	$(ASSEMBLER) -o $@ $< $(ASMFLAGS)
 
 $(build_dir)/$(target): $(OBJS)
-	# TODO: LTO
-	ld.lld -o $@ $^ -T misc/tm4c.ld
+	$(CC) -o $@ $^ $(COMMONFLAGS) -T misc/tm4c.ld
 
 -include $(DEPS)
 
@@ -58,13 +52,13 @@ debug_gui: flash
 		$(build_dir)/$(target)
 
 size: $(build_dir)/$(target)
-	llvm-nm  --demangle --print-size --size-sort --no-weak --radix=d \
-	$(build_dir)/$(target) | cut -f 2,4 -d ' ' | numfmt --field 1 --to=iec \
-	--padding -6 | sed '/^0/d'
+	llvm-nm --demangle --print-size --size-sort -no-weak --radix=d \
+		out/out.elf | cut -f 2,4 -d " " | sed  "/^ *$/d" | numfmt --field 1 \
+		--to=iec --padding -6 | sed "/^0/d"
 
 disassemble: $(build_dir)/$(target)
-	llvm-objdump $(build_dir)/$(target) -d -S -C --arch-name=thumb --no-show-raw-insn \
-	--no-leading-addr > $(build_dir)/disassembly.asm
+	arm-none-eabi-objdump $(build_dir)/$(target) -S -C \
+		--no-show-raw-insn > $(build_dir)/disassembly.asm
 
 clean:
 	-rm -rf $(build_dir)

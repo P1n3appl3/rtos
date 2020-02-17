@@ -70,4 +70,4 @@ PID_stm32:
   POP {R4, R5, R9}
   BX LR
 
-  END
+.end

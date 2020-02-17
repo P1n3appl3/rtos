@@ -19,13 +19,19 @@ uint32_t JitterHistogram[JITTERSIZE] = {
     0,
 };
 
-TCB threads[3] = {{.next_tcb = &threads[1], .sleep = true},
-                  {.next_tcb = &threads[2], .sleep = true},
-                  {.next_tcb = &threads[0], .sleep = true}};
-TCB* run_tcb;
-
-// Interrupts every 10ms for preemptive thread switch
-void SysTick_Handler(void) {}
+TCB threads[3] = {{.next_tcb = &threads[1],
+                   .sleep = true,
+                   .sp = &threads[0].stack[STACK_SIZE],
+                   .id = 0},
+                  {.next_tcb = &threads[2],
+                   .sleep = true,
+                   .sp = &threads[1].stack[STACK_SIZE],
+                   .id = 1},
+                  {.next_tcb = &threads[0],
+                   .sleep = true,
+                   .sp = &threads[2].stack[STACK_SIZE],
+                   .id = 2}};
+TCB* run_tcb = &threads[0];
 
 unsigned long OS_LockScheduler(void) {
     // lab 4 might need this for disk formating
@@ -34,8 +40,6 @@ unsigned long OS_LockScheduler(void) {
 void OS_UnLockScheduler(unsigned long previous) {
     // lab 4 might need this for disk formating
 }
-
-void SysTick_Init(unsigned long period) {}
 
 void OS_Init(void) {
     // put Lab 2 (and beyond) solution here
@@ -61,8 +65,17 @@ void OS_bSignal(Sema4Type* semaPt) {
     // put Lab 2 (and beyond) solution here
 }
 
+void dead(void) {
+    while (1) {}
+}
+
+uint8_t threads_added = 0;
 int OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
-    // put Lab 2 (and beyond) solution here
+    TCB* adding = &threads[threads_added++];
+    adding->sp -= 12;
+    *(--adding->sp) = (uint32_t)adding->sp;
+    *(--adding->sp) = (uint32_t)dead;
+    *(--adding->sp) = (uint32_t)task;
     return 0;
 }
 
@@ -167,6 +180,20 @@ void OS_Launch(uint32_t theTimeSlice) {
     ROM_SysTickPeriodSet(theTimeSlice);
     ROM_SysTickIntEnable();
     ROM_SysTickEnable();
+    enable_interrupts();
+}
+
+void systick_handler() {
+    __asm("CPSID   I\n"
+          "PUSH    {R4 - R11}\n"
+          "LDR     R0, =run_tcb\n"
+          "LDR     R1, [R0]\n"
+          "STR     SP, [R1]\n"
+          "LDR     R1, [R1,#4]\n"
+          "STR     R1, [R0]\n"
+          "LDR     SP, [R1]\n"
+          "POP     {R4 - R11}\n"
+          "CPSIE I\n");
 }
 
 int OS_RedirectToFile(char* name) {
