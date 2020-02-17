@@ -50,3 +50,21 @@ uint32_t ADC_in(void) {
 
     return pui32ADC0Value[0];
 }
+
+// TODO: Timer0 integration
+void ADC0_InitTimer0(uint32_t channel_num, uint32_t fs,
+                     void (*task)(uint32_t)) {
+    uint32_t period = 80000000 / fs;
+    if (period < 8000) {
+        period = 8000;
+    }
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0); // enable ADC0
+    ROM_SysCtlPeripheralEnable(adcs[channel_num].port);
+    ROM_GPIOPinTypeADC(GPIO_PORTE_BASE, adcs[channel_num].pin);
+    ROM_ADCSequenceConfigure(ADC0_BASE, 0, ADC_TRIGGER_TIMER, 0);
+    ROM_ADCSequenceStepConfigure(ADC0_BASE, 0, 0,
+                                 channel_num | ADC_CTL_IE | ADC_CTL_END);
+    ROM_ADCSequenceEnable(ADC0_BASE, 0);
+
+    ROM_ADCIntClear(ADC0_BASE, 0);
+}

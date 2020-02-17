@@ -8,3 +8,5 @@ int ADC_init(uint32_t channel_num);
 
 // software start sequencer 3 and return 12 bit ADC result
 uint32_t ADC_in(void);
+
+void ADC0_InitTimer0(uint32_t channel_num, uint32_t fs, void (*task)(uint32_t));

@@ -6,6 +6,7 @@
 #include "timer.h"
 #include "tivaware/hw_ints.h"
 #include "tivaware/hw_memmap.h"
+#include "tivaware/rom.h"
 #include "tivaware/sysctl.h"
 #include "tivaware/timer.h"
 #include <stdint.h>
@@ -163,7 +164,9 @@ uint32_t OS_MsTime(void) {
 }
 
 void OS_Launch(uint32_t theTimeSlice) {
-    // put Lab 2 (and beyond) solution here
+    ROM_SysTickPeriodSet(theTimeSlice);
+    ROM_SysTickIntEnable();
+    ROM_SysTickEnable();
 }
 
 int OS_RedirectToFile(char* name) {
