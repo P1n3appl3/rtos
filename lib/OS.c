@@ -2,6 +2,7 @@
 #include "ST7735.h"
 #include "interrupts.h"
 #include "launchpad.h"
+#include "tcb.h"
 #include "timer.h"
 #include "tivaware/hw_ints.h"
 #include "tivaware/hw_memmap.h"
@@ -16,6 +17,11 @@ uint32_t const JitterSize = JITTERSIZE;
 uint32_t JitterHistogram[JITTERSIZE] = {
     0,
 };
+
+TCB threads[3] = {{.next_tcb = &threads[1], .sleep = true},
+                  {.next_tcb = &threads[2], .sleep = true},
+                  {.next_tcb = &threads[0], .sleep = true}};
+TCB* run_tcb;
 
 // Interrupts every 10ms for preemptive thread switch
 void SysTick_Handler(void) {}
@@ -92,6 +98,9 @@ void OS_Kill(void) {
 
 void OS_Suspend(void) {
     // put Lab 2 (and beyond) solution here
+    run_tcb->sleep = true;
+    asm("PUSH {R0-R15}\n");
+    run_tcb = run_tcb->next_tcb;
 }
 
 void OS_Fifo_Init(uint32_t size) {
