@@ -100,7 +100,7 @@ void OS_Kill(void) {
 void OS_Suspend(void) {
     // put Lab 2 (and beyond) solution here
     run_tcb->sleep = true;
-    asm("PUSH {R0-R15}\n");
+    __asm("PUSH {R0-R12}\n");
     run_tcb = run_tcb->next_tcb;
 }
 

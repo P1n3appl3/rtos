@@ -52,8 +52,7 @@ uint32_t NumSamples; // incremented every ADC sample, in Producer
     (20 * FS) // display results and quit when NumSamples==RUNLENGTH
 // 20-sec finite time experiment duration
 
-#define PERIOD TIME_500US // DAS 2kHz sampling period in system time units
-int32_t x[64], y[64];     // input and output arrays for FFT
+int32_t x[64], y[64]; // input and output arrays for FFT
 
 //---------------------User debugging-----------------------
 uint32_t DataLost;        // data sent by Producer, but not received by Consumer
@@ -105,10 +104,10 @@ void DAS(void) {
         FilterWork++;         // calculation finished
         if (FilterWork > 1) { // ignore timing of first interrupt
             uint32_t diff = OS_TimeDifference(LastTime, thisTime);
-            if (diff > PERIOD) {
-                jitter = (diff - PERIOD + 4) / 8; // in 0.1 usec
+            if (diff > us(500)) {
+                jitter = (diff - us(500) + 4) / 8; // in 0.1 usec
             } else {
-                jitter = (PERIOD - diff + 4) / 8; // in 0.1 usec
+                jitter = (us(500) - diff + 4) / 8; // in 0.1 usec
             }
             if (jitter > MaxJitter) {
                 MaxJitter = jitter; // in usec
@@ -132,7 +131,7 @@ void DAS(void) {
 
 // ***********ButtonWork*************
 void ButtonWork(void) {
-    uint32_t myId = OS_Id();
+    // uint32_t myId = OS_Id();
     PD1 ^= 0x02;
     ST7735_Message_Num(1, 0, "NumCreated =", NumCreated);
     PD1 ^= 0x02;
@@ -220,7 +219,7 @@ void Consumer(void) {
 // outputs: none
 void Display(void) {
     uint32_t data, voltage, distance;
-    uint32_t myId = OS_Id();
+    // uint32_t myId = OS_Id();
     ST7735_Message_Num(
         0, 1, "Run length = ", (RUNLENGTH) / FS); // top half used for Display
     while (NumSamples < RUNLENGTH) {
@@ -314,7 +313,7 @@ int realmain(void) { // realmain
 
     // attach background tasks
     OS_AddSW1Task(&SW1Push, 2);
-    OS_AddPeriodicThread(&DAS, PERIOD, 1); // 2 kHz real time sampling of PE3
+    OS_AddPeriodicThread(&DAS, us(500), 1); // 2 kHz real time sampling of PE3
 
     // create initial foreground threads
     NumCreated = 0;
@@ -499,7 +498,7 @@ void Thread2d(void) {
     Count2 = 0;
     Count5 = 0; // Count2 + Count5 should equal Count1
     NumCreated += OS_AddThread(&Thread5d, 128, 0);
-    OS_AddPeriodicThread(&BackgroundThread1d, TIME_1MS, 0);
+    OS_AddPeriodicThread(&BackgroundThread1d, ms(1), 0);
     for (;;) {
         OS_Wait(&Readyd);
         Count2++; // Count2 + Count5 should equal Count1
@@ -588,7 +587,7 @@ int Testmain5(void) { // Testmain5
     // Count3 should be very large
     // Count4 increases by 640 every time select is pressed
     NumCreated = 0;
-    OS_AddPeriodicThread(&BackgroundThread1e, PERIOD, 0);
+    OS_AddPeriodicThread(&BackgroundThread1e, us(500), 0);
     OS_AddSW1Task(&BackgroundThread5e, 2);
     NumCreated += OS_AddThread(&Thread2e, 128, 0);
     NumCreated += OS_AddThread(&Thread3e, 128, 0);
@@ -617,9 +616,8 @@ int TestmainCS(void) { // TestmainCS
     OS_Init(); // initialize, disable interrupts
     NumCreated = 0;
     NumCreated += OS_AddThread(&ThreadCS, 128, 0);
-    OS_Launch(TIME_1MS /
-              10); // 100us, doesn't return, interrupts enabled in here
-    return 0;      // this never executes
+    OS_Launch(ms(1) / 10); // 100us, doesn't return, interrupts enabled in here
+    return 0;              // this never executes
 }
 
 //*******************FIFO TEST**********
@@ -659,7 +657,7 @@ int TestmainFIFO(void) { // TestmainFIFO
     Error8 = 0;
     OS_Init(); // initialize, disable interrupts
     NumCreated = 0;
-    OS_AddPeriodicThread(&BackgroundThreadFIFOProducer, PERIOD, 0);
+    OS_AddPeriodicThread(&BackgroundThreadFIFOProducer, us(500), 0);
     OS_Fifo_Init(16);
     NumCreated += OS_AddThread(&ConsumerThreadFIFO, 128, 0);
     NumCreated += OS_AddThread(&FillerThreadFIFO, 128, 0);
@@ -670,4 +668,5 @@ int TestmainFIFO(void) { // TestmainFIFO
 //*******************Trampoline for selecting main to execute**********
 int main(void) { // main
     realmain();
+    return 0;
 }
