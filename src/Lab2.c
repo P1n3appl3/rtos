@@ -189,6 +189,8 @@ void Producer(uint32_t data) {
 // calculates FFT, sends DC component to Display
 // inputs:  none
 // outputs: none
+
+/*
 void Display(void);
 void Consumer(void) {
     uint32_t data, DCcomponent; // 12-bit raw ADC sample, 0 to 4095
@@ -211,6 +213,7 @@ void Consumer(void) {
     }
     OS_Kill(); // done
 }
+*/
 
 //******** Display ***************
 // foreground thread, accepts data from consumer
@@ -247,6 +250,8 @@ void Display(void) {
 // never blocks, never sleeps, never dies
 // inputs:  none
 // outputs: none
+
+/*
 short IntTerm;   // accumulated error, RPM-sec
 short PrevError; // previous error, RPM
 short Coeff[3];  // PID coefficients
@@ -267,6 +272,7 @@ void PID(void) {
     }
     for (;;) {} // done
 }
+*/
 
 //--------------end of Task 4-----------------------------
 
@@ -296,6 +302,7 @@ void Interpreter(void); // just a prototype, link to your interpreter
 //--------------end of Task 5-----------------------------
 
 //*******************final user main DEMONTRATE THIS TO TA**********
+/*
 int realmain(void) { // realmain
     OS_Init();       // initialize, disable interrupts
     PortD_Init();    // debugging profile
@@ -324,6 +331,7 @@ int realmain(void) { // realmain
     OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
     return 0;         // this never executes
 }
+*/
 
 //+++++++++++++++++++++++++DEBUGGING CODE++++++++++++++++++++++++
 // ONCE YOUR RTOS WORKS YOU CAN COMMENT OUT THE REMAINING CODE
@@ -667,6 +675,6 @@ int TestmainFIFO(void) { // TestmainFIFO
 
 //*******************Trampoline for selecting main to execute**********
 int main(void) { // main
-    realmain();
+    Testmain1();
     return 0;
 }
