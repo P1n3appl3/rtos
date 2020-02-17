@@ -1,19 +1,30 @@
-SRCS = $(wildcard src/*.c) $(wildcard lib/*.c)
-OBJS = $(addprefix $(build_dir)/,$(notdir $(SRCS:.c=.o)))
-DEPS = $(OBJS:%.o=%.d)
-
 target = out.elf
 build_dir = out
 
-CC = clang --target=thumbv7em-unknown-none-eabi -Wno-keyword-macro -fshort-enums
+SRCS = $(wildcard src/*.c) $(wildcard lib/*.c)
+ASM_SRCS = $(wildcard src/*.s) $(wildcard lib/*.s)
+OBJS = $(addprefix $(build_dir)/,$(notdir $(SRCS:.c=.o)))
+OBJS += $(addprefix $(build_dir)/,$(notdir $(ASM_SRCS:.s=.o)))
+DEPS = $(OBJS:%.o=%.d)
 
-CFLAGS = -ggdb -mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -Wall -pedantic
-CFLAGS += -fdata-sections -ffunction-sections -MD -std=c2x -ffreestanding
-CFLAGS += -mfloat-abi=hard -O0 -MP -Iinc -c
+CC = clang --target=thumbv7em-unknown-none-eabi -Wno-keyword-macro -fshort-enums
+ASSEMBLER = clang --target=thumbv7em-unknown-none-eabi 
+
+ASMFLAGS = -ggdb3 -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -Wall -c -mthumb
+ASMFLAGS += -mfloat-abi=hard -Os
+CFLAGS = -ggdb3 -mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -Wall -pedantic
+CFLAGS += -fdata-sections -ffunction-sections -MD -MP -std=c2x -ffreestanding
+CFLAGS += -mfloat-abi=hard -Iinc -c -Os
+RELEASEFLAGS = -mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -Wall -pedantic
+RELEASEFLAGS += -std=c2x -ffreestanding -mfloat-abi=hard -Iinc -T misc/tm4c.ld
+RELEASEFLAGS += -nodefaultlibs -nostdlib -O3
 
 OPENOCD = openocd -c 'source [find board/ek-tm4c123gxl.cfg]'
 
 all: $(build_dir)/$(target)
+
+release:
+	$(CC) $(RELEASEFLAGS) -o out/out.elf $(SRCS)
 
 $(build_dir)/%.o: src/%.c
 	$(CC) -o $@ $< $(CFLAGS)
@@ -21,7 +32,11 @@ $(build_dir)/%.o: src/%.c
 $(build_dir)/%.o: lib/%.c
 	$(CC) -o $@ $< $(CFLAGS)
 
+$(build_dir)/%.o: lib/%.s
+	$(ASSEMBLER) -o $@ $< $(ASMFLAGS)
+
 $(build_dir)/$(target): $(OBJS)
+	# TODO: LTO
 	ld.lld -o $@ $^ -T misc/tm4c.ld
 
 -include $(DEPS)
@@ -33,7 +48,7 @@ run: $(build_dir)/$(target)
 	$(OPENOCD) -c "program $(build_dir)/$(target) verify reset exit"
 
 uart: run
-	screen -L /dev/ttyACM1 115200
+	screen -L /dev/ttyACM0 115200
 
 debug: flash
 	arm-none-eabi-gdb $(build_dir)/$(target) -x misc/debug.gdb
