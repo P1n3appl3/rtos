@@ -14,3 +14,6 @@ uint32_t seconds(float s);
 // priority: 0-7 (0=highest)
 void periodic_timer_enable(uint8_t timer_num, uint32_t period,
                            void (*task)(void), uint8_t priority);
+
+// TODO: docs
+void busy_wait(uint8_t timer_num, uint32_t duration);

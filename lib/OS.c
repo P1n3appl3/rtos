@@ -9,6 +9,7 @@
 #include "tivaware/rom.h"
 #include "tivaware/sysctl.h"
 #include "tivaware/timer.h"
+// #include "tm4c123gh6pm.h"
 #include <stdint.h>
 
 // Performance Measurements
@@ -31,7 +32,13 @@ TCB threads[3] = {{.next_tcb = &threads[1],
                    .sleep = true,
                    .sp = &threads[2].stack[STACK_SIZE],
                    .id = 2}};
-TCB* run_tcb = &threads[0];
+
+TCB idle = {.next_tcb = &threads[0],
+            .id = 255,
+            .sleep = true,
+            .sp = &idle.stack[STACK_SIZE]};
+
+TCB* run_tcb = &idle;
 
 unsigned long OS_LockScheduler(void) {
     // lab 4 might need this for disk formating
@@ -72,10 +79,22 @@ void dead(void) {
 uint8_t threads_added = 0;
 int OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
     TCB* adding = &threads[threads_added++];
-    adding->sp -= 12;
-    *(--adding->sp) = (uint32_t)adding->sp;
-    *(--adding->sp) = (uint32_t)dead;
-    *(--adding->sp) = (uint32_t)task;
+    *(--adding->sp) = 0x21000000;     // PSR
+    *(--adding->sp) = (uint32_t)task; // PC
+    *(--adding->sp) = (uint32_t)dead; // LR
+    *(--adding->sp) = 12;
+    *(--adding->sp) = 3;
+    *(--adding->sp) = 2;
+    *(--adding->sp) = 1;
+    *(--adding->sp) = 0;
+    *(--adding->sp) = 4;
+    *(--adding->sp) = 5;
+    *(--adding->sp) = 6;
+    *(--adding->sp) = 7;
+    *(--adding->sp) = 8;
+    *(--adding->sp) = 9;
+    *(--adding->sp) = 10;
+    *(--adding->sp) = 11;
     return 0;
 }
 
@@ -102,6 +121,7 @@ int OS_AddSW2Task(void (*task)(void), uint32_t priority) {
 
 void OS_Sleep(uint32_t sleepTime) {
     // put Lab 2 (and beyond) solution here
+    run_tcb->sleep = true;
 }
 
 void OS_Kill(void) {
@@ -111,10 +131,7 @@ void OS_Kill(void) {
 }
 
 void OS_Suspend(void) {
-    // put Lab 2 (and beyond) solution here
-    run_tcb->sleep = true;
-    __asm("PUSH {R0-R12}\n");
-    run_tcb = run_tcb->next_tcb;
+    ROM_IntPendSet(FAULT_PENDSV);
 }
 
 void OS_Fifo_Init(uint32_t size) {
@@ -177,21 +194,31 @@ uint32_t OS_MsTime(void) {
 }
 
 void OS_Launch(uint32_t theTimeSlice) {
-    ROM_SysTickPeriodSet(theTimeSlice);
-    ROM_SysTickIntEnable();
-    ROM_SysTickEnable();
+    // preemptive
+    // ROM_SysTickPeriodSet(theTimeSlice);
+    // ROM_SysTickIntEnable();
+    // ROM_SysTickEnable();
+    // return;
+    // cooperative
+    ROM_IntPrioritySet(FAULT_PENDSV, 0xf); // priority is high 3 bits
+    ROM_IntPendSet(FAULT_PENDSV);
     enable_interrupts();
+    while (1) {}
 }
 
 void systick_handler() {
+    ROM_IntPendSet(FAULT_PENDSV);
+}
+
+void pendsv_handler(void) {
     __asm("CPSID   I\n"
           "PUSH    {R4 - R11}\n"
-          "LDR     R0, =run_tcb\n"
-          "LDR     R1, [R0]\n"
-          "STR     SP, [R1]\n"
-          "LDR     R1, [R1,#4]\n"
-          "STR     R1, [R0]\n"
-          "LDR     SP, [R1]\n"
+          "LDR     R0, =run_tcb\n" // R0 = &run_tcb
+          "LDR     R1, [R0]\n"     // R1 = run_tcb
+          "STR     SP, [R1]\n"     // SP = *run_tcb aka run_tcb->sp
+          "LDR     R1, [R1,#4]\n"  // R1 = run_tcb->next_tcb;
+          "STR     R1, [R0]\n"     // run_tcb = run_tcb->next_tcb;
+          "LDR     SP, [R1]\n"     // SP = run_tcb->sp
           "POP     {R4 - R11}\n"
           "CPSIE I\n");
 }

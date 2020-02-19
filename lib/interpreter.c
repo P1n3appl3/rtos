@@ -98,6 +98,7 @@ void interpreter(void) {
     printf("> ");
     gets(raw_command, sizeof(raw_command));
     puts(raw_command);
+    // TODO: readline(raw_command, sizeof(raw_command));
     current = raw_command;
     if (!next_token()) {
         printf("ERROR: enter a command\n");

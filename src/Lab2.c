@@ -33,6 +33,7 @@
 #include "OS.h"
 #include "ST7735.h"
 #include "interpreter.h"
+#include "io.h"
 #include "launchpad.h"
 #include "timer.h"
 #include "tivaware/rom.h"
@@ -354,8 +355,9 @@ void Thread1(void) {
     Count1 = 0;
     for (;;) {
         PD0 ^= 0x01; // heartbeat
-        led_toggle(RED_LED);
         Count1++;
+        led_toggle(BLUE_LED);
+        busy_wait(4, ms(500));
         OS_Suspend(); // cooperative multitasking
     }
 }
@@ -364,6 +366,8 @@ void Thread2(void) {
     for (;;) {
         PD1 ^= 0x02; // heartbeat
         Count2++;
+        led_toggle(GREEN_LED);
+        busy_wait(4, ms(500));
         OS_Suspend(); // cooperative multitasking
     }
 }
@@ -372,6 +376,8 @@ void Thread3(void) {
     for (;;) {
         PD2 ^= 0x04; // heartbeat
         Count3++;
+        led_toggle(RED_LED);
+        busy_wait(4, ms(500));
         OS_Suspend(); // cooperative multitasking
     }
 }
@@ -679,6 +685,7 @@ int main(void) { // main
     ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
                        SYSCTL_OSC_MAIN);
     launchpad_init();
+    uart_init();
     Testmain1();
     return 0;
 }

@@ -11,7 +11,7 @@ CC = clang --target=thumbv7em-unknown-none-eabi -Wno-keyword-macro -fshort-enums
 ASSEMBLER = clang --target=thumbv7em-unknown-none-eabi
 
 ARCHFLAGS = -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard
-COMMONFLAGS = -ggdb3 -nodefaultlibs -nostdlib -Wall -flto -O0
+COMMONFLAGS = -ggdb3 -nodefaultlibs -nostdlib -Wall -O0
 
 ASMFLAGS = -c $(COMMONFLAGS) $(ARCHFLAGS)
 CFLAGS = -c $(COMMONFLAGS) $(ARCHFLAGS) -fdata-sections -ffunction-sections
