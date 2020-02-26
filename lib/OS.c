@@ -1,6 +1,7 @@
 #include "OS.h"
 #include "ST7735.h"
 #include "interrupts.h"
+#include "io.h"
 #include "launchpad.h"
 #include "tcb.h"
 #include "timer.h"
@@ -11,29 +12,23 @@
 #include "tivaware/timer.h"
 #include <stdint.h>
 
-#define PD1 (*((volatile uint32_t*)0x40007008))
-
 // Performance Measurements
 int32_t MaxJitter; // largest time jitter between interrupts in usec
 #define JITTERSIZE 64
 uint32_t const JitterSize = JITTERSIZE;
-uint32_t JitterHistogram[JITTERSIZE] = {
-    0,
-};
+uint32_t JitterHistogram[JITTERSIZE] = {0};
 
-#define MAX_THREADS 3
+#define MAX_THREADS 8
 
-TCB threads[MAX_THREADS];
+static TCB threads[MAX_THREADS];
 
-TCB idle = {.next_tcb = &threads[0],
-            .prev_tcb = &threads[0],
-            .id = 255,
-            .sleep = true,
-            .sleep_time = 0,
-            .dead = false,
-            .sp = &idle.stack[STACK_SIZE]};
+static TCB idle = {.next_tcb = &threads[0],
+                   .prev_tcb = &threads[0],
+                   .id = 0,
+                   .dead = false,
+                   .sp = &idle.stack[STACK_SIZE]};
 
-TCB* run_tcb = &idle;
+TCB* current_thread = &idle;
 
 unsigned long OS_LockScheduler(void) {
     // lab 4 might need this for disk formating
@@ -44,8 +39,11 @@ void OS_UnLockScheduler(unsigned long previous) {
 }
 
 void OS_Init(void) {
-    // put Lab 2 (and beyond) solution here
+    ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
+                       SYSCTL_OSC_MAIN);
     for (int i = 0; i < MAX_THREADS; i++) { threads[i].dead = true; }
+    launchpad_init();
+    uart_init();
 }
 
 void OS_InitSemaphore(Sema4Type* semaPt, int32_t value) {
@@ -59,12 +57,12 @@ void OS_Wait(Sema4Type* semaPt) {
         return;
     }
     if (!semaPt->blocked_head) {
-        run_tcb->next_blocked = 0;
-        semaPt->blocked_head = run_tcb;
+        current_thread->next_blocked = 0;
+        semaPt->blocked_head = current_thread;
     } else {
         TCB* current = semaPt->blocked_head;
         while (current->next_blocked) { current = current->next_blocked; }
-        current->next_blocked = run_tcb;
+        current->next_blocked = current_thread;
     }
     // TODO: remove from linked list
     end_critical(crit);
@@ -92,38 +90,54 @@ void OS_bSignal(Sema4Type* semaPt) {
     end_critical(crit);
 }
 
-void dead(void) {
-    while (1) {}
+// must be called from critical section
+static void insert_thread(TCB* adding) {
+    if (OS_Id()) {
+        adding->next_tcb = current_thread->next_tcb;
+        adding->prev_tcb = current_thread;
+    } else {
+        adding->prev_tcb = adding;
+        adding->next_tcb = adding;
+    }
+
+    current_thread->next_tcb->prev_tcb = adding;
+    current_thread->next_tcb = adding;
+}
+
+// must be called from critical section
+static void remove_current_thread() {
+    if (current_thread->next_tcb == current_thread &&
+        current_thread->prev_tcb == current_thread) {
+        current_thread = &idle;
+    } else {
+        current_thread->prev_tcb->next_tcb = current_thread->next_tcb;
+        current_thread->next_tcb->prev_tcb = current_thread->prev_tcb;
+    }
 }
 
 uint8_t thread_count = 0;
-int OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
+uint32_t thread_uuid = 1;
+bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
+    uint32_t crit = start_critical();
     if (thread_count >= MAX_THREADS) {
-        return 0;
+        return false;
     }
     uint8_t thread_index = 0;
-    while (threads[thread_index].dead == false) { thread_index++; }
+    while (!threads[thread_index].dead) { thread_index++; }
     TCB* adding = &threads[thread_index];
 
     adding->sleep = false;
     adding->sleep_time = 0;
-    adding->id = thread_index;
+    adding->id = thread_uuid++;
     adding->sp = adding->stack;
 
-    adding->next_tcb = run_tcb->next_tcb;
-    run_tcb->next_tcb = adding;
-    adding->next_tcb->prev_tcb = adding;
-
-    if (run_tcb->id == 255) {
-        adding->prev_tcb = run_tcb->prev_tcb;
-    } else {
-        adding->prev_tcb = run_tcb;
-    }
+    insert_thread(adding);
 
     // initialize stack
-    *(--adding->sp) = 0x21000000;     // PSR
-    *(--adding->sp) = (uint32_t)task; // PC
-    *(--adding->sp) = (uint32_t)dead; // LR
+    adding->sp = &adding->stack[STACK_SIZE - 1];
+    *(--adding->sp) = 0x21000000;        // PSR
+    *(--adding->sp) = (uint32_t)task;    // PC
+    *(--adding->sp) = (uint32_t)OS_Kill; // LR
     *(--adding->sp) = 12;
     *(--adding->sp) = 3;
     *(--adding->sp) = 2;
@@ -137,24 +151,25 @@ int OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
     *(--adding->sp) = 9;
     *(--adding->sp) = 10;
     *(--adding->sp) = 11;
-    return 0;
+    adding->stack[0] = 0xaBad1dea; // TODO: use to detect stack overflow
+    end_critical(crit);
+    return true;
 }
 
 uint32_t OS_Id(void) {
-    // put Lab 2 (and beyond) solution here
-    return 0;
+    return current_thread->id;
 }
 
 #define MAX_PTASKS 1
-ptask ptasks[MAX_PTASKS];
+PTask ptasks[MAX_PTASKS];
 uint8_t num_ptasks = 0;
+
 void periodic_task(void) {
     if (num_ptasks == 0) {
         return;
     }
-
-    ptask task = ptasks[0];
-    uint32_t reload = timer_load(2);
+    PTask task = ptasks[0];
+    uint32_t reload = get_timer_reload(2);
 
     for (uint8_t i = 0; i < num_ptasks; i++) {
         if (ptasks[i].time <= reload) {
@@ -167,14 +182,14 @@ void periodic_task(void) {
     }
     (task.task)();
 }
-int OS_AddPeriodicThread(void (*task)(void), uint32_t period,
-                         uint32_t priority) {
+
+bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
+                          uint32_t priority) {
     ptasks[num_ptasks].task = task;
     ptasks[num_ptasks].priority = priority;
     ptasks[num_ptasks].time = 0;
     ptasks[num_ptasks].reload = period;
-
-    return 0;
+    return true;
 }
 
 int OS_AddSW1Task(void (*task)(void), uint32_t priority) {
@@ -187,13 +202,14 @@ int OS_AddSW2Task(void (*task)(void), uint32_t priority) {
     return 0;
 }
 
-void sleep_task(void) {
-    uint32_t reload = timer_load(1);
+static void sleep_task(void) {
+    uint32_t reload = get_timer_reload(1);
     for (int i = 0; i < MAX_THREADS; i++) {
         if (threads[i].sleep) {
             if (threads[i].sleep_time <= reload) {
                 threads[i].sleep_time = 0;
                 threads[i].sleep = false;
+                insert_thread(&threads[i]);
             } else {
                 threads[i].sleep_time -= reload;
             }
@@ -201,21 +217,22 @@ void sleep_task(void) {
     }
 }
 
-void OS_Sleep(uint32_t sleepTime) {
-    run_tcb->sleep = true;
-    run_tcb->prev_tcb->next_tcb = run_tcb->next_tcb;
-    run_tcb->next_tcb->prev_tcb = run_tcb->prev_tcb;
-    run_tcb->sleep_time = sleepTime;
+void OS_Sleep(uint32_t time) {
+    uint32_t crit = start_critical();
+    current_thread->sleep = true;
+    current_thread->sleep_time =
+        time + get_timer_reload(1) - get_timer_value(1);
+    remove_current_thread();
     OS_Suspend();
+    end_critical(crit);
 }
 
 void OS_Kill(void) {
-    disable_interrupts();
-    run_tcb->dead = true;
-    run_tcb->prev_tcb->next_tcb = run_tcb->next_tcb;
-    run_tcb->next_tcb->prev_tcb = run_tcb->prev_tcb;
-    enable_interrupts(); // end of atomic section
-    for (;;) {};         // can not return
+    uint32_t crit = start_critical();
+    current_thread->dead = true;
+    remove_current_thread();
+    OS_Suspend();
+    end_critical(crit);
 }
 
 void OS_Suspend(void) {
@@ -281,33 +298,31 @@ uint32_t OS_MsTime(void) {
     return CURRENT_MS;
 }
 
-void OS_Launch(uint32_t theTimeSlice) {
-    // preemptive
+void OS_Launch(uint32_t time_slice) {
     ROM_IntPrioritySet(FAULT_PENDSV, 0xff); // priority is high 3 bits
     ROM_IntPendSet(FAULT_PENDSV);
-    periodic_timer_enable(1, ms(1), &sleep_task, 3);
-    periodic_timer_enable(2, us(100), &periodic_task, 1);
-    ROM_SysTickPeriodSet(theTimeSlice);
+    ROM_SysTickPeriodSet(time_slice);
     ROM_SysTickIntEnable();
     ROM_SysTickEnable();
+    periodic_timer_enable(1, ms(1), &sleep_task, 3);
+    periodic_timer_enable(2, us(100), &periodic_task, 1);
     enable_interrupts();
-    while (1) {}
+    while (true) {}
 }
 
 void systick_handler() {
-    // PD1 ^= 2;
     ROM_IntPendSet(FAULT_PENDSV);
 }
 
 void pendsv_handler(void) {
     disable_interrupts();
     __asm("PUSH    {R4 - R11}\n"
-          "LDR     R0, =run_tcb\n" // R0 = &run_tcb
-          "LDR     R1, [R0]\n"     // R1 = run_tcb
-          "STR     SP, [R1]\n"     // SP = *run_tcb aka run_tcb->sp
-          "LDR     R1, [R1,#4]\n"  // R1 = run_tcb->next_tcb;
-          "STR     R1, [R0]\n"     // run_tcb = run_tcb->next_tcb;
-          "LDR     SP, [R1]\n"     // SP = run_tcb->sp
+          "LDR     R0, =current_thread\n" // R0 = &current_thread
+          "LDR     R1, [R0]\n"            // R1 = current_thread
+          "STR     SP, [R1]\n"    // SP = *current_thread aka current_thread->sp
+          "LDR     R1, [R1,#4]\n" // R1 = current_thread->next_tcb;
+          "STR     R1, [R0]\n"    // current_thread = current_thread->next_tcb;
+          "LDR     SP, [R1]\n"    // SP = current_thread->sp
           "POP     {R4 - R11}");
     enable_interrupts();
 }

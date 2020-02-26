@@ -13,7 +13,7 @@ typedef struct {
     uint32_t time;
     uint32_t reload;
     uint32_t priority;
-} ptask;
+} PTask;
 
 // Initialize operating system, disable interrupts until OS_Launch.
 // Initialize OS controlled I/O: serial, ADC, systick, LaunchPad I/O and timers.
@@ -48,11 +48,11 @@ void OS_bSignal(Sema4Type* semaPt);
 // inputs: pointer to a void/void foreground task
 //         number of bytes allocated for its stack
 //         priority, 0 is highest, 5 is the lowest
-// returns: 1 if successful, 0 if this thread can not be added
+// returns: true if successful, false if this thread can not be added
 // stack size must be divisable by 8 (aligned to double word boundary)
 // In Lab 2, you can ignore both the stackSize and priority fields
 // In Lab 3, you can ignore the stackSize fields
-int OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority);
+bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority);
 
 // returns the thread ID for the currently running thread
 // returns: Thread ID, number greater than zero
@@ -74,8 +74,8 @@ uint32_t OS_Id(void);
 // In lab 3, this command will be called 0 1 or 2 times
 // In lab 3, there will be up to four background threads, and this priority
 // field determines the relative priority of these four threads
-int OS_AddPeriodicThread(void (*task)(void), uint32_t period,
-                         uint32_t priority);
+bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
+                          uint32_t priority);
 
 // add a background task to run whenever the SW1 (PF4) button is pushed
 // inputs: pointer to a void/void background function

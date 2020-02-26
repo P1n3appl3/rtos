@@ -18,5 +18,8 @@ void periodic_timer_enable(uint8_t timer_num, uint32_t period,
 // TODO: docs
 void busy_wait(uint8_t timer_num, uint32_t duration);
 
-// get the reload value for a timer
-uint32_t timer_load(uint8_t timer_num);
+// Get the current value of a certain timer
+uint32_t get_timer_value(uint8_t timer_num);
+
+// Get the reload value for a certain timer
+uint32_t get_timer_reload(uint8_t timer_num);

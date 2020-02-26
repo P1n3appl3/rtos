@@ -8,11 +8,15 @@ typedef struct tcb {
     uint32_t* sp;
     struct tcb* next_tcb;
     struct tcb* prev_tcb;
-    uint8_t id;
-    bool sleep;
+    uint32_t id;
+
     uint32_t sleep_time;
-    bool dead;
+    bool sleep;
+
     struct tcb* next_blocked;
     bool blocked;
+
+    bool dead;
+
     uint32_t stack[STACK_SIZE];
 } TCB;

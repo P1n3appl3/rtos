@@ -25,7 +25,7 @@ static TimerConfig timers[] = {
     {SYSCTL_PERIPH_WTIMER5, INT_WTIMER5A, WTIMER5_BASE},
 };
 
-void (*tasks[12])(void);
+static void (*tasks[12])(void);
 
 #define TIMERHANDLER(n)                                                        \
     void timer##n##a_handler(void) {                                           \
@@ -51,6 +51,9 @@ WTIMERHANDLER(3)
 WTIMERHANDLER(4)
 WTIMERHANDLER(5)
 
+// TODO: change everything to uint64_t to accept 64 bit period for wide timers
+// and check when adding timer that the reload value is legal based on timer_num
+
 uint32_t us(uint32_t us) {
     return us * 80 - 1; // TODO: check if -1 is needed
 }
@@ -63,9 +66,14 @@ uint32_t seconds(float s) {
     return us(s * 1000000);
 }
 
-uint32_t timer_load(uint8_t timer_num) {
+uint32_t get_timer_reload(uint8_t timer_num) {
     TimerConfig config = timers[timer_num];
     return ROM_TimerLoadGet(config.base, TIMER_A);
+}
+
+uint32_t get_timer_value(uint8_t timer_num) {
+    TimerConfig config = timers[timer_num];
+    return ROM_TimerValueGet(config.base, TIMER_A);
 }
 
 void periodic_timer_enable(uint8_t timer_num, uint32_t period,

@@ -681,11 +681,7 @@ int TestmainFIFO(void) { // TestmainFIFO
 }
 
 //*******************Trampoline for selecting main to execute**********
-int main(void) { // main
-    ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
-                       SYSCTL_OSC_MAIN);
-    launchpad_init();
-    uart_init();
+int main(void) {
     // Testmain1();
     Testmain2();
     TestmainCS();
