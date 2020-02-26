@@ -1,8 +1,6 @@
 #include "timer.h"
-#include "tivaware/gpio.h"
-#include "tivaware/hw_ints.h"
-#include "tivaware/hw_memmap.h"
 #include "tivaware/rom.h"
+#include "tm4c123gh6pm.h"
 
 volatile static unsigned long sw1last; // previous
 static void (*sw1task)(void);
@@ -17,7 +15,7 @@ static void (*sw2task)(void);
 void gpio_arm(void) {
     sw1last = PF0;
     sw2last = PF4;
-    GPIOIntEnable(GPIO_PORTF_BASE, SWITCH_PINS);
+    ROM_IntEnable(INT_GPIOF);
 }
 
 static uint8_t swpriority = 4;
@@ -42,14 +40,13 @@ void switch2_init(void (*task)(void), uint8_t priority) {
 }
 
 void gpio_portf_handler(void) {
-    uint32_t status = GPIOIntStatus(GPIO_PORTF_BASE, false);
-    GPIOIntClear(GPIO_PORTF_BASE, SWITCH_PINS);
-    if (status & GPIO_INT_PIN_0) {
+    ROM_IntPendClear(INT_GPIOF);
+    if (GPIO_PORTF_RIS_R & 0x01) {
         if (sw1last) {
             sw1task();
         }
     }
-    if (status & GPIO_INT_PIN_4) {
+    if (GPIO_PORTF_RIS_R & 0x08) {
         if (sw2last) {
             sw2task();
         }
