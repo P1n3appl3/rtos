@@ -167,19 +167,13 @@ void OS_MailBox_Send(uint32_t data);
 uint32_t OS_MailBox_Recv(void);
 
 // return the system time
-// returns: time in cycles, 0 to 4294967295
-// The time resolution should be less than or equal to 1us, and the precision 32
-// bits It is ok to change the resolution and precision of this function as long
-// as this function and OS_TimeDifference have the same resolution and precision
+// resolution is 100ns
 uint32_t OS_Time(void);
 
 // Calculates difference between two times
 // inputs: two times measured with OS_Time
 // returns: time difference in cycles
-// The time resolution should be less than or equal to 1us, and the precision at
-// least 12 bits It is ok to change the resolution and precision of this
-// function as long as this function and OS_Time have the same resolution and
-// precision
+// resolution is 100ns
 uint32_t OS_TimeDifference(uint32_t start, uint32_t stop);
 
 // sets the system time to zero

@@ -281,29 +281,23 @@ uint32_t OS_MailBox_Recv(void) {
     return 0;
 }
 
-uint32_t OS_Time(void) {
-    // put Lab 2 (and beyond) solution here
-    return 0;
-}
-
 uint32_t OS_TimeDifference(uint32_t start, uint32_t stop) {
     // put Lab 2 (and beyond) solution here
     return 0;
 }
 
-uint32_t CURRENT_MS;
-
-void increment_global_time(void) {
-    ++CURRENT_MS;
+void OS_ClearMsTime(void) {
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_WTIMER5);
+    ROM_TimerConfigure(WTIMER5_BASE, TIMER_CFG_PERIODIC_UP);
+    ROM_TimerEnable(WTIMER5_BASE, TIMER_BOTH);
 }
 
-void OS_ClearMsTime(void) {
-    periodic_timer_enable(5, ms(1), increment_global_time, 0);
-    CURRENT_MS = 0;
+uint32_t OS_Time(void) {
+    return ROM_TimerValueGet64(WTIMER5_BASE) / 80;
 }
 
 uint32_t OS_MsTime(void) {
-    return CURRENT_MS;
+    return OS_Time() / 1000;
 }
 
 void OS_Launch(uint32_t time_slice) {
