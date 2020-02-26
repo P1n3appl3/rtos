@@ -1,14 +1,3 @@
-// Lab2.c
-// Runs on LM4F120/TM4C123
-// Real Time Operating System for Lab 2
-// Lab2 Part 1: Testmain1 and Testmain2
-// Lab2 Part 2: Testmain3, Testmain4, Testmain5, TestmainCS and realmain
-
-// Jonathan W. Valvano 1/29/20, valvano@mail.utexas.edu
-// EE445M/EE380L.12
-// You may use, edit, run or distribute this file
-// You are free to change the syntax/organization of this file
-
 // LED outputs to logic analyzer for use by OS profile
 // PF1 is preemptive thread switch
 // PF2 is periodic task (DAS samples PE3)
@@ -41,9 +30,9 @@
 #include "tm4c123gh6pm.h"
 #include <stdint.h>
 
-//*********Prototype for FFT in cr4_fft_64_stm32.s, STMicroelectronics
+//*********Prototype for FFT in cr4_fft_64_stm32.s
 void cr4_fft_64_stm32(void* pssOUT, void* pssIN, unsigned short Nbin);
-//*********Prototype for PID in PID_stm32.s, STMicroelectronics
+//*********Prototype for PID in PID_stm32.s
 short PID_stm32(short Error, short* Coeff);
 
 uint32_t NumCreated; // number of foreground threads created
@@ -59,7 +48,7 @@ int32_t x[64], y[64]; // input and output arrays for FFT
 
 //---------------------User debugging-----------------------
 uint32_t DataLost;        // data sent by Producer, but not received by Consumer
-extern int32_t MaxJitter; // largest time jitter between interrupts in usec
+extern int32_t MaxJitter; // largest time jitter between interrupts
 extern uint32_t const JitterSize;
 extern uint32_t JitterHistogram[];
 
@@ -79,6 +68,10 @@ void PortD_Init(void) {
     ; // disable analog functionality on PD
 }
 
+int32_t abs(int32_t n) {
+    return n < 0 ? -n : n;
+}
+
 //------------------Task 1--------------------------------
 // 2 kHz sampling ADC channel 0, using software start trigger
 // background thread executed at 2 kHz
@@ -86,12 +79,9 @@ void PortD_Init(void) {
 // y(n) = (256x(n) -503x(n-1) + 256x(n-2) + 498y(n-1)-251y(n-2))/256 (2k
 // sampling)
 
-//******** DAS ***************
 // background thread, calculates 60Hz notch filter
 // runs 2000 times/sec
 // samples analog channel 0, PE3,
-// inputs:  none
-// outputs: none
 uint32_t DASoutput;
 void DAS(void) {
     uint32_t input;
@@ -102,19 +92,15 @@ void DAS(void) {
         PD0 ^= 0x01;
         input = ADC_in(); // channel set when calling ADC_Init
         PD0 ^= 0x01;
-        thisTime = OS_Time(); // current time, 12.5 ns
+        thisTime = OS_Time();
         DASoutput = Filter(input);
         FilterWork++;         // calculation finished
         if (FilterWork > 1) { // ignore timing of first interrupt
             uint32_t diff = OS_TimeDifference(LastTime, thisTime);
-            if (diff > us(500)) {
-                jitter = (diff - us(500) + 4) / 8; // in 0.1 usec
-            } else {
-                jitter = (us(500) - diff + 4) / 8; // in 0.1 usec
-            }
+            jitter = abs((int32_t)diff - (int32_t)us(500));
             if (jitter > MaxJitter) {
-                MaxJitter = jitter; // in usec
-            }                       // jitter should be 0
+                MaxJitter = jitter;
+            }
             if (jitter >= JitterSize) {
                 jitter = JitterSize - 1;
             }
@@ -125,14 +111,11 @@ void DAS(void) {
     }
 }
 
-//--------------end of Task 1-----------------------------
-
 //------------------Task 2--------------------------------
 // background thread executes with SW1 button
 // one foreground task created with button push
 // foreground treads run for 2 sec and die
 
-// ***********ButtonWork*************
 void ButtonWork(void) {
     // uint32_t myId = OS_Id();
     PD1 ^= 0x02;
@@ -159,8 +142,6 @@ void SW1Push(void) {
     }
 }
 
-//--------------end of Task 2-----------------------------
-
 //------------------Task 3--------------------------------
 // hardware timer-triggered ADC sampling at 400Hz
 // Producer runs as part of ADC ISR
@@ -176,8 +157,6 @@ void SW1Push(void) {
 // The ADC ISR runs when ADC data is ready
 // The ADC ISR calls this function with a 12-bit sample
 // sends data to the consumer, runs periodically at 400Hz
-// inputs:  none
-// outputs: none
 void Producer(uint32_t data) {
     if (NumSamples < RUNLENGTH) {     // finite time run
         NumSamples++;                 // number of samples
@@ -187,13 +166,29 @@ void Producer(uint32_t data) {
     }
 }
 
-//******** Consumer ***************
+// foreground thread, accepts data from consumer
+// displays calculated results on the LCD
+void Display(void) {
+    uint32_t data, voltage, distance;
+    // uint32_t myId = OS_Id();
+    ST7735_Message_Num(
+        0, 1, "Run length = ", (RUNLENGTH) / FS); // top half used for Display
+    while (NumSamples < RUNLENGTH) {
+        data = OS_MailBox_Recv();
+        voltage =
+            3000 * data / 4095; // calibrate your device so voltage is in mV
+        distance =
+            IRDistance_Convert(data, 1); // you will calibrate this in Lab 6
+        PD3 = 0x08;
+        ST7735_Message_Num(0, 2, "v(mV) =", voltage);
+        ST7735_Message_Num(0, 3, "d(mm) =", distance);
+        PD3 = 0x00;
+    }
+    OS_Kill(); // done
+}
+
 // foreground thread, accepts data from producer
 // calculates FFT, sends DC component to Display
-// inputs:  none
-// outputs: none
-
-/*
 void Display(void);
 void Consumer(void) {
     uint32_t data, DCcomponent; // 12-bit raw ADC sample, 0 to 4095
@@ -216,33 +211,6 @@ void Consumer(void) {
     }
     OS_Kill(); // done
 }
-*/
-
-//******** Display ***************
-// foreground thread, accepts data from consumer
-// displays calculated results on the LCD
-// inputs:  none
-// outputs: none
-void Display(void) {
-    uint32_t data, voltage, distance;
-    // uint32_t myId = OS_Id();
-    ST7735_Message_Num(
-        0, 1, "Run length = ", (RUNLENGTH) / FS); // top half used for Display
-    while (NumSamples < RUNLENGTH) {
-        data = OS_MailBox_Recv();
-        voltage =
-            3000 * data / 4095; // calibrate your device so voltage is in mV
-        distance =
-            IRDistance_Convert(data, 1); // you will calibrate this in Lab 6
-        PD3 = 0x08;
-        ST7735_Message_Num(0, 2, "v(mV) =", voltage);
-        ST7735_Message_Num(0, 3, "d(mm) =", distance);
-        PD3 = 0x00;
-    }
-    OS_Kill(); // done
-}
-
-//--------------end of Task 3-----------------------------
 
 //------------------Task 4--------------------------------
 // foreground thread that runs without waiting or sleeping
@@ -275,8 +243,6 @@ void PID(void) {
     for (;;) {} // done
 }
 
-//--------------end of Task 4-----------------------------
-
 //------------------Task 5--------------------------------
 // UART background ISR performs serial input/output
 // Two software fifos are used to pass I/O data to foreground
@@ -300,10 +266,6 @@ void Interpreter(void); // just a prototype, link to your interpreter
 // 2) print debugging parameters
 //    i.e., x[], y[]
 
-//--------------end of Task 5-----------------------------
-
-//*******************final user main DEMONTRATE THIS TO TA**********
-/*
 int realmain(void) { // realmain
     OS_Init();       // initialize, disable interrupts
     PortD_Init();    // debugging profile
@@ -332,7 +294,6 @@ int realmain(void) { // realmain
     OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
     return 0;         // this never executes
 }
-*/
 
 //+++++++++++++++++++++++++DEBUGGING CODE++++++++++++++++++++++++
 // ONCE YOUR RTOS WORKS YOU CAN COMMENT OUT THE REMAINING CODE
@@ -494,7 +455,7 @@ int Testmain3(void) { // Testmain3
 // PortF GPIO interrupts, active low
 // no ADC serial port or LCD output
 // tests the spinlock semaphores, tests Sleep and Kill
-Sema4Type Readyd; // set in background
+Sema4 Readyd; // set in background
 int Lost;
 void BackgroundThread1d(void) { // called at 1000 Hz
     Count1++;
@@ -558,7 +519,7 @@ int Testmain4(void) { // Testmain4
 // Select switch interrupts, active low
 // no ADC serial port or LCD output
 // tests the spinlock semaphores, tests Sleep and Kill
-Sema4Type Readye;               // set in background
+Sema4 Readye;                   // set in background
 void BackgroundThread1e(void) { // called at 1000 Hz
     static int i = 0;
     i++;
@@ -683,7 +644,11 @@ int TestmainFIFO(void) { // TestmainFIFO
 //*******************Trampoline for selecting main to execute**********
 int main(void) {
     // Testmain1();
-    Testmain2();
-    TestmainCS();
+    // Testmain2();
+    // TestmainCS();
+    Testmain3();
+    // Testmain4();
+    // Testmain5();
+    // TestmainFIFO();
     return 0;
 }

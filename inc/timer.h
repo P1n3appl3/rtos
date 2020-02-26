@@ -1,14 +1,26 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// Microseconds to cycles
+// System time resolution is 1µs
+#define SYSTEM_TIME_DIV 80
+
+// Microseconds to system units
 uint32_t us(uint32_t us);
 
-// Milliseconds to cycles
-uint32_t ms(uint32_t ms);
+// System units to microseconds
+uint32_t to_us(uint32_t time);
 
-// Seconds to cycles
+// Milliseconds to system units
+uint32_t ms(float ms);
+
+// System units to microseconds
+float to_ms(uint32_t time);
+
+// Seconds to system units
 uint32_t seconds(float s);
+
+// System units to microseconds
+float to_seconds(uint32_t time);
 
 // Enables periodic timer interrupts
 // timer_num: 0-5 for 32 bit (53 second max) and 6-11 for 64 bit
@@ -16,7 +28,7 @@ uint32_t seconds(float s);
 void timer_enable(uint8_t timer_num, uint32_t period, void (*task)(void),
                   uint8_t priority, bool periodic);
 
-// TODO: docs
+// Spin
 void busy_wait(uint8_t timer_num, uint32_t duration);
 
 // Get the current value of a certain timer

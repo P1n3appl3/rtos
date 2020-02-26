@@ -14,7 +14,7 @@
 #include <stdint.h>
 
 // Performance Measurements
-int32_t MaxJitter; // largest time jitter between interrupts in usec
+int32_t MaxJitter; // largest time jitter between interrupts
 #define JITTERSIZE 64
 uint32_t const JitterSize = JITTERSIZE;
 uint32_t JitterHistogram[JITTERSIZE] = {0};
@@ -294,11 +294,11 @@ void OS_ClearMsTime(void) {
 }
 
 uint32_t OS_Time(void) {
-    return ROM_TimerValueGet64(WTIMER5_BASE) / 80;
+    return ROM_TimerValueGet64(WTIMER5_BASE) / SYSTEM_TIME_DIV;
 }
 
 uint32_t OS_MsTime(void) {
-    return OS_Time() / 1000;
+    return OS_Time() / (80000 / SYSTEM_TIME_DIV);
 }
 
 void OS_Launch(uint32_t time_slice) {

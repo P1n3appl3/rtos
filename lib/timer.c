@@ -1,4 +1,5 @@
 #include "tivaware/timer.h"
+#include "timer.h"
 #include "tivaware/hw_ints.h"
 #include "tivaware/hw_memmap.h"
 #include "tivaware/rom.h"
@@ -51,19 +52,28 @@ WTIMERHANDLER(3)
 WTIMERHANDLER(4)
 WTIMERHANDLER(5)
 
-// TODO: change everything to uint64_t to accept 64 bit period for wide timers
-// and check when adding timer that the reload value is legal based on timer_num
-
 uint32_t us(uint32_t us) {
-    return us * 80 - 1; // TODO: check if -1 is needed
+    return us * (80 / SYSTEM_TIME_DIV) - 1; // TODO: check if -1 is needed
 }
 
-uint32_t ms(uint32_t ms) {
+uint32_t ms(float ms) {
     return us(ms * 1000);
 }
 
 uint32_t seconds(float s) {
     return us(s * 1000000);
+}
+
+uint32_t to_us(uint32_t time) {
+    return time / (80 / SYSTEM_TIME_DIV);
+}
+
+float to_ms(uint32_t time) {
+    return time / (80000.f / SYSTEM_TIME_DIV);
+}
+
+float to_seconds(uint32_t time) {
+    return to_ms(time) * 1000;
 }
 
 uint32_t get_timer_reload(uint8_t timer_num) {
@@ -82,7 +92,9 @@ void timer_enable(uint8_t timer_num, uint32_t period, void (*task)(void),
     ROM_SysCtlPeripheralEnable(config.sysctl_periph);
     ROM_TimerConfigure(config.base,
                        periodic ? TIMER_CFG_PERIODIC : TIMER_CFG_ONE_SHOT);
-    ROM_TimerLoadSet(config.base, TIMER_A, period);
+    ROM_TimerLoadSet(config.base, TIMER_A, period * SYSTEM_TIME_DIV);
+    ROM_TimerConfigure(config.base, TIMER_CFG_PERIODIC);
+    ROM_TimerLoadSet(config.base, TIMER_A, period * SYSTEM_TIME_DIV);
     ROM_IntEnable(config.intterrupt);
     ROM_IntPrioritySet(config.intterrupt,
                        priority << 5); // priority is high 3 bits
@@ -92,11 +104,11 @@ void timer_enable(uint8_t timer_num, uint32_t period, void (*task)(void),
 }
 
 void busy_wait(uint8_t timer_num, uint32_t duration) {
+    duration *= SYSTEM_TIME_DIV;
     TimerConfig config = timers[timer_num];
     ROM_SysCtlPeripheralEnable(config.sysctl_periph);
     ROM_TimerConfigure(config.base, TIMER_CFG_ONE_SHOT);
     ROM_TimerLoadSet(config.base, TIMER_A, duration);
     ROM_TimerEnable(config.base, TIMER_BOTH);
-    while (ROM_TimerValueGet(config.base, TIMER_A) != duration) {
-    } // TODO: make good
+    while (ROM_TimerValueGet(config.base, TIMER_A) != duration) {}
 }

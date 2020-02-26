@@ -60,7 +60,7 @@ uint32_t OS_Id(void);
 // add a background periodic task
 // typically this function receives the highest priority
 // inputs: pointer to a void/void background function
-//         period given in system time units (12.5ns)
+//         period given in system time units
 //         priority 0 is the highest, 5 is the lowest
 // returns: 1 if successful, 0 if this thread can not be added
 // You are free to select the time resolution for this function
@@ -105,9 +105,7 @@ int OS_AddSW1Task(void (*task)(void), uint32_t priority);
 int OS_AddSW2Task(void (*task)(void), uint32_t priority);
 
 // place this thread into a dormant state
-// input: number of msec to sleep
-// You are free to select the time resolution for this function
-// OS_Sleep(0) implements cooperative multitasking
+// input: number of system time units to sleep
 void OS_Sleep(uint32_t sleepTime);
 
 // kill the currently running thread, release its TCB and stack
@@ -115,8 +113,6 @@ void OS_Kill(void);
 
 // suspend execution of currently running thread
 // scheduler will choose another thread to execute
-// Can be used to implement cooperative multitasking
-// Same function as OS_Sleep(0)
 void OS_Suspend(void);
 
 // temporarily prevent foreground thread switch (but allow background
@@ -167,13 +163,11 @@ void OS_MailBox_Send(uint32_t data);
 uint32_t OS_MailBox_Recv(void);
 
 // return the system time
-// resolution is 100ns
 uint32_t OS_Time(void);
 
 // Calculates difference between two times
 // inputs: two times measured with OS_Time
-// returns: time difference in cycles
-// resolution is 100ns
+// returns: time difference in system time units
 uint32_t OS_TimeDifference(uint32_t start, uint32_t stop);
 
 // sets the system time to zero
@@ -183,9 +177,7 @@ void OS_ClearMsTime(void);
 uint32_t OS_MsTime(void);
 
 // start the scheduler, enable interrupts
-// inputs: number of 12.5ns clock cycles for each time slice
-//         you may select the units of this parameter
-// returns: none (does not return)
+// inputs: number of system time units for each time slice
 // In Lab 2, you can ignore the theTimeSlice field
 // In Lab 3, you should implement the user-defined TimeSlice field
 // It is ok to limit the range of theTimeSlice to match the 24-bit SysTick
