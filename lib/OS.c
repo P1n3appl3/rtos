@@ -1,4 +1,5 @@
 #include "OS.h"
+#include "FIFO.h"
 #include "ST7735.h"
 #include "interrupts.h"
 #include "io.h"
@@ -30,6 +31,8 @@ static TCB idle = {.next_tcb = &threads[0],
                    .sp = &idle.stack[STACK_SIZE]};
 
 TCB* current_thread = &idle;
+
+ADDFIFO(os, 16, uint32_t)
 
 // must be called from critical section
 static void insert_thread(TCB* adding) {
@@ -248,23 +251,34 @@ void OS_Suspend(void) {
     ROM_IntPendSet(FAULT_PENDSV);
 }
 
+Sema4 FifoAvailable;
 void OS_Fifo_Init(uint32_t size) {
-    // put Lab 2 (and beyond) solution here
+    OS_InitSemaphore(&FifoAvailable, 1);
+    osfifo_init();
 }
 
 int OS_Fifo_Put(uint32_t data) {
-    // put Lab 2 (and beyond) solution here
+    if (!osfifo_full()) {
+        osfifo_put(data);
+
+        if (osfifo_size() == 1) {
+            OS_bSignal(&FifoAvailable);
+        }
+    }
     return 0;
 }
 
 uint32_t OS_Fifo_Get(void) {
-    // put Lab 2 (and beyond) solution here
-    return 0;
+    if (osfifo_empty()) {
+        OS_bWait(&FifoAvailable);
+    }
+    uint32_t temp;
+    osfifo_get(&temp);
+    return temp;
 }
 
 int32_t OS_Fifo_Size(void) {
-    // put Lab 2 (and beyond) solution here
-    return 0;
+    return osfifo_size();
 }
 
 uint32_t MailBox;
