@@ -1,9 +1,10 @@
 #pragma once
+#include <tcb.h>
 #include <stdint.h>
 
 struct Sema4 {
     int32_t Value; // >0 means free, otherwise means busy
-    // add other components here, if necessary to implement blocking
+    TCB* blocked_head;
 };
 typedef struct Sema4 Sema4Type;
 

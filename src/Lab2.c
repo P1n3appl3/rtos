@@ -356,8 +356,8 @@ void Thread1(void) {
     for (;;) {
         PD0 ^= 0x01; // heartbeat
         Count1++;
-        led_toggle(BLUE_LED);
-        busy_wait(4, ms(500));
+        // led_toggle(BLUE_LED);
+        // busy_wait(4, ms(500));
         OS_Suspend(); // cooperative multitasking
     }
 }
@@ -366,8 +366,8 @@ void Thread2(void) {
     for (;;) {
         PD1 ^= 0x02; // heartbeat
         Count2++;
-        led_toggle(GREEN_LED);
-        busy_wait(4, ms(500));
+        // led_toggle(GREEN_LED);
+        // busy_wait(4, ms(500));
         OS_Suspend(); // cooperative multitasking
     }
 }
@@ -376,8 +376,8 @@ void Thread3(void) {
     for (;;) {
         PD2 ^= 0x04; // heartbeat
         Count3++;
-        led_toggle(RED_LED);
-        busy_wait(4, ms(500));
+        // led_toggle(RED_LED);
+        // busy_wait(4, ms(500));
         OS_Suspend(); // cooperative multitasking
     }
 }
@@ -631,8 +631,8 @@ int TestmainCS(void) { // TestmainCS
     OS_Init(); // initialize, disable interrupts
     NumCreated = 0;
     NumCreated += OS_AddThread(&ThreadCS, 128, 0);
-    OS_Launch(ms(1) / 10); // 100us, doesn't return, interrupts enabled in here
-    return 0;              // this never executes
+    OS_Launch(us(100)); // doesn't return, interrupts enabled in here
+    return 0;
 }
 
 //*******************FIFO TEST**********
@@ -686,6 +686,8 @@ int main(void) { // main
                        SYSCTL_OSC_MAIN);
     launchpad_init();
     uart_init();
-    Testmain1();
+    // Testmain1();
+    Testmain2();
+    TestmainCS();
     return 0;
 }

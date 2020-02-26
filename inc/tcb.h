@@ -1,3 +1,4 @@
+#pragma once
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -11,5 +12,7 @@ typedef struct tcb {
     bool sleep;
     uint32_t sleep_time;
     bool dead;
+    struct tcb* next_blocked;
+    bool blocked;
     uint32_t stack[STACK_SIZE];
 } TCB;

@@ -9,8 +9,9 @@
 #include "tivaware/rom.h"
 #include "tivaware/sysctl.h"
 #include "tivaware/timer.h"
-// #include "tm4c123gh6pm.h"
 #include <stdint.h>
+
+#define PD1 (*((volatile uint32_t*)0x40007008))
 
 // Performance Measurements
 int32_t MaxJitter; // largest time jitter between interrupts in usec
@@ -48,23 +49,47 @@ void OS_Init(void) {
 }
 
 void OS_InitSemaphore(Sema4Type* semaPt, int32_t value) {
-    // put Lab 2 (and beyond) solution here
+    semaPt->Value = value;
+    semaPt->blocked_head = 0;
 }
 
 void OS_Wait(Sema4Type* semaPt) {
-    // put Lab 2 (and beyond) solution here
+    uint32_t crit = start_critical();
+    if (--semaPt->Value >= 0) {
+        return;
+    }
+    if (!semaPt->blocked_head) {
+        run_tcb->next_blocked = 0;
+        semaPt->blocked_head = run_tcb;
+    } else {
+        TCB* current = semaPt->blocked_head;
+        while (current->next_blocked) { current = current->next_blocked; }
+        current->next_blocked = run_tcb;
+    }
+    // TODO: remove from linked list
+    end_critical(crit);
 }
 
 void OS_Signal(Sema4Type* semaPt) {
-    // put Lab 2 (and beyond) solution here
+    uint32_t crit = start_critical();
+    if (++semaPt->Value > 0) {
+        return;
+    }
+    // TODO: add from linked list
+    end_critical(crit);
 }
 
 void OS_bWait(Sema4Type* semaPt) {
-    // put Lab 2 (and beyond) solution here
+    uint32_t crit = start_critical();
+    while (!semaPt->Value) { OS_Suspend(); }
+    semaPt->Value = 0;
+    end_critical(crit);
 }
 
 void OS_bSignal(Sema4Type* semaPt) {
-    // put Lab 2 (and beyond) solution here
+    uint32_t crit = start_critical();
+    semaPt->Value = 1;
+    end_critical(crit);
 }
 
 void dead(void) {
@@ -155,6 +180,7 @@ void OS_Sleep(uint32_t sleepTime) {
     run_tcb->prev_tcb->next_tcb = run_tcb->next_tcb;
     run_tcb->next_tcb->prev_tcb = run_tcb->prev_tcb;
     run_tcb->sleep_time = sleepTime;
+    OS_Suspend();
 }
 
 void OS_Kill(void) {
@@ -231,33 +257,32 @@ uint32_t OS_MsTime(void) {
 
 void OS_Launch(uint32_t theTimeSlice) {
     // preemptive
-    // ROM_SysTickPeriodSet(theTimeSlice);
-    // ROM_SysTickIntEnable();
-    // ROM_SysTickEnable();
-    // return;
-    // cooperative
-    ROM_IntPrioritySet(FAULT_PENDSV, 0xf); // priority is high 3 bits
+    ROM_IntPrioritySet(FAULT_PENDSV, 0xff); // priority is high 3 bits
     ROM_IntPendSet(FAULT_PENDSV);
     periodic_timer_enable(1, ms(1), &sleep_task, 3);
+    ROM_SysTickPeriodSet(theTimeSlice);
+    ROM_SysTickIntEnable();
+    ROM_SysTickEnable();
     enable_interrupts();
     while (1) {}
 }
 
 void systick_handler() {
+    // PD1 ^= 2;
     ROM_IntPendSet(FAULT_PENDSV);
 }
 
 void pendsv_handler(void) {
-    __asm("CPSID   I\n"
-          "PUSH    {R4 - R11}\n"
+    disable_interrupts();
+    __asm("PUSH    {R4 - R11}\n"
           "LDR     R0, =run_tcb\n" // R0 = &run_tcb
           "LDR     R1, [R0]\n"     // R1 = run_tcb
           "STR     SP, [R1]\n"     // SP = *run_tcb aka run_tcb->sp
           "LDR     R1, [R1,#4]\n"  // R1 = run_tcb->next_tcb;
           "STR     R1, [R0]\n"     // run_tcb = run_tcb->next_tcb;
           "LDR     SP, [R1]\n"     // SP = run_tcb->sp
-          "POP     {R4 - R11}\n"
-          "CPSIE I\n");
+          "POP     {R4 - R11}");
+    enable_interrupts();
 }
 
 int OS_RedirectToFile(char* name) {
