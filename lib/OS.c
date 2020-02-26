@@ -20,22 +20,16 @@ uint32_t JitterHistogram[JITTERSIZE] = {
     0,
 };
 
-TCB threads[3] = {{.next_tcb = &threads[1],
-                   .sleep = true,
-                   .sp = &threads[0].stack[STACK_SIZE],
-                   .id = 0},
-                  {.next_tcb = &threads[2],
-                   .sleep = true,
-                   .sp = &threads[1].stack[STACK_SIZE],
-                   .id = 1},
-                  {.next_tcb = &threads[0],
-                   .sleep = true,
-                   .sp = &threads[2].stack[STACK_SIZE],
-                   .id = 2}};
+#define MAX_THREADS 3
+
+TCB threads[MAX_THREADS];
 
 TCB idle = {.next_tcb = &threads[0],
+            .prev_tcb = &threads[0],
             .id = 255,
             .sleep = true,
+            .sleep_time = 0,
+            .dead = false,
             .sp = &idle.stack[STACK_SIZE]};
 
 TCB* run_tcb = &idle;
@@ -50,6 +44,7 @@ void OS_UnLockScheduler(unsigned long previous) {
 
 void OS_Init(void) {
     // put Lab 2 (and beyond) solution here
+    for (int i = 0; i < MAX_THREADS; i++) { threads[i].dead = true; }
 }
 
 void OS_InitSemaphore(Sema4Type* semaPt, int32_t value) {
@@ -76,9 +71,31 @@ void dead(void) {
     while (1) {}
 }
 
-uint8_t threads_added = 0;
+uint8_t thread_count = 0;
 int OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
-    TCB* adding = &threads[threads_added++];
+    if (thread_count >= MAX_THREADS) {
+        return 0;
+    }
+    uint8_t thread_index = 0;
+    while (threads[thread_index].dead == false) { thread_index++; }
+    TCB* adding = &threads[thread_index];
+
+    adding->sleep = false;
+    adding->sleep_time = 0;
+    adding->id = thread_index;
+    adding->sp = adding->stack;
+
+    adding->next_tcb = run_tcb->next_tcb;
+    run_tcb->next_tcb = adding;
+    adding->next_tcb->prev_tcb = adding;
+
+    if (run_tcb->id == 255) {
+        adding->prev_tcb = run_tcb->prev_tcb;
+    } else {
+        adding->prev_tcb = run_tcb;
+    }
+
+    // initialize stack
     *(--adding->sp) = 0x21000000;     // PSR
     *(--adding->sp) = (uint32_t)task; // PC
     *(--adding->sp) = (uint32_t)dead; // LR
@@ -119,13 +136,32 @@ int OS_AddSW2Task(void (*task)(void), uint32_t priority) {
     return 0;
 }
 
+void sleep_task(void) {
+    uint32_t reload = timer_load(1);
+    for (int i = 0; i < MAX_THREADS; i++) {
+        if (threads[i].sleep) {
+            if (threads[i].sleep_time <= reload) {
+                threads[i].sleep_time = 0;
+                threads[i].sleep = false;
+            } else {
+                threads[i].sleep_time -= reload;
+            }
+        }
+    }
+}
+
 void OS_Sleep(uint32_t sleepTime) {
-    // put Lab 2 (and beyond) solution here
     run_tcb->sleep = true;
+    run_tcb->prev_tcb->next_tcb = run_tcb->next_tcb;
+    run_tcb->next_tcb->prev_tcb = run_tcb->prev_tcb;
+    run_tcb->sleep_time = sleepTime;
 }
 
 void OS_Kill(void) {
-    // put Lab 2 (and beyond) solution here
+    disable_interrupts();
+    run_tcb->dead = true;
+    run_tcb->prev_tcb->next_tcb = run_tcb->next_tcb;
+    run_tcb->next_tcb->prev_tcb = run_tcb->prev_tcb;
     enable_interrupts(); // end of atomic section
     for (;;) {};         // can not return
 }
@@ -202,6 +238,7 @@ void OS_Launch(uint32_t theTimeSlice) {
     // cooperative
     ROM_IntPrioritySet(FAULT_PENDSV, 0xf); // priority is high 3 bits
     ROM_IntPendSet(FAULT_PENDSV);
+    periodic_timer_enable(1, ms(1), &sleep_task, 3);
     enable_interrupts();
     while (1) {}
 }

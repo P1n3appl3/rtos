@@ -63,6 +63,11 @@ uint32_t seconds(float s) {
     return us(s * 1000000);
 }
 
+uint32_t timer_load(uint8_t timer_num) {
+    TimerConfig config = timers[timer_num];
+    return ROM_TimerLoadGet(config.base, TIMER_A);
+}
+
 void periodic_timer_enable(uint8_t timer_num, uint32_t period,
                            void (*task)(void), uint8_t priority) {
     TimerConfig config = timers[timer_num];
@@ -83,5 +88,6 @@ void busy_wait(uint8_t timer_num, uint32_t duration) {
     ROM_TimerConfigure(config.base, TIMER_CFG_ONE_SHOT);
     ROM_TimerLoadSet(config.base, TIMER_A, duration);
     ROM_TimerEnable(config.base, TIMER_BOTH);
-    while (ROM_TimerValueGet(config.base, TIMER_A) != duration) {} // TODO: make good
+    while (ROM_TimerValueGet(config.base, TIMER_A) != duration) {
+    } // TODO: make good
 }
