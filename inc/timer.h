@@ -23,7 +23,7 @@ uint32_t seconds(float s);
 float to_seconds(uint32_t time);
 
 // Enables periodic timer interrupts
-// timer_num: 0-5 for 32 bit (53 second max) and 6-11 for 64 bit
+// timer_num: 0-11 (6-11 use 64 bit timers)
 // priority: 0-7 (0=highest)
 void timer_enable(uint8_t timer_num, uint32_t period, void (*task)(void),
                   uint8_t priority, bool periodic);

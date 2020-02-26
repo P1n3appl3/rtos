@@ -276,7 +276,7 @@ int realmain(void) { // realmain
 
     // initialize communication channels
     OS_MailBox_Init();
-    OS_Fifo_Init(64); // ***note*** 4 is not big enough*****
+    OS_Fifo_Init(64); // NOTE: 4 is not big enough
 
     // hardware init
     ADC_init(0); // sequencer 3, channel 0, PE3, sampling in DAS()

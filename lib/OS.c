@@ -267,24 +267,29 @@ int32_t OS_Fifo_Size(void) {
     return 0;
 }
 
+uint32_t MailBox;
+Sema4 BoxFree, DataValid;
+
 void OS_MailBox_Init(void) {
-    // put Lab 2 (and beyond) solution here
-    // put solution here
+    OS_InitSemaphore(&BoxFree, 0);
+    OS_InitSemaphore(&DataValid, 0);
 }
 
 void OS_MailBox_Send(uint32_t data) {
-    // put Lab 2 (and beyond) solution here
-    // put solution here
+    OS_bWait(&BoxFree);
+    MailBox = data;
+    OS_bSignal(&DataValid);
 }
 
 uint32_t OS_MailBox_Recv(void) {
-    // put Lab 2 (and beyond) solution here
-    return 0;
+    OS_bWait(&DataValid);
+    uint32_t temp = MailBox;
+    OS_bSignal(&BoxFree);
+    return temp;
 }
 
 uint32_t OS_TimeDifference(uint32_t start, uint32_t stop) {
-    // put Lab 2 (and beyond) solution here
-    return 0;
+    return stop - start;
 }
 
 void OS_ClearMsTime(void) {
