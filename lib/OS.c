@@ -3,6 +3,7 @@
 #include "interrupts.h"
 #include "io.h"
 #include "launchpad.h"
+#include "switch.h"
 #include "tcb.h"
 #include "timer.h"
 #include "tivaware/hw_ints.h"
@@ -196,17 +197,17 @@ bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
     ptasks[num_ptasks].task = task;
     ptasks[num_ptasks].priority = priority;
     ptasks[num_ptasks].time = 0;
-    ptasks[num_ptasks].reload = period;
+    ptasks[num_ptasks++].reload = period;
     return true;
 }
 
 int OS_AddSW1Task(void (*task)(void), uint32_t priority) {
-    // put Lab 2 (and beyond) solution here
+    switch1_init(task, priority);
     return 0;
 }
 
 int OS_AddSW2Task(void (*task)(void), uint32_t priority) {
-    // put Lab 2 (and beyond) solution here
+    switch2_init(task, priority);
     return 0;
 }
 
@@ -306,8 +307,8 @@ void OS_Launch(uint32_t time_slice) {
     ROM_SysTickPeriodSet(time_slice);
     ROM_SysTickIntEnable();
     ROM_SysTickEnable();
-    periodic_timer_enable(1, ms(1), &sleep_task, 3);
-    periodic_timer_enable(2, us(100), &periodic_task, 1);
+    timer_enable(1, ms(1), &sleep_task, 3, true);
+    timer_enable(2, us(100), &periodic_task, 1, true);
     enable_interrupts();
     while (true) {}
 }
