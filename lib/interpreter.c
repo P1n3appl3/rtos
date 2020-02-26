@@ -4,6 +4,7 @@
 #include "io.h"
 #include "launchpad.h"
 #include "printf.h"
+#include "timer.h"
 #include <stdint.h>
 
 // Print jitter histogram
@@ -80,7 +81,7 @@ char raw_command[128];
 char* current;
 char token[32];
 
-bool next_token() {
+static bool next_token() {
     while (is_whitespace(*current)) { ++current; }
     if (!*current) {
         token[0] = '\0';
@@ -92,33 +93,34 @@ bool next_token() {
     return true;
 }
 
-volatile bool heartbeat_enabled = true;
+volatile bool heartbeat_enabled = false;
 
-void interpreter(void) {
+static char* HELPSTRING =
+    "Available commands:\n\r"
+    "\thelp\t\t\t\t\tprint this help string\n\n\r"
+    "\tled COLOR [ACTION]\t\t\tmanipulates the launchpad LEDs\n\r"
+    "\t\tCOLOR: red, green, or blue\n\r"
+    "\t\tACTION: on, off, or toggle\n\n\r"
+    "\tadc\t\t\t\t\tread a value from the ADC\n\n\r"
+    "\tlcd 'STRING' [top|bottom] [row #]\tprint a string to the LCD\n\n\r"
+    "\theartbeat [enable|disable]\t\tturn on or off the red LED heartbeat\n\n\r"
+    "\ttime [get|reset]\t\t\tget or reset the OS time\n\n\r";
+
+static void interpret_command(void) {
     printf("> ");
-    gets(raw_command, sizeof(raw_command));
-    puts(raw_command);
-    // TODO: readline(raw_command, sizeof(raw_command));
+    // gets(raw_command, sizeof(raw_command));
+    // puts(raw_command);
+    readline(raw_command, sizeof(raw_command));
     current = raw_command;
     if (!next_token()) {
         printf("ERROR: enter a command\n");
         return;
     }
     if (streq(token, "help") || streq(token, "h")) {
-        printf(
-            "Available commands:\n"
-            "\thelp\t\t\t\t\tprint this help string\n\n"
-            "\tled COLOR [ACTION]\t\t\tmanipulates the launchpad LEDs\n"
-            "\t\tCOLOR: red, green, or blue\n"
-            "\t\tACTION: on, off, or toggle\n\n"
-            "\tadc\t\t\t\t\tread a value from the ADC\n\n"
-            "\tlcd 'STRING' [top|bottom] [row #]\tprint a string to the LCD\n\n"
-            "\theartbeat [enable|disable]\t\tturn on or off the red LED "
-            "heartbeat\n\n"
-            "\ttime [get|reset]\t\t\tget or reset the OS time\n\n");
+        printf(HELPSTRING);
     } else if (streq(token, "led")) {
         if (!next_token()) {
-            printf("ERROR: expected another argument for color\n");
+            printf("ERROR: expected another argument for color\n\r");
             return;
         }
         uint8_t led;
@@ -201,14 +203,18 @@ void interpreter(void) {
         }
     } else if (streq(token, "time")) {
         if (!next_token() || streq(token, "get")) {
-            printf("Current time: %dms\n", OS_MsTime());
+            printf("Current time: %dms\n", (uint32_t)ms(OS_Time()));
         } else if (streq(token, "reset")) {
             printf("OS time reset\n");
-            OS_ClearMsTime();
+            OS_ClearTime();
         } else {
             printf("ERROR: expected 'get' or 'reset', got '%s'\n", token);
         }
     } else {
         printf("ERROR: invalid command '%s'\n", token);
     }
+}
+
+void interpreter(void) {
+    while (true) { interpret_command(); }
 }

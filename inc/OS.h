@@ -171,10 +171,7 @@ uint32_t OS_Time(void);
 uint32_t OS_TimeDifference(uint32_t start, uint32_t stop);
 
 // sets the system time to zero
-void OS_ClearMsTime(void);
-
-// reads the current time in ms
-uint32_t OS_MsTime(void);
+void OS_ClearTime(void);
 
 // start the scheduler, enable interrupts
 // inputs: number of system time units for each time slice

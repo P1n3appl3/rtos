@@ -306,7 +306,7 @@ uint32_t OS_TimeDifference(uint32_t start, uint32_t stop) {
     return stop - start;
 }
 
-void OS_ClearMsTime(void) {
+void OS_ClearTime(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_WTIMER5);
     ROM_TimerConfigure(WTIMER5_BASE, TIMER_CFG_PERIODIC_UP);
     ROM_TimerEnable(WTIMER5_BASE, TIMER_BOTH);
@@ -314,10 +314,6 @@ void OS_ClearMsTime(void) {
 
 uint32_t OS_Time(void) {
     return ROM_TimerValueGet64(WTIMER5_BASE) / SYSTEM_TIME_DIV;
-}
-
-uint32_t OS_MsTime(void) {
-    return OS_Time() / (80000 / SYSTEM_TIME_DIV);
 }
 
 void OS_Launch(uint32_t time_slice) {
@@ -328,6 +324,7 @@ void OS_Launch(uint32_t time_slice) {
     ROM_SysTickEnable();
     timer_enable(1, ms(1), &sleep_task, 3, true);
     timer_enable(2, us(100), &periodic_task, 1, true);
+    OS_ClearTime();
     enable_interrupts();
     while (true) {}
 }

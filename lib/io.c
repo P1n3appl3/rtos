@@ -79,6 +79,7 @@ char getchar(void) {
 bool puts(const char* str) {
     for (; *str;) { putchar(*str++); }
     putchar('\n');
+    putchar('\r');
     return true;
 }
 
@@ -91,4 +92,35 @@ uint16_t gets(char* str, uint16_t len) {
     }
     str[count] = '\0';
     return count;
+}
+
+uint16_t readline(char* str, uint16_t len) {
+    int recieved = 0;
+    char current = '\0';
+    while (len--) {
+        switch (current = ROM_UARTCharGet(UART0_BASE)) {
+        case '\r':
+            putchar('\n');
+            putchar('\r');
+            if (recieved == 0) {
+                break;
+            }
+            *str++ = '\n';
+            return recieved + 1;
+        case 127:
+            if (recieved > 0) {
+                putchar('\b');
+                putchar(' ');
+                putchar('\b');
+                --str;
+                --recieved;
+            }
+            break;
+        default:
+            putchar(current);
+            *str++ = current;
+            ++recieved;
+        }
+    }
+    return recieved;
 }

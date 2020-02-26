@@ -134,11 +134,11 @@ void ButtonWork(void) {
 // Adds another foreground task
 // background threads execute once and return
 void SW1Push(void) {
-    if (OS_MsTime() > 20) { // debounce
+    if (ms(OS_Time()) > 20) { // debounce
         if (OS_AddThread(&ButtonWork, 100, 0)) {
             NumCreated++;
         }
-        OS_ClearMsTime(); // at least 20ms between touches
+        OS_ClearTime(); // at least 20ms between touches
     }
 }
 
@@ -253,12 +253,10 @@ void PID(void) {
 // the foreground and the UART ISR signals this semaphore (TxRoomLeft) when
 // getting data from fifo
 
-//******** Interpreter ***************
 // Modify your intepreter from Lab 1, adding commands to help debug
 // Interpreter is a foreground thread, accepts input from serial port, outputs
 // to serial port inputs:  none outputs: none
-void Interpreter(void); // just a prototype, link to your interpreter
-// add the following commands, leave other commands, if they make sense
+// Add the following commands, leave other commands, if they make sense
 // 1) print performance measures
 //    time-jitter, number of data points lost, number of calculations performed
 //    i.e., NumSamples, NumCreated, MaxJitter, DataLost, FilterWork, PIDwork
@@ -266,11 +264,11 @@ void Interpreter(void); // just a prototype, link to your interpreter
 // 2) print debugging parameters
 //    i.e., x[], y[]
 
-int realmain(void) { // realmain
-    OS_Init();       // initialize, disable interrupts
-    PortD_Init();    // debugging profile
-    MaxJitter = 0;   // in 1us units
-    DataLost = 0;    // lost data between producer and consumer
+void realmain(void) { // realmain
+    OS_Init();        // initialize, disable interrupts
+    PortD_Init();     // debugging profile
+    MaxJitter = 0;    // in 1us units
+    DataLost = 0;     // lost data between producer and consumer
     NumSamples = 0;
     FilterWork = 0;
 
@@ -288,11 +286,10 @@ int realmain(void) { // realmain
     // create initial foreground threads
     NumCreated = 0;
     NumCreated += OS_AddThread(&Consumer, 128, 0);
-    NumCreated += OS_AddThread(&Interpreter, 128, 0);
+    NumCreated += OS_AddThread(&interpreter, 128, 0);
     NumCreated += OS_AddThread(&PID, 128, 0);
 
-    OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
-    return 0;         // this never executes
+    OS_Launch(ms(2));
 }
 
 //+++++++++++++++++++++++++DEBUGGING CODE++++++++++++++++++++++++
@@ -343,16 +340,15 @@ void Thread3(void) {
     }
 }
 
-int Testmain1(void) { // Testmain1
-    OS_Init();        // initialize, disable interrupts
-    PortD_Init();     // profile user threads
+void Testmain1(void) { // Testmain1
+    OS_Init();         // initialize, disable interrupts
+    PortD_Init();      // profile user threads
     NumCreated = 0;
     NumCreated += OS_AddThread(&Thread1, 128, 0);
     NumCreated += OS_AddThread(&Thread2, 128, 0);
     NumCreated += OS_AddThread(&Thread3, 128, 0);
     // Count1 Count2 Count3 should be equal or off by one at all times
-    OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
-    return 0;         // this never executes
+    OS_Launch(ms(2));
 }
 
 //*******************Second TEST**********
@@ -385,9 +381,9 @@ void Thread3b(void) {
     }
 }
 
-int Testmain2(void) { // Testmain2
-    OS_Init();        // initialize, disable interrupts
-    PortD_Init();     // profile user threads
+void Testmain2(void) { // Testmain2
+    OS_Init();         // initialize, disable interrupts
+    PortD_Init();      // profile user threads
     NumCreated = 0;
     NumCreated += OS_AddThread(&Thread1b, 128, 0);
     NumCreated += OS_AddThread(&Thread2b, 128, 0);
@@ -395,8 +391,7 @@ int Testmain2(void) { // Testmain2
     // Count1 Count2 Count3 should be equal on average
     // counts are larger than Testmain1
 
-    OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
-    return 0;         // this never executes
+    OS_Launch(ms(2));
 }
 
 //*******************Third TEST**********
@@ -424,7 +419,7 @@ void Thread2c(void) {
         PD1 ^= 0x02; // heartbeat
         Count2++;
         NumCreated += OS_AddThread(&Thread1c, 128, 0);
-        OS_Sleep(5);
+        OS_Sleep(ms(5));
     }
 }
 void Thread3c(void) {
@@ -435,16 +430,15 @@ void Thread3c(void) {
     }
 }
 
-int Testmain3(void) { // Testmain3
-    OS_Init();        // initialize, disable interrupts
-    PortD_Init();     // profile user threads
+void Testmain3(void) { // Testmain3
+    OS_Init();         // initialize, disable interrupts
+    PortD_Init();      // profile user threads
     NumCreated = 0;
     NumCreated += OS_AddThread(&Thread2c, 128, 0);
     NumCreated += OS_AddThread(&Thread3c, 128, 0);
     // Count3 should be larger than Count2, Count1 should be 42
 
-    OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
-    return 0;         // this never executes
+    OS_Launch(ms(2));
 }
 
 //*******************Fourth TEST**********
@@ -497,7 +491,7 @@ void BackgroundThread5d(void) { // called when Select button pushed
     NumCreated += OS_AddThread(&Thread4d, 128, 0);
 }
 
-int Testmain4(void) { // Testmain4
+void Testmain4(void) { // Testmain4
     Count4 = 0;
     OS_Init(); // initialize, disable interrupts
     // Count2 + Count5 should equal Count1
@@ -507,8 +501,7 @@ int Testmain4(void) { // Testmain4
     NumCreated += OS_AddThread(&Thread2d, 128, 0);
     NumCreated += OS_AddThread(&Thread3d, 128, 0);
     NumCreated += OS_AddThread(&Thread4d, 128, 0);
-    OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
-    return 0;         // this never executes
+    OS_Launch(ms(2));
 }
 
 //*******************Fith TEST**********
@@ -556,7 +549,7 @@ void BackgroundThread5e(void) { // called when Select button pushed
     NumCreated += OS_AddThread(&Thread4e, 128, 0);
 }
 
-int Testmain5(void) { // Testmain5
+void Testmain5(void) { // Testmain5
     Count4 = 0;
     OS_Init(); // initialize, disable interrupts
     // Count1 should exactly equal Count2
@@ -568,8 +561,7 @@ int Testmain5(void) { // Testmain5
     NumCreated += OS_AddThread(&Thread2e, 128, 0);
     NumCreated += OS_AddThread(&Thread3e, 128, 0);
     NumCreated += OS_AddThread(&Thread4e, 128, 0);
-    OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
-    return 0;         // this never executes
+    OS_Launch(ms(2));
 }
 
 //*******************Measurement of context switch time**********
@@ -587,13 +579,12 @@ void ThreadCS(void) { // only thread running
         PD0 ^= 0x01; // debugging profile
     }
 }
-int TestmainCS(void) { // TestmainCS
+void TestmainCS(void) { // TestmainCS
     PortD_Init();
     OS_Init(); // initialize, disable interrupts
     NumCreated = 0;
     NumCreated += OS_AddThread(&ThreadCS, 128, 0);
-    OS_Launch(us(100)); // doesn't return, interrupts enabled in here
-    return 0;
+    OS_Launch(us(100));
 }
 
 //*******************FIFO TEST**********
@@ -626,7 +617,7 @@ void BackgroundThreadFIFOProducer(void) { // called periodically
     Count1++;
 }
 
-int TestmainFIFO(void) { // TestmainFIFO
+void TestmainFIFO(void) { // TestmainFIFO
     Count1 = 0;
     DataLost = 0;
     Expected8 = 0;
@@ -637,18 +628,17 @@ int TestmainFIFO(void) { // TestmainFIFO
     OS_Fifo_Init(16);
     NumCreated += OS_AddThread(&ConsumerThreadFIFO, 128, 0);
     NumCreated += OS_AddThread(&FillerThreadFIFO, 128, 0);
-    OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
-    return 0;         // this never executes
+    OS_Launch(ms(2));
 }
 
-//*******************Trampoline for selecting main to execute**********
 int main(void) {
     // Testmain1();
     // Testmain2();
     // TestmainCS();
-    Testmain3();
+    // Testmain3();
     // Testmain4();
     // Testmain5();
     // TestmainFIFO();
+    realmain();
     return 0;
 }
