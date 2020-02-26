@@ -2,11 +2,10 @@
 #include <stdint.h>
 #include <tcb.h>
 
-struct Sema4 {
-    int32_t Value; // >0 means free, otherwise means busy
+typedef struct {
+    int32_t value; // >0 means free, otherwise means busy
     TCB* blocked_head;
-};
-typedef struct Sema4 Sema4Type;
+} Sema4;
 
 typedef struct {
     void (*task)(void);
@@ -20,29 +19,29 @@ typedef struct {
 // Interrupts not yet enabled.
 void OS_Init(void);
 
-void OS_InitSemaphore(Sema4Type* semaPt, int32_t value);
+void OS_InitSemaphore(Sema4* semaPt, int32_t value);
 
 // decrement semaphore
 // Lab2 spinlock
 // Lab3 block if less than zero
 // input: pointer to a counting semaphore
-void OS_Wait(Sema4Type* semaPt);
+void OS_Wait(Sema4* semaPt);
 
 // increment semaphore
 // Lab2 spinlock
 // Lab3 wakeup blocked thread if appropriate
 // input:  pointer to a counting semaphore
-void OS_Signal(Sema4Type* semaPt);
+void OS_Signal(Sema4* semaPt);
 
 // Lab2 spinlock, set to 0
 // Lab3 block if less than zero
 // input: pointer to a binary semaphore
-void OS_bWait(Sema4Type* semaPt);
+void OS_bWait(Sema4* semaPt);
 
 // Lab2 spinlock, set to 1
 // Lab3 wakeup blocked thread if appropriate
 // input: pointer to a binary semaphore
-void OS_bSignal(Sema4Type* semaPt);
+void OS_bSignal(Sema4* semaPt);
 
 // add a foregound thread to the scheduler
 // inputs: pointer to a void/void foreground task

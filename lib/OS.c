@@ -30,66 +30,6 @@ static TCB idle = {.next_tcb = &threads[0],
 
 TCB* current_thread = &idle;
 
-unsigned long OS_LockScheduler(void) {
-    // lab 4 might need this for disk formating
-    return 0; // replace with solution
-}
-void OS_UnLockScheduler(unsigned long previous) {
-    // lab 4 might need this for disk formating
-}
-
-void OS_Init(void) {
-    ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
-                       SYSCTL_OSC_MAIN);
-    for (int i = 0; i < MAX_THREADS; i++) { threads[i].dead = true; }
-    launchpad_init();
-    uart_init();
-}
-
-void OS_InitSemaphore(Sema4Type* semaPt, int32_t value) {
-    semaPt->Value = value;
-    semaPt->blocked_head = 0;
-}
-
-void OS_Wait(Sema4Type* semaPt) {
-    uint32_t crit = start_critical();
-    if (--semaPt->Value >= 0) {
-        return;
-    }
-    if (!semaPt->blocked_head) {
-        current_thread->next_blocked = 0;
-        semaPt->blocked_head = current_thread;
-    } else {
-        TCB* current = semaPt->blocked_head;
-        while (current->next_blocked) { current = current->next_blocked; }
-        current->next_blocked = current_thread;
-    }
-    // TODO: remove from linked list
-    end_critical(crit);
-}
-
-void OS_Signal(Sema4Type* semaPt) {
-    uint32_t crit = start_critical();
-    if (++semaPt->Value > 0) {
-        return;
-    }
-    // TODO: add from linked list
-    end_critical(crit);
-}
-
-void OS_bWait(Sema4Type* semaPt) {
-    uint32_t crit = start_critical();
-    while (!semaPt->Value) { OS_Suspend(); }
-    semaPt->Value = 0;
-    end_critical(crit);
-}
-
-void OS_bSignal(Sema4Type* semaPt) {
-    uint32_t crit = start_critical();
-    semaPt->Value = 1;
-    end_critical(crit);
-}
-
 // must be called from critical section
 static void insert_thread(TCB* adding) {
     if (OS_Id()) {
@@ -113,6 +53,74 @@ static void remove_current_thread() {
         current_thread->prev_tcb->next_tcb = current_thread->next_tcb;
         current_thread->next_tcb->prev_tcb = current_thread->prev_tcb;
     }
+}
+
+unsigned long OS_LockScheduler(void) {
+    // lab 4 might need this for disk formating
+    return 0; // replace with solution
+}
+void OS_UnLockScheduler(unsigned long previous) {
+    // lab 4 might need this for disk formating
+}
+
+void OS_Init(void) {
+    disable_interrupts();
+    ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
+                       SYSCTL_OSC_MAIN);
+    for (int i = 0; i < MAX_THREADS; i++) { threads[i].dead = true; }
+    launchpad_init();
+    uart_init();
+}
+
+void OS_InitSemaphore(Sema4* sem, int32_t value) {
+    sem->value = value;
+    sem->blocked_head = 0;
+}
+
+void OS_Wait(Sema4* sem) {
+    uint32_t crit = start_critical();
+    if (--sem->value >= 0) {
+        end_critical(crit);
+        return;
+    }
+    if (!sem->blocked_head) {
+        current_thread->next_blocked = 0;
+        sem->blocked_head = current_thread;
+    } else {
+        TCB* tail = sem->blocked_head;
+        while (tail->next_blocked) { tail = tail->next_blocked; }
+        tail->next_blocked = current_thread;
+    }
+    remove_current_thread();
+    end_critical(crit);
+    OS_Suspend();
+}
+
+void OS_Signal(Sema4* sem) {
+    uint32_t crit = start_critical();
+    if (++sem->value >= 0) {
+        end_critical(crit);
+        return;
+    }
+    insert_thread(sem->blocked_head);
+    sem->blocked_head = sem->blocked_head->next_blocked;
+    end_critical(crit);
+}
+
+void OS_bWait(Sema4* sem) {
+    uint32_t crit = start_critical();
+    // TODO: lab 3 switch this to not spinlock
+    while (sem->value) {
+        end_critical(crit);
+        OS_Suspend();
+        crit = start_critical();
+    }
+    sem->value = -1;
+    end_critical(crit);
+}
+
+void OS_bSignal(Sema4* sem) {
+    sem->value = 0;
 }
 
 uint8_t thread_count = 0;
