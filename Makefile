@@ -19,6 +19,8 @@ CFLAGS += -pedantic -ffreestanding -MD -MP -std=c2x -Iinc
 
 OPENOCD = openocd -c "source [find board/ek-tm4c123gxl.cfg]"
 
+SHELL := /bin/zsh
+
 all: $(build_dir)/$(target)
 
 $(build_dir)/%.o: src/%.c
@@ -53,8 +55,14 @@ debug_gui: flash
 
 size: $(build_dir)/$(target)
 	llvm-nm --demangle --print-size --size-sort -no-weak --radix=d \
-		out/out.elf | cut -f 2,4 -d " " | sed  "/^ *$/d" | numfmt --field 1 \
-		--to=iec --padding -6 | sed "/^0/d"
+		$(build_dir)/$(target) | cut -f 2,4 -d " " | sed "/^ *$$/d" | \
+		numfmt --field 1 --to=iec --padding -6 | sed "/^0/d"
+
+space: $(build_dir)/$(target)
+	llvm-size $(build_dir)/$(target) | tail -1 | read -r rom data bss rest \
+		&& ram=$$(expr $$data + $$bss) \
+		&& echo "\nROM: $$(numfmt --to=iec $$rom)/256K ($$(expr $$rom \* 100 / 262144)%)" \
+		&& echo "RAM: $$(numfmt --to=iec $$ram)/32K ($$(expr $$ram \* 100 / 32768)%)"
 
 disassemble: $(build_dir)/$(target)
 	arm-none-eabi-objdump $(build_dir)/$(target) -S -C \
