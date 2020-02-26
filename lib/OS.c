@@ -145,9 +145,35 @@ uint32_t OS_Id(void) {
     return 0;
 }
 
+#define MAX_PTASKS 1
+ptask ptasks[MAX_PTASKS];
+uint8_t num_ptasks = 0;
+void periodic_task(void) {
+    if (num_ptasks == 0) {
+        return;
+    }
+
+    ptask task = ptasks[0];
+    uint32_t reload = timer_load(2);
+
+    for (uint8_t i = 0; i < num_ptasks; i++) {
+        if (ptasks[i].time <= reload) {
+            if ((ptasks[i].time <= reload) &&
+                (ptasks[i].priority < task.priority)) {
+                ptasks[i].time = ptasks[i].reload;
+                task = ptasks[i];
+            }
+        }
+    }
+    (task.task)();
+}
 int OS_AddPeriodicThread(void (*task)(void), uint32_t period,
                          uint32_t priority) {
-    // put Lab 2 (and beyond) solution here
+    ptasks[num_ptasks].task = task;
+    ptasks[num_ptasks].priority = priority;
+    ptasks[num_ptasks].time = 0;
+    ptasks[num_ptasks].reload = period;
+
     return 0;
 }
 
@@ -260,6 +286,7 @@ void OS_Launch(uint32_t theTimeSlice) {
     ROM_IntPrioritySet(FAULT_PENDSV, 0xff); // priority is high 3 bits
     ROM_IntPendSet(FAULT_PENDSV);
     periodic_timer_enable(1, ms(1), &sleep_task, 3);
+    periodic_timer_enable(2, us(100), &periodic_task, 1);
     ROM_SysTickPeriodSet(theTimeSlice);
     ROM_SysTickIntEnable();
     ROM_SysTickEnable();

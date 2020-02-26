@@ -1,12 +1,19 @@
 #pragma once
-#include <tcb.h>
 #include <stdint.h>
+#include <tcb.h>
 
 struct Sema4 {
     int32_t Value; // >0 means free, otherwise means busy
     TCB* blocked_head;
 };
 typedef struct Sema4 Sema4Type;
+
+typedef struct {
+    void (*task)(void);
+    uint32_t time;
+    uint32_t reload;
+    uint32_t priority;
+} ptask;
 
 // Initialize operating system, disable interrupts until OS_Launch.
 // Initialize OS controlled I/O: serial, ADC, systick, LaunchPad I/O and timers.
