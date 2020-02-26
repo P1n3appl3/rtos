@@ -73,7 +73,7 @@ float to_ms(uint32_t time) {
 }
 
 float to_seconds(uint32_t time) {
-    return to_ms(time) * 1000;
+    return ((float)time) / 100000000;
 }
 
 uint32_t get_timer_reload(uint8_t timer_num) {

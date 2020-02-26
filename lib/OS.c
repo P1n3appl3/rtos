@@ -309,11 +309,15 @@ uint32_t OS_TimeDifference(uint32_t start, uint32_t stop) {
 void OS_ClearTime(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_WTIMER5);
     ROM_TimerConfigure(WTIMER5_BASE, TIMER_CFG_PERIODIC_UP);
-    ROM_TimerEnable(WTIMER5_BASE, TIMER_BOTH);
+    // TODO: figure out why this doesn't work
+    // ROM_TimerPrescaleSet(WTIMER5_BASE, TIMER_A, SYSTEM_TIME_DIV);
+    ROM_TimerEnable(WTIMER5_BASE, TIMER_A);
+    // TODO: figure out how to reset timer value while counting up
+    ROM_TimerLoadSet(WTIMER5_BASE, TIMER_A, 0);
 }
 
 uint32_t OS_Time(void) {
-    return ROM_TimerValueGet64(WTIMER5_BASE) / SYSTEM_TIME_DIV;
+    return ROM_TimerValueGet(WTIMER5_BASE, TIMER_A) / SYSTEM_TIME_DIV;
 }
 
 void OS_Launch(uint32_t time_slice) {

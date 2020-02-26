@@ -83,12 +83,13 @@ char token[32];
 
 static bool next_token() {
     while (is_whitespace(*current)) { ++current; }
-    if (!*current) {
-        token[0] = '\0';
-        return false; // TODO: currently seems to never return false
+    if (!(token[0] = *current)) {
+        return false;
     }
     uint8_t tok_idx = 0;
-    do { token[tok_idx++] = *current++; } while (!is_whitespace(*current));
+    do {
+        token[tok_idx++] = *current++;
+    } while (*current && !is_whitespace(*current));
     token[tok_idx] = '\0';
     return true;
 }
@@ -107,17 +108,15 @@ static char* HELPSTRING =
     "\ttime [get|reset]\t\t\tget or reset the OS time\n\n\r";
 
 static void interpret_command(void) {
-    printf("> ");
-    // gets(raw_command, sizeof(raw_command));
-    // puts(raw_command);
+    printf("\n\r> ");
     readline(raw_command, sizeof(raw_command));
     current = raw_command;
     if (!next_token()) {
-        printf("ERROR: enter a command\n");
+        printf("ERROR: enter a command\n\r");
         return;
     }
     if (streq(token, "help") || streq(token, "h")) {
-        printf(HELPSTRING);
+        puts(HELPSTRING);
     } else if (streq(token, "led")) {
         if (!next_token()) {
             printf("ERROR: expected another argument for color\n\r");
@@ -131,8 +130,9 @@ static void interpret_command(void) {
         } else if (streq(token, "green") || streq(token, "g")) {
             led = GREEN_LED;
         } else {
-            printf("ERROR: invalid led color '%s'\nTry red, green, or blue\n",
-                   token);
+            printf(
+                "ERROR: invalid led color '%s'\n\rTry red, green, or blue\n\r",
+                token);
             return;
         }
         if (!next_token() || streq(token, "toggle") || streq(token, "t")) {
@@ -142,12 +142,12 @@ static void interpret_command(void) {
         } else if (streq(token, "off") || streq(token, "0")) {
             led_write(led, false);
         } else {
-            printf("ERROR: invalid action '%s'\nTry on, off, or toggle\n",
+            printf("ERROR: invalid action '%s'\n\rTry on, off, or toggle\n\r",
                    token);
             return;
         }
     } else if (streq(token, "adc")) {
-        printf("ADC reading: %d\n", ADC_in());
+        printf("ADC reading: %d\n\r", ADC_in());
     } else if (streq(token, "lcd")) {
         uint8_t line = 0;
         char quote_type = '\0';
@@ -164,13 +164,13 @@ static void interpret_command(void) {
             ++current;
         }
         if (!quote_type) {
-            printf("ERROR: expected quoted string\n");
+            printf("ERROR: expected quoted string\n\r");
             return;
         }
         str = ++current;
         while (*current && *current != quote_type) { ++current; }
         if (!*current) {
-            printf("ERROR: missing closing quote\n");
+            printf("ERROR: missing closing quote\n\r");
             return;
         }
         *current++ = '\0';
@@ -179,14 +179,15 @@ static void interpret_command(void) {
         } else if (streq(token, "bottom")) {
             bottom = true;
         } else {
-            printf("ERROR: expected 'top' or 'bottom', got '%s'\n", token);
+            printf("ERROR: expected 'top' or 'bottom', got '%s'\n\r", token);
         }
         if (next_token()) {
             int32_t temp = atoi(token);
             if (temp < 8 && temp >= 0 && is_numeric(token)) {
                 line = temp;
             } else {
-                printf("ERROR: expected a number in [0, 7], got '%s'\n", token);
+                printf("ERROR: expected a number in [0, 7], got '%s'\n\r",
+                       token);
                 return;
             }
         }
@@ -199,19 +200,20 @@ static void interpret_command(void) {
         } else if (streq(token, "disable")) {
             heartbeat_enabled = false;
         } else {
-            printf("ERROR: expected 'enable' or 'disable', got '%s'\n", token);
+            printf("ERROR: expected 'enable' or 'disable', got '%s'\n\r",
+                   token);
         }
     } else if (streq(token, "time")) {
         if (!next_token() || streq(token, "get")) {
-            printf("Current time: %dms\n", (uint32_t)ms(OS_Time()));
+            printf("Current time: %dms\n\r", (uint32_t)to_ms(OS_Time()));
         } else if (streq(token, "reset")) {
-            printf("OS time reset\n");
+            printf("OS time reset\n\r");
             OS_ClearTime();
         } else {
-            printf("ERROR: expected 'get' or 'reset', got '%s'\n", token);
+            printf("ERROR: expected 'get' or 'reset', got '%s'\n\r", token);
         }
     } else {
-        printf("ERROR: invalid command '%s'\n", token);
+        printf("ERROR: invalid command '%s'\n\r", token);
     }
 }
 

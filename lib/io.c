@@ -105,7 +105,7 @@ uint16_t readline(char* str, uint16_t len) {
             if (recieved == 0) {
                 break;
             }
-            *str++ = '\n';
+            *str = '\0';
             return recieved + 1;
         case 127:
             if (recieved > 0) {
@@ -122,5 +122,6 @@ uint16_t readline(char* str, uint16_t len) {
             ++recieved;
         }
     }
+    *--str = '\0';
     return recieved;
 }

@@ -22,6 +22,7 @@
 #include "OS.h"
 #include "ST7735.h"
 #include "interpreter.h"
+#include "interrupts.h"
 #include "io.h"
 #include "launchpad.h"
 #include "timer.h"
@@ -254,8 +255,6 @@ void PID(void) {
 // getting data from fifo
 
 // Modify your intepreter from Lab 1, adding commands to help debug
-// Interpreter is a foreground thread, accepts input from serial port, outputs
-// to serial port inputs:  none outputs: none
 // Add the following commands, leave other commands, if they make sense
 // 1) print performance measures
 //    time-jitter, number of data points lost, number of calculations performed
@@ -632,6 +631,9 @@ void TestmainFIFO(void) { // TestmainFIFO
 }
 
 int main(void) {
+    OS_Init();
+    OS_AddThread(interpreter, 512, 4);
+    OS_Launch(ms(5));
     // Testmain1();
     // Testmain2();
     // TestmainCS();
@@ -639,6 +641,6 @@ int main(void) {
     // Testmain4();
     // Testmain5();
     // TestmainFIFO();
-    realmain();
+    // realmain();
     return 0;
 }
