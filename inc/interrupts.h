@@ -1,7 +1,9 @@
 #include <stdint.h>
 
-void disable_interrupts(void);
-void enable_interrupts(void);
-void wait_for_interrupts(void);
+#define disable_interrupts() __asm("CPSID I")
+#define enable_interrupts() __asm("CPSIE I")
+#define wait_for_interrupts() __asm("WFI")
+
 uint32_t start_critical(void);
-void end_critical(uint32_t);
+
+void end_critical(uint32_t x);
