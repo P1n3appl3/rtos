@@ -631,14 +631,11 @@ void TestmainFIFO(void) { // TestmainFIFO
 }
 
 int main(void) {
-    OS_Init();
-    OS_AddThread(interpreter, 512, 4);
-    OS_Launch(ms(5));
     // Testmain1();
     // Testmain2();
     // TestmainCS();
     // Testmain3();
-    // Testmain4();
+    Testmain4();
     // Testmain5();
     // TestmainFIFO();
     // realmain();

@@ -49,6 +49,9 @@ uart: run
 debug: flash
 	arm-none-eabi-gdb $(build_dir)/$(target) -x misc/debug.gdb
 
+quick_debug:
+	arm-none-eabi-gdb $(build_dir)/$(target) -x misc/debug.gdb
+
 debug_gui: flash
 	gdbgui -g arm-none-eabi-gdb --gdb-args="-command=misc/debug_gui.gdb" \
 		$(build_dir)/$(target)
@@ -73,4 +76,4 @@ clean:
 
 $(shell mkdir -p $(build_dir))
 
-.PHONY: all clean debug debug_gui flash run size
+.PHONY: all clean debug debug_gui flash run size space quick_debug

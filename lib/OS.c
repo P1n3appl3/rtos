@@ -23,6 +23,7 @@ uint32_t JitterHistogram[JITTERSIZE] = {0};
 #define MAX_THREADS 8
 
 static TCB threads[MAX_THREADS];
+uint8_t thread_count = 0;
 
 static TCB idle = {.next_tcb = &threads[0],
                    .prev_tcb = &threads[0],
@@ -36,16 +37,15 @@ ADDFIFO(os, 16, uint32_t)
 
 // must be called from critical section
 static void insert_thread(TCB* adding) {
-    if (OS_Id()) {
-        adding->next_tcb = current_thread->next_tcb;
-        adding->prev_tcb = current_thread;
+    if (thread_count > 0) {
+        adding->next_tcb = current_thread->next_tcb->next_tcb;
+        adding->prev_tcb = current_thread->next_tcb;
     } else {
         adding->prev_tcb = adding;
         adding->next_tcb = adding;
     }
-
-    current_thread->next_tcb->prev_tcb = adding;
-    current_thread->next_tcb = adding;
+    current_thread->next_tcb->next_tcb->prev_tcb = adding;
+    current_thread->next_tcb->next_tcb = adding;
 }
 
 // must be called from critical section
@@ -127,26 +127,27 @@ void OS_bSignal(Sema4* sem) {
     sem->value = 0;
 }
 
-uint8_t thread_count = 0;
 uint32_t thread_uuid = 1;
 bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
     uint32_t crit = start_critical();
     if (thread_count >= MAX_THREADS) {
         return false;
     }
+    ++thread_count;
     uint8_t thread_index = 0;
     while (!threads[thread_index].dead) { thread_index++; }
     TCB* adding = &threads[thread_index];
 
+    adding->dead = false;
     adding->sleep = false;
     adding->sleep_time = 0;
     adding->id = thread_uuid++;
-    adding->sp = adding->stack;
 
     insert_thread(adding);
 
     // initialize stack
     adding->sp = &adding->stack[STACK_SIZE - 1];
+    adding->sp -= 17;                    // Space for floating point registers
     *(--adding->sp) = 0x21000000;        // PSR
     *(--adding->sp) = (uint32_t)task;    // PC
     *(--adding->sp) = (uint32_t)OS_Kill; // LR
@@ -155,14 +156,14 @@ bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
     *(--adding->sp) = 2;
     *(--adding->sp) = 1;
     *(--adding->sp) = 0;
-    *(--adding->sp) = 4;
-    *(--adding->sp) = 5;
-    *(--adding->sp) = 6;
-    *(--adding->sp) = 7;
-    *(--adding->sp) = 8;
-    *(--adding->sp) = 9;
-    *(--adding->sp) = 10;
     *(--adding->sp) = 11;
+    *(--adding->sp) = 10;
+    *(--adding->sp) = 9;
+    *(--adding->sp) = 8;
+    *(--adding->sp) = 7;
+    *(--adding->sp) = 6;
+    *(--adding->sp) = 5;
+    *(--adding->sp) = 4;
     adding->stack[0] = 0xaBad1dea; // TODO: use to detect stack overflow
     end_critical(crit);
     return true;
@@ -241,6 +242,7 @@ void OS_Sleep(uint32_t time) {
 
 void OS_Kill(void) {
     uint32_t crit = start_critical();
+    --thread_count;
     current_thread->dead = true;
     remove_current_thread();
     OS_Suspend();
@@ -323,12 +325,16 @@ uint32_t OS_Time(void) {
 void OS_Launch(uint32_t time_slice) {
     ROM_IntPrioritySet(FAULT_PENDSV, 0xff); // priority is high 3 bits
     ROM_IntPendSet(FAULT_PENDSV);
-    ROM_SysTickPeriodSet(time_slice);
+    ROM_SysTickPeriodSet(time_slice * SYSTEM_TIME_DIV);
     ROM_SysTickIntEnable();
     ROM_SysTickEnable();
     timer_enable(1, ms(1), &sleep_task, 3, true);
     timer_enable(2, us(100), &periodic_task, 1, true);
     OS_ClearTime();
+    // Set SP to idle's stack
+    __asm("LDR R0, =idle\n"
+          "LDR R0, [R0]\n"
+          "MOV SP, R0\n");
     enable_interrupts();
     while (true) {}
 }
