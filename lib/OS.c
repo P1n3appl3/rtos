@@ -4,7 +4,6 @@
 #include "interrupts.h"
 #include "io.h"
 #include "launchpad.h"
-#include "switch.h"
 #include "tcb.h"
 #include "timer.h"
 #include "tivaware/hw_ints.h"
@@ -329,7 +328,7 @@ void OS_Launch(uint32_t time_slice) {
     ROM_SysTickIntEnable();
     ROM_SysTickEnable();
     timer_enable(1, ms(1), &sleep_task, 3, true);
-    timer_enable(2, us(100), &periodic_task, 1, true);
+    timer_enable(2, us(100), &periodic_task, 2, true);
     OS_ClearTime();
     // Set SP to idle's stack
     __asm("LDR R0, =idle\n"

@@ -14,6 +14,10 @@ void launchpad_init(void);
 #define BLUE_LED 4
 #define GREEN_LED 8
 
+void switch1_init(void (*task)(void), uint8_t priority);
+
+void switch2_init(void (*task)(void), uint8_t priority);
+
 bool left_switch(void);
 
 bool right_switch(void);
