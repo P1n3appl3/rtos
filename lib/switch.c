@@ -1,4 +1,6 @@
 #include "timer.h"
+#include "tivaware/gpio.h"
+#include "tivaware/hw_memmap.h"
 #include "tivaware/rom.h"
 #include "tm4c123gh6pm.h"
 
@@ -25,6 +27,8 @@ void timer_arm(void) {
 
 void switch1_init(void (*task)(void), uint8_t priority) {
     ROM_IntPrioritySet(INT_GPIOF, priority);
+    ROM_GPIOIntTypeSet(GPIO_PORTF_BASE, GPIO_PIN_0 | GPIO_PIN_4,
+                       GPIO_RISING_EDGE);
     sw1last = PF0; // initial button state
     sw1task = task;
     swpriority = priority;
