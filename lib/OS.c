@@ -175,32 +175,56 @@ uint32_t OS_Id(void) {
 #define MAX_PTASKS 1
 PTask ptasks[MAX_PTASKS];
 uint8_t num_ptasks = 0;
+PTask* phead = 0;
+
+void plist_insert(PTask* task) {
+    if (phead == 0) {
+        phead = task;
+    } else if (task->priority < phead->priority) {
+        task->next = phead;
+        phead = task;
+    } else if (num_ptasks == 1) {
+        phead->next = task;
+    } else {
+        PTask* ptr = phead;
+        while (ptr->next->priority < task->priority) { ptr = ptr->next; }
+        task->next = ptr->next;
+        ptr->next = task;
+    }
+}
 
 void periodic_task(void) {
     if (num_ptasks == 0) {
         return;
     }
-    PTask task = ptasks[0];
     uint32_t reload = get_timer_reload(2);
+    phead = 0;
 
     for (uint8_t i = 0; i < num_ptasks; i++) {
+        ptasks[i].next = 0;
         if (ptasks[i].time <= reload) {
-            if ((ptasks[i].time <= reload) &&
-                (ptasks[i].priority < task.priority)) {
-                ptasks[i].time = ptasks[i].reload;
-                task = ptasks[i];
-            }
+            ptasks[i].time = ptasks[i].reload;
+            plist_insert(&ptasks[i]);
+        } else {
+            ptasks[i].time -= reload;
         }
     }
-    (task.task)();
+
+    PTask* task = phead;
+    while (task != 0) {
+        (task->task)();
+        task = task->next;
+    }
 }
 
 bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
                           uint32_t priority) {
     ptasks[num_ptasks].task = task;
     ptasks[num_ptasks].priority = priority;
-    ptasks[num_ptasks].time = 0;
-    ptasks[num_ptasks++].reload = period;
+    ptasks[num_ptasks].time = period;
+    ptasks[num_ptasks].next = 0;
+    ptasks[num_ptasks].reload = period;
+    num_ptasks++;
     return true;
 }
 

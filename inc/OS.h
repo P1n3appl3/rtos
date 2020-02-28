@@ -7,11 +7,12 @@ typedef struct {
     TCB* blocked_head;
 } Sema4;
 
-typedef struct {
+typedef struct ptask {
     void (*task)(void);
     uint32_t time;
     uint32_t reload;
     uint32_t priority;
+    struct ptask* next;
 } PTask;
 
 // Initialize operating system, disable interrupts until OS_Launch.
