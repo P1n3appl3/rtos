@@ -68,12 +68,12 @@ uint32_t to_us(uint32_t time) {
     return time / (80 / SYSTEM_TIME_DIV);
 }
 
-float to_ms(uint32_t time) {
-    return time / (80000.f / SYSTEM_TIME_DIV);
+uint32_t to_ms(uint32_t time) {
+    return time / (80000 / SYSTEM_TIME_DIV);
 }
 
-float to_seconds(uint32_t time) {
-    return ((float)time) / 100000000;
+uint32_t to_seconds(uint32_t time) {
+    return time / (80000000 / SYSTEM_TIME_DIV);
 }
 
 uint32_t get_timer_reload(uint8_t timer_num) {

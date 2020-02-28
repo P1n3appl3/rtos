@@ -13,14 +13,14 @@ uint32_t to_us(uint32_t time);
 // Milliseconds to system units
 uint32_t ms(float ms);
 
-// System units to microseconds
-float to_ms(uint32_t time);
+// System units to milliseconds
+uint32_t to_ms(uint32_t time);
 
 // Seconds to system units
 uint32_t seconds(float s);
 
-// System units to microseconds
-float to_seconds(uint32_t time);
+// System units to seconds
+uint32_t to_seconds(uint32_t time);
 
 // Enables periodic timer interrupts
 // timer_num: 0-11 (6-11 use 64 bit timers)
