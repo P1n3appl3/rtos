@@ -637,7 +637,7 @@ int main(void) {
     // Testmain3();
     // Testmain4();
     // Testmain5();
-    TestmainFIFO();
-    // realmain();
+    // TestmainFIFO();
+    realmain();
     return 0;
 }

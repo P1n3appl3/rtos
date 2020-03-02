@@ -301,14 +301,12 @@ bool OS_Fifo_Put(uint32_t data) {
         return false;
     }
     osfifo_put(data);
-    OS_bSignal(&FifoAvailable);
+    OS_Signal(&FifoAvailable);
     return true;
 }
 
 uint32_t OS_Fifo_Get(void) {
-    if (osfifo_empty()) {
-        OS_bWait(&FifoAvailable);
-    }
+    OS_Wait(&FifoAvailable);
     uint32_t temp;
     osfifo_get(&temp);
     return temp;
