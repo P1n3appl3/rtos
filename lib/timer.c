@@ -78,24 +78,25 @@ uint32_t to_seconds(uint32_t time) {
 
 uint32_t get_timer_reload(uint8_t timer_num) {
     TimerConfig config = timers[timer_num];
-    return ROM_TimerLoadGet(config.base, TIMER_A);
+    return ROM_TimerLoadGet(config.base, TIMER_A) / SYSTEM_TIME_DIV;
 }
 
 uint32_t get_timer_value(uint8_t timer_num) {
     TimerConfig config = timers[timer_num];
-    return ROM_TimerValueGet(config.base, TIMER_A);
+    return ROM_TimerValueGet(config.base, TIMER_A) / SYSTEM_TIME_DIV;
 }
 
 void timer_enable(uint8_t timer_num, uint32_t period, void (*task)(void),
                   uint8_t priority, bool periodic) {
-    period *= SYSTEM_TIME_DIV;
     TimerConfig config = timers[timer_num];
     ROM_SysCtlPeripheralEnable(config.sysctl_periph);
     ROM_TimerConfigure(config.base,
                        periodic ? TIMER_CFG_PERIODIC : TIMER_CFG_ONE_SHOT);
     ROM_TimerLoadSet(config.base, TIMER_A, period);
     ROM_TimerConfigure(config.base, TIMER_CFG_PERIODIC);
-    ROM_TimerLoadSet(config.base, TIMER_A, period);
+    ROM_TimerControlStall(config.base, TIMER_A, true);
+    // TODO: use prescale instead of multiplying to get more range
+    ROM_TimerLoadSet(config.base, TIMER_A, period * SYSTEM_TIME_DIV);
     ROM_IntEnable(config.intterrupt);
     ROM_IntPrioritySet(config.intterrupt,
                        priority << 5); // priority is high 3 bits

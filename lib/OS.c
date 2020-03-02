@@ -82,6 +82,15 @@ void OS_InitSemaphore(Sema4* sem, int32_t value) {
 
 void OS_Wait(Sema4* sem) {
     uint32_t crit = start_critical();
+    while (sem->value < 0) {
+        end_critical(crit);
+        OS_Suspend();
+        crit = start_critical();
+    }
+    --sem->value;
+    end_critical(crit);
+    return;
+    // TODO: use this stuff for lab 3
     if (--sem->value >= 0) {
         end_critical(crit);
         return;
@@ -101,6 +110,10 @@ void OS_Wait(Sema4* sem) {
 
 void OS_Signal(Sema4* sem) {
     uint32_t crit = start_critical();
+    ++sem->value;
+    end_critical(crit);
+    return;
+    // TODO: use this stuff for lab 3
     if (++sem->value >= 0) {
         end_critical(crit);
         return;
@@ -113,7 +126,7 @@ void OS_Signal(Sema4* sem) {
 void OS_bWait(Sema4* sem) {
     uint32_t crit = start_critical();
     // TODO: lab 3 switch this to not spinlock
-    while (sem->value) {
+    while (sem->value < 0) {
         end_critical(crit);
         OS_Suspend();
         crit = start_critical();
@@ -129,7 +142,8 @@ void OS_bSignal(Sema4* sem) {
 uint32_t thread_uuid = 1;
 bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
     uint32_t crit = start_critical();
-    if (thread_count >= MAX_THREADS) {
+    if (thread_count >= MAX_THREADS - 1) {
+        end_critical(crit);
         return false;
     }
     ++thread_count;
@@ -146,7 +160,7 @@ bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
 
     // initialize stack
     adding->sp = &adding->stack[STACK_SIZE - 1];
-    adding->sp -= 17;                    // Space for floating point registers
+    adding->sp -= 18;                    // Space for floating point registers
     *(--adding->sp) = 0x21000000;        // PSR
     *(--adding->sp) = (uint32_t)task;    // PC
     *(--adding->sp) = (uint32_t)OS_Kill; // LR
@@ -228,14 +242,14 @@ bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
     return true;
 }
 
-int OS_AddSW1Task(void (*task)(void), uint32_t priority) {
+bool OS_AddSW1Task(void (*task)(void), uint32_t priority) {
     switch1_init(task, priority);
-    return 0;
+    return true;
 }
 
-int OS_AddSW2Task(void (*task)(void), uint32_t priority) {
+bool OS_AddSW2Task(void (*task)(void), uint32_t priority) {
     switch2_init(task, priority);
-    return 0;
+    return true;
 }
 
 static void sleep_task(void) {
@@ -334,11 +348,13 @@ uint32_t OS_TimeDifference(uint32_t start, uint32_t stop) {
 void OS_ClearTime(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_WTIMER5);
     ROM_TimerConfigure(WTIMER5_BASE, TIMER_CFG_PERIODIC_UP);
+    ROM_TimerControlStall(WTIMER5_BASE, TIMER_A, false);
     // TODO: figure out why this doesn't work
     // ROM_TimerPrescaleSet(WTIMER5_BASE, TIMER_A, SYSTEM_TIME_DIV);
     ROM_TimerEnable(WTIMER5_BASE, TIMER_A);
-    // TODO: figure out how to reset timer value while counting up
-    ROM_TimerLoadSet(WTIMER5_BASE, TIMER_A, 0);
+    // TODO: figure out why the rom function doesn't work
+    // ROM_TimerLoadSet(WTIMER5_BASE, TIMER_A, 0);
+    *(volatile uint32_t*)(WTIMER5_BASE + 0x50) = 0; // clear value register
 }
 
 uint32_t OS_Time(void) {

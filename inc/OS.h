@@ -63,7 +63,7 @@ uint32_t OS_Id(void);
 // inputs: pointer to a void/void background function
 //         period given in system time units
 //         priority 0 is the highest, 5 is the lowest
-// returns: 1 if successful, 0 if this thread can not be added
+// returns: true if successful, false if this thread can not be added
 // You are free to select the time resolution for this function
 // It is assumed that the user task will run to completion and return
 // This task can not spin, block, loop, sleep, or kill
@@ -80,7 +80,7 @@ bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
 // add a background task to run whenever the SW1 (PF4) button is pushed
 // inputs: pointer to a void/void background function
 //         priority 0 is the highest, 5 is the lowest
-// returns: 1 if successful, 0 if this thread can not be added
+// returns: true if successful, false if this thread can not be added
 // It is assumed that the user task will run to completion and return
 // This task can not spin, block, loop, sleep, or kill
 // This task can call OS_Signal  OS_bSignal   OS_AddThread
@@ -89,12 +89,12 @@ bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
 // In lab 2, the priority field can be ignored
 // In lab 3, there will be up to four background threads, and this priority
 // field determines the relative priority of these four threads
-int OS_AddSW1Task(void (*task)(void), uint32_t priority);
+bool OS_AddSW1Task(void (*task)(void), uint32_t priority);
 
 // add a background task to run whenever the SW2 (PF0) button is pushed
 // inputs: pointer to a void/void background function
 //         priority 0 is highest, 5 is lowest
-// returns: 1 if successful, 0 if this thread can not be added
+// returns: true if successful, false if this thread can not be added
 // It is assumed user task will run to completion and return
 // This task can not spin block loop sleep or kill
 // This task can call issue OS_Signal, it can call OS_AddThread
@@ -103,7 +103,7 @@ int OS_AddSW1Task(void (*task)(void), uint32_t priority);
 // In lab 3, this command will be called will be called 0 or 1 times
 // In lab 3, there will be up to four background threads, and this priority
 // field determines the relative priority of these four threads
-int OS_AddSW2Task(void (*task)(void), uint32_t priority);
+bool OS_AddSW2Task(void (*task)(void), uint32_t priority);
 
 // place this thread into a dormant state
 // input: number of system time units to sleep

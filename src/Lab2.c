@@ -122,7 +122,7 @@ void ButtonWork(void) {
     PD1 ^= 0x02;
     ST7735_Message_Num(1, 0, "NumCreated =", NumCreated);
     PD1 ^= 0x02;
-    OS_Sleep(50); // set this to sleep for 50msec
+    OS_Sleep(ms(50));
     ST7735_Message_Num(1, 1, "PIDWork     =", PIDWork);
     ST7735_Message_Num(1, 2, "DataLost    =", DataLost);
     ST7735_Message_Num(1, 3, "Jitter 0.1us=", MaxJitter);
@@ -405,7 +405,7 @@ void Testmain2(void) { // Testmain2
 void Thread1c(void) {
     int i;
     Count1 = 0;
-    for (i = 0; i <= 42; i++) {
+    for (i = 0; i < 42; i++) {
         PD0 ^= 0x01; // heartbeat
         Count1++;
     }
@@ -481,10 +481,10 @@ void Thread4d(void) {
     int i;
     for (i = 0; i < 64; i++) {
         Count4++;
-        OS_Sleep(10);
+        OS_Sleep(ms(10));
     }
     OS_Kill();
-    Count4 = 0;
+    Count4 = 0; // should never run (Count4 should be 64)
 }
 void BackgroundThread5d(void) { // called when Select button pushed
     NumCreated += OS_AddThread(&Thread4d, 128, 0);
@@ -512,11 +512,11 @@ void Testmain4(void) { // Testmain4
 // no ADC serial port or LCD output
 // tests the spinlock semaphores, tests Sleep and Kill
 Sema4 Readye;                   // set in background
-void BackgroundThread1e(void) { // called at 1000 Hz
+void BackgroundThread1e(void) { // called at 2000 Hz
     static int i = 0;
     i++;
     if (i == 50) {
-        i = 0; // every 50 ms
+        i = 0; // every 25 ms
         Count1++;
         OS_bSignal(&Readye);
     }
@@ -540,7 +540,7 @@ void Thread4e(void) {
     int i;
     for (i = 0; i < 640; i++) {
         Count4++; // Count4 should increase on button press
-        OS_Sleep(1);
+        OS_Sleep(ms(1));
     }
     OS_Kill();
 }
@@ -555,7 +555,7 @@ void Testmain5(void) { // Testmain5
     // Count3 should be very large
     // Count4 increases by 640 every time select is pressed
     NumCreated = 0;
-    OS_AddPeriodicThread(&BackgroundThread1e, us(500), 0);
+    OS_AddPeriodicThread(&BackgroundThread1e, ms(0.5), 0);
     OS_AddSW1Task(&BackgroundThread5e, 2);
     NumCreated += OS_AddThread(&Thread2e, 128, 0);
     NumCreated += OS_AddThread(&Thread3e, 128, 0);
@@ -635,9 +635,9 @@ int main(void) {
     // Testmain2();
     // TestmainCS();
     // Testmain3();
-    Testmain4();
+    // Testmain4();
     // Testmain5();
-    // TestmainFIFO();
+    TestmainFIFO();
     // realmain();
     return 0;
 }
