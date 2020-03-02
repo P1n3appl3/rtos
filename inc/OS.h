@@ -136,7 +136,7 @@ void OS_Fifo_Init(uint32_t size);
 // was full
 // Since this is called by interrupt handlers this function can not
 // disable or enable interrupts
-int OS_Fifo_Put(uint32_t data);
+bool OS_Fifo_Put(uint32_t data);
 
 // Remove one data sample from the Fifo
 // Called in foreground, will spin/block if empty

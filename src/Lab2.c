@@ -610,7 +610,7 @@ void FillerThreadFIFO(void) {
     for (;;) { Count3++; }
 }
 void BackgroundThreadFIFOProducer(void) { // called periodically
-    if (OS_Fifo_Put(Count1) == 0) {       // send to consumer
+    if (!OS_Fifo_Put(Count1)) {           // send to consumer
         DataLost++;
     }
     Count1++;

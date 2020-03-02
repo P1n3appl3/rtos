@@ -296,15 +296,13 @@ void OS_Fifo_Init(uint32_t size) {
     osfifo_init();
 }
 
-int OS_Fifo_Put(uint32_t data) {
-    if (!osfifo_full()) {
-        osfifo_put(data);
-
-        if (osfifo_size() == 1) {
-            OS_bSignal(&FifoAvailable);
-        }
+bool OS_Fifo_Put(uint32_t data) {
+    if (osfifo_full()) {
+        return false;
     }
-    return 0;
+    osfifo_put(data);
+    OS_bSignal(&FifoAvailable);
+    return true;
 }
 
 uint32_t OS_Fifo_Get(void) {
