@@ -84,6 +84,7 @@ int32_t abs(int32_t n) {
 // runs 2000 times/sec
 // samples analog channel 0, PE3,
 uint32_t DASoutput;
+#define DAS_PERIOD us(500)
 void DAS(void) {
     uint32_t input;
     unsigned static long LastTime; // time at previous ADC sample
@@ -98,7 +99,7 @@ void DAS(void) {
         FilterWork++;         // calculation finished
         if (FilterWork > 1) { // ignore timing of first interrupt
             uint32_t diff = OS_TimeDifference(LastTime, thisTime);
-            jitter = abs((int32_t)diff - (int32_t)us(500));
+            jitter = abs((int32_t)diff - (int32_t)DAS_PERIOD);
             if (jitter > MaxJitter) {
                 MaxJitter = jitter;
             }
@@ -280,7 +281,7 @@ void realmain(void) { // realmain
 
     // attach background tasks
     OS_AddSW1Task(&SW1Push, 2);
-    OS_AddPeriodicThread(&DAS, us(500), 1); // 2 kHz real time sampling of PE3
+    OS_AddPeriodicThread(&DAS, DAS_PERIOD, 1); // 2 kHz real time sampling of PE3
 
     // create initial foreground threads
     NumCreated = 0;

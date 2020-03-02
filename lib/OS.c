@@ -15,7 +15,7 @@
 
 // Performance Measurements
 int32_t MaxJitter; // largest time jitter between interrupts
-#define JITTERSIZE 64
+#define JITTERSIZE 256
 uint32_t const JitterSize = JITTERSIZE;
 uint32_t JitterHistogram[JITTERSIZE] = {0};
 
@@ -73,6 +73,7 @@ void OS_Init(void) {
     for (int i = 0; i < MAX_THREADS; i++) { threads[i].dead = true; }
     launchpad_init();
     uart_init();
+    ST7735_InitR(INITR_REDTAB);
 }
 
 void OS_InitSemaphore(Sema4* sem, int32_t value) {

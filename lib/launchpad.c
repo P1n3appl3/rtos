@@ -19,7 +19,7 @@ void launchpad_init(void) {
                        GPIO_RISING_EDGE);
     GPIO_PORTF_ICR_R = 0x11;
     GPIO_PORTF_IM_R |= 0x11;
-    ROM_IntPrioritySet(INT_GPIOF, 2);
+    ROM_IntPrioritySet(INT_GPIOF, 0x60); // priority is high 3 bits
     ROM_IntEnable(INT_GPIOF);
 }
 

@@ -55,6 +55,7 @@ void uart_init(void) {
                             UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE |
                                 UART_CONFIG_PAR_NONE);
     ROM_UARTFIFOEnable(UART0_BASE);
+    ROM_IntPrioritySet(INT_UART0, 0x20); // priority is high 3 bits
     ROM_UARTFIFOLevelSet(UART0_BASE, UART_FIFO_TX1_8, UART_FIFO_RX1_8);
     ROM_UARTIntEnable(UART0_BASE, UART_INT_TX | UART_INT_RX | UART_INT_RT);
     ROM_IntEnable(INT_UART0);
