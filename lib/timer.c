@@ -7,7 +7,7 @@
 
 typedef struct {
     uint32_t sysctl_periph;
-    uint32_t intterrupt;
+    uint32_t interrupt;
     uint32_t base;
 } TimerConfig;
 
@@ -97,8 +97,8 @@ void timer_enable(uint8_t timer_num, uint32_t period, void (*task)(void),
     ROM_TimerControlStall(config.base, TIMER_A, true);
     // TODO: use prescale instead of multiplying to get more range
     ROM_TimerLoadSet(config.base, TIMER_A, period * SYSTEM_TIME_DIV);
-    ROM_IntEnable(config.intterrupt);
-    ROM_IntPrioritySet(config.intterrupt,
+    ROM_IntEnable(config.interrupt);
+    ROM_IntPrioritySet(config.interrupt,
                        priority << 5); // priority is high 3 bits
     tasks[timer_num] = task;
     ROM_TimerIntEnable(config.base, TIMER_TIMA_TIMEOUT);

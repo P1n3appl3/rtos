@@ -656,7 +656,7 @@ void ST7735_InitB(void) {
     ST7735_SetCursor(0, 0);
     StTextColor = ST7735_YELLOW;
     ST7735_FillScreen(0);          // set screen to black
-    OS_InitSemaphore(&LCDFree, 1); // means LCD free
+    OS_InitSemaphore(&LCDFree, 0); // means LCD free
 }
 
 //------------ST7735_InitR------------
@@ -684,7 +684,7 @@ void ST7735_InitR(enum initRFlags option) {
     ST7735_SetCursor(0, 0);
     StTextColor = ST7735_YELLOW;
     ST7735_FillScreen(0);          // set screen to black
-    OS_InitSemaphore(&LCDFree, 1); // means LCD free
+    OS_InitSemaphore(&LCDFree, 0); // means LCD free
 }
 
 // Set the region of the screen RAM to be modified
@@ -1238,6 +1238,7 @@ void ST7735_OutUDec2(uint32_t n, uint32_t l) {
 //        pt      pointer to a null terminated string to be printed
 //        value   signed integer to be printed
 void ST7735_Message_Num(uint32_t d, uint32_t l, char* pt, int32_t value) {
+    OS_bWait(&LCDFree);
     ST7735_Message(d, l, pt);
     if (value < 0) {
         ST7735_OutChar('-');
@@ -1245,6 +1246,7 @@ void ST7735_Message_Num(uint32_t d, uint32_t l, char* pt, int32_t value) {
     } else {
         ST7735_OutUDec(value);
     }
+    OS_bSignal(&LCDFree);
 }
 
 //------------ST7735_Message------------

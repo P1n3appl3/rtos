@@ -1,5 +1,6 @@
 #pragma once
 #include "interrupts.h"
+#include "OS.h"
 
 // ADDFIFO(Tx, 32, char) Creates Txfifo_init(), Txfifo_size(),
 // Txfifo_full(), Txfifo_empty(), Txfifo_get() and Txfifo_put()

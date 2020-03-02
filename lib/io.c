@@ -1,5 +1,6 @@
 #include "io.h"
 #include "FIFO.h"
+#include "OS.h"
 #include "interrupts.h"
 #include "tivaware/gpio.h"
 #include "tivaware/hw_ints.h"
@@ -42,6 +43,8 @@ void uart0_handler(void) {
     }
 }
 
+Sema4 write_lock;
+Sema4 read_lock;
 void uart_init(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
@@ -58,6 +61,8 @@ void uart_init(void) {
     ROM_UARTEnable(UART0_BASE);
     txfifo_init();
     rxfifo_init();
+    OS_InitSemaphore(&write_lock, 0);
+    OS_InitSemaphore(&read_lock, 0);
 }
 
 bool putchar(char x) {
@@ -77,13 +82,16 @@ char getchar(void) {
 }
 
 bool puts(const char* str) {
+    OS_bWait(&write_lock);
     for (; *str;) { putchar(*str++); }
     putchar('\n');
     putchar('\r');
     return true;
+    OS_bSignal(&write_lock);
 }
 
 uint16_t gets(char* str, uint16_t len) {
+    OS_bWait(&read_lock);
     char temp = '\0';
     uint16_t count = 0;
     while (temp != '\n' && temp != '\r' && len--) {
@@ -92,9 +100,12 @@ uint16_t gets(char* str, uint16_t len) {
     }
     str[count] = '\0';
     return count;
+    OS_bSignal(&read_lock);
 }
 
 uint16_t readline(char* str, uint16_t len) {
+    OS_bWait(&write_lock);
+    OS_bWait(&read_lock);
     int recieved = 0;
     char current = '\0';
     while (len--) {
@@ -106,6 +117,8 @@ uint16_t readline(char* str, uint16_t len) {
                 break;
             }
             *str = '\0';
+            OS_bSignal(&read_lock);
+            OS_bSignal(&write_lock);
             return recieved + 1;
         case 127:
             if (recieved > 0) {
@@ -123,6 +136,8 @@ uint16_t readline(char* str, uint16_t len) {
         }
     }
     *--str = '\0';
+    OS_bSignal(&read_lock);
+    OS_bSignal(&write_lock);
     return recieved;
 }
 
@@ -186,4 +201,3 @@ int32_t atoi(char* s) {
     }
     return neg ? -result : result;
 }
-

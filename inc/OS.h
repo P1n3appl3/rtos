@@ -3,7 +3,7 @@
 #include <tcb.h>
 
 typedef struct {
-    int32_t value; // >0 means free, otherwise means busy
+    int32_t value; // >=0 means free, negative means busy
     TCB* blocked_head;
 } Sema4;
 
@@ -34,12 +34,12 @@ void OS_Wait(Sema4* semaPt);
 // input:  pointer to a counting semaphore
 void OS_Signal(Sema4* semaPt);
 
-// Lab2 spinlock, set to 0
+// Lab2 spinlock
 // Lab3 block if less than zero
 // input: pointer to a binary semaphore
 void OS_bWait(Sema4* semaPt);
 
-// Lab2 spinlock, set to 1
+// Lab2 spinlock
 // Lab3 wakeup blocked thread if appropriate
 // input: pointer to a binary semaphore
 void OS_bSignal(Sema4* semaPt);

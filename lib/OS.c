@@ -292,7 +292,7 @@ void OS_Suspend(void) {
 
 Sema4 FifoAvailable;
 void OS_Fifo_Init(uint32_t size) {
-    OS_InitSemaphore(&FifoAvailable, 1);
+    OS_InitSemaphore(&FifoAvailable, -1);
     osfifo_init();
 }
 
@@ -325,7 +325,7 @@ Sema4 BoxFree, DataValid;
 
 void OS_MailBox_Init(void) {
     OS_InitSemaphore(&BoxFree, 0);
-    OS_InitSemaphore(&DataValid, 0);
+    OS_InitSemaphore(&DataValid, -1);
 }
 
 void OS_MailBox_Send(uint32_t data) {
