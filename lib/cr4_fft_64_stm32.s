@@ -1,293 +1,249 @@
-//******************** (C) COPYRIGHT 2009  STMicroelectronics ********************
-//* File Name          : cr4_fft_64_stm32.s
-//* Author             : MCD Application Team
-//* Version            : V2.0.0
-//* Date               : 04/27/2009
-//* Description        : Optimized 64-point radix-4 complex FFT for Cortex-M3
-//********************************************************************************
-//* THE PRESENT FIRMWARE WHICH IS FOR GUIDANCE ONLY AIMS AT PROVIDING CUSTOMERS
-//* WITH CODING INFORMATION REGARDING THEIR PRODUCTS IN ORDER FOR THEM TO SAVE TIME.
-//* AS A RESULT, STMICROELECTRONICS SHALL NOT BE HELD LIABLE FOR ANY DIRECT,
-//* INDIRECT OR CONSEQUENTIAL DAMAGES WITH RESPECT TO ANY CLAIMS ARISING FROM THE
-//* CONTENT OF SUCH SOFTWARE AND/OR THE USE MADE BY CUSTOMERS OF THE CODING
-//* INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
-//*******************************************************************************/
+/*;******************** (C) COPYRIGHT 2009  STMicroelectronics ********************
+;* File Name          : cr4_fft_64_stm32.s
+;* Author             : MCD Application Team
+;* Version            : V2.0.0
+;* Date               : 04/27/2009
+;* Description        : Optimized 64-point radix-4 complex FFT for Cortex-M3
+;********************************************************************************
+;* THE PRESENT FIRMWARE WHICH IS FOR GUIDANCE ONLY AIMS AT PROVIDING CUSTOMERS
+;* WITH CODING INFORMATION REGARDING THEIR PRODUCTS IN ORDER FOR THEM TO SAVE TIME.
+;* AS A RESULT, STMICROELECTRONICS SHALL NOT BE HELD LIABLE FOR ANY DIRECT,
+;* INDIRECT OR CONSEQUENTIAL DAMAGES WITH RESPECT TO ANY CLAIMS ARISING FROM THE
+;* CONTENT OF SUCH SOFTWARE AND/OR THE USE MADE BY CUSTOMERS OF THE CODING
+;* INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
+;*******************************************************************************/
 
-    .syntax unified
-	.thumb
+.cpu cortex-m4
+.fpu fpv4-sp-d16
+.syntax unified
+.thumb
+.text
 
-    .section .text
-		        
-	.global cr4_fft_64_stm32      
-	.global TableFFT
-
-
-pssK      	.req R0
-pssOUT    	.req R0
-pssX      	.req R1
-pssIN     	.req R1
-butternbr 	.req R2
-Nbin      	.req R2
-index     	.req R3
-Ar        	.req R4
-Ai        	.req R5
-Br        	.req R6
-Bi        	.req R7
-Cr        	.req R8
-Ci        	.req R9
-Dr        	.req R10
-Di        	.req R11
-cntrbitrev 	.req R12
-tmp       	.req R12
-pssIN2    	.req R14
-tmp2      	.req R14
+.global cr4_fft_64_stm32
+.extern TableFFT
 
 .equ NPT, 64
 
-//----------------------------- .macroS ----------------------------------------
-	 
-	 	.macro DEC reg
-     	SUB  \reg,\reg,#1
-     	.endm
 
-	 	.macro INC reg
-     	ADD  \reg,\reg,#1
-     	.endm
-
-
- 	 	.macro QUAD reg
-     	MOV  \reg,\reg,LSL#2
-     	.endm
-
-//sXi = *(PssX+1)// sXr = *PssX// PssX += offset// PssX= R1
-
-	  	.macro LDR2Q sXr,sXi,PssX,offset
-      	LDRSH \sXi, [\PssX, #2]
-      	LDRSH \sXr, [\PssX]
-      	ADD \PssX, \PssX, \offset
-      	.endm
-
-//!! Same macro, to be used when passing negative offset value !!
-		.macro LDR2Qm sXr,sXi,PssX,offset
-        LDRSH \sXi, [\PssX, #2]
-        LDRSH \sXr, [\PssX]
-        SUB \PssX, \PssX, \offset
-        .endm
-
-//(PssX+1)= sXi//  *PssX=sXr// PssX += offset//
-		.macro STR2Q sXr,sXi,PssX,offset
-        STRH  \sXi, [\PssX, #2]
-        STRH  \sXr, [\PssX]
-        ADD \PssX, \PssX, \offset
-        .endm
-
-// YY = Cplx_conjugate_mul(Y,K)
-//  Y = YYr + i*YYi
-// use the following trick
-//  K = (Kr-Ki) + i*Ki
-		.macro CXMUL_V7 YYr,YYi,Yr,Yi,Kr,Ki,tmp,tmp2
-        SUB  \tmp2, \Yi, \Yr         // sYi-sYr
-        MUL  \tmp, \tmp2, \Ki        // (sYi-sYr)*sKi
-        ADD  \tmp2, \Kr, \Ki, LSL#1  // (sKr+sKi)
-        MLA  \YYi, \Yi, \Kr, \tmp     // lYYi = sYi*sKr-sYr*sKi
-        MLA  \YYr, \Yr, \tmp2, \tmp   // lYYr = sYr*sKr+sYi*sKi
-        .endm
-
-// Four point complex Fast Fourier Transform		
-		.macro CXADDA4 s
-        // (C,D) = (C+D, C-D)
-        ADD     Cr, Cr, Dr
-        ADD     Ci, Ci, Di
-        SUB     Dr, Cr, Dr, LSL#1
-        SUB     Di, Ci, Di, LSL#1
-        // (A,B) = (A+(B>>s), A-(B>>s))/4
-        MOV     Ar, Ar, ASR#2
-        MOV     Ai, Ai, ASR#2
-        ADD     Ar, Ar, Br, ASR#(2+\s)
-        ADD     Ai, Ai, Bi, ASR#(2+\s)
-        SUB     Br, Ar, Br, ASR#(1+\s)
-        SUB     Bi, Ai, Bi, ASR#(1+\s)
-        // (A,C) = (A+(C>>s)/4, A-(C>>s)/4)
-        ADD     Ar, Ar, Cr, ASR#(2+\s)
-        ADD     Ai, Ai, Ci, ASR#(2+\s)
-        SUB     Cr, Ar, Cr, ASR#(1+\s)
-        SUB     Ci, Ai, Ci, ASR#(1+\s)
-        // (B,D) = (B-i*(D>>s)/4, B+i*(D>>s)/4)
-        ADD     Br, Br, Di, ASR#(2+\s)
-        SUB     Bi, Bi, Dr, ASR#(2+\s)
-        SUB     Di, Br, Di, ASR#(1+\s)
-        ADD     Dr, Bi, Dr, ASR#(1+\s)
-        .endm
-
-		
-		.macro BUTFLY4ZERO_OPT pIN,offset,pOUT
-        LDRSH Ai, [\pIN, #2]
-        LDRSH Ar, [\pIN],#NPT
-        LDRSH Ci, [\pIN, #2]
-        LDRSH Cr, [\pIN],#NPT
-        LDRSH Bi, [\pIN, #2]
-        LDRSH Br, [\pIN],#NPT
-        LDRSH Di, [\pIN, #2]
-        LDRSH Dr, [\pIN],#NPT
-        // (C,D) = (C+D, C-D)
-        ADD     Cr, Cr, Dr
-        ADD     Ci, Ci, Di
-        SUB     Dr, Cr, Dr, LSL#1  // trick
-        SUB     Di, Ci, Di, LSL#1  //trick
-        // (A,B) = (A+B)/4, (A-B)/4
-        MOV     Ar, Ar, ASR#2
-        MOV     Ai, Ai, ASR#2
-        ADD     Ar, Ar, Br, ASR#2
-        ADD     Ai, Ai, Bi, ASR#2
-        SUB     Br, Ar, Br, ASR#1
-        SUB     Bi, Ai, Bi, ASR#1
-        // (A,C) = (A+C)/4, (A-C)/4
-        ADD     Ar, Ar, Cr, ASR#2
-        ADD     Ai, Ai, Ci, ASR#2
-        SUB     Cr, Ar, Cr, ASR#1
-        SUB     Ci, Ai, Ci, ASR#1
-        // (B,D) = (B-i*D)/4, (B+i*D)/4
-        ADD     Br, Br, Di, ASR#2
-        SUB     Bi, Bi, Dr, ASR#2
-        SUB     Di, Br, Di, ASR#1
-        ADD     Dr, Bi, Dr, ASR#1
-        //
-        STRH    Ai, [\pOUT, #2]
-        STRH    Ar, [\pOUT], #4
-        STRH    Bi, [\pOUT, #2]
-        STRH    Br, [\pOUT], #4
-        STRH    Ci, [\pOUT, #2]
-        STRH    Cr, [\pOUT], #4
-        STRH    Dr, [\pOUT, #2]  // inversion here
-        STRH    Di, [\pOUT], #4
-        .endm
-
-		.macro BUTFLY4_V7 pssDin,offset,pssDout,qformat,pssK
-        LDR2Qm   Ar,Ai,\pssDin, \offset//-\offset
-        LDR2Q    Dr,Di,\pssK, #4
-        // format CXMUL_V7 YYr, YYi, Yr, Yi, Kr, Ki,tmp,tmp2
-        CXMUL_V7 Dr,Di,Ar,Ai,Dr,Di,tmp,tmp2
-        LDR2Qm   Ar,Ai,\pssDin,\offset//-\offset
-        LDR2Q    Cr,Ci,\pssK,#4
-        CXMUL_V7 Cr,Ci,Ar,Ai,Cr,Ci,tmp,tmp2
-        LDR2Qm    Ar,Ai, \pssDin, \offset//-\offset
-        LDR2Q    Br,Bi, \pssK, #4
-        CXMUL_V7  Br,Bi,Ar,Ai,Br,Bi,tmp,tmp2
-        LDR2Q    Ar,Ai, \pssDin, #0
-        CXADDA4  \qformat
-        STRH    Ai, [\pssDout, #2]
-        STRH    Ar, [\pssDout]
-        ADD 	\pssDout, \pssDout, \offset
-        STRH    Bi, [\pssDout, #2]
-        STRH    Br, [\pssDout]
-        ADD     \pssDout, \pssDout, \offset
-        STRH    Ci, [\pssDout, #2]
-        STRH    Cr, [\pssDout]
-        ADD     \pssDout, \pssDout, \offset
-        STRH    Dr, [\pssDout, #2]  // inversion here
-        STRH    Di, [\pssDout], #4
-        .endm
-
-//------------------- 			CODE 			--------------------------------
-//===============================================================================
-//*******************************************************************************
-//* Function Name  : cr4_fft_64_stm32
-//* Description    : complex radix-4 64 points FFT
-//* Input          : - R0 = pssOUT: Output array .
-//*                  - R1 = pssIN: Input array 
-//*                  - R2 = Nbin: =64 number of points, this optimized FFT function  
-//*                    can only convert 64 points.
-//* Output         : None 
-//* Return         : None
-//*******************************************************************************
+/*;*******************************************************************************
+;* Function Name  : cr4_fft_64_stm32
+;* Description    : complex radix-4 64 points FFT
+;* Input          : - R0 = pssOUT: Output array .
+;*                  - R1 = pssIN: Input array
+;*                  - R2 = Nbin: =64 number of points, this optimized FFT function
+;*                    can only convert 64 points.
+;* Output         : None
+;* Return         : None
+;********************************************************************************/
+.thumb_func
 cr4_fft_64_stm32:
 
         STMFD   SP!, {R4-R11, LR}
-        
-        MOV cntrbitrev, #0
-        MOV index,#0
-        
+
+        MOV r12, #0
+        MOV r3, r0
+        MOV r0,#0
+
 preloop_v7:
-        ADD     pssIN2, pssIN, cntrbitrev, LSR#26 //64-pts
-        BUTFLY4ZERO_OPT pssIN2,Nbin,pssOUT
-        INC index
-        RBIT cntrbitrev,index
-        CMP index,#16  //64-pts
-        BNE  preloop_v7
+        ADD     r14, r1, r12, LSR#26
+
+        LDRSH r5, [r14, #2]
+        LDRSH r4, [r14],#NPT
+        LDRSH r9, [r14, #2]
+        LDRSH r8, [r14],#NPT
+        LDRSH r7, [r14, #2]
+        LDRSH r6, [r14],#NPT
+        LDRSH r11, [r14, #2]
+        LDRSH r10, [r14],#NPT
+
+        ADD     r8, r8, r10
+        ADD     r9, r9, r11
+        SUB     r10, r8, r10, LSL#1
+        SUB     r11, r9, r11, LSL#1
+
+        MOV     r4, r4, ASR#2
+        MOV     r5, r5, ASR#2
+        ADD     r4, r4, r6, ASR#2
+        ADD     r5, r5, r7, ASR#2
+        SUB     r6, r4, r6, ASR#1
+        SUB     r7, r5, r7, ASR#1
+
+        ADD     r4, r4, r8, ASR#2
+        ADD     r5, r5, r9, ASR#2
+        SUB     r8, r4, r8, ASR#1
+        SUB     r9, r5, r9, ASR#1
+
+        ADD     r6, r6, r11, ASR#2
+        SUB     r7, r7, r10, ASR#2
+        SUB     r11, r6, r11, ASR#1
+        ADD     r10, r7, r10, ASR#1
+
+        STRH    r5, [r3, #2]
+        STRH    r4, [r3], #4
+        STRH    r7, [r3, #2]
+        STRH    r6, [r3], #4
+        STRH    r9, [r3, #2]
+        STRH    r8, [r3], #4
+        STRH    r10, [r3, #2]
+        STRH    r11, [r3], #4
+
+         ADD r0, r0, #1
+
+         RBIT r12, r0
+
+         CMP r0,#16
+         BNE  preloop_v7
+
+         SUB     r1, r3, r2, LSL#2
+         MOV     r0, #16
+         MOVS    r2, r2, LSR#4
+
+/*;------------------------------------------------------------------------------
+;   The FFT coefficients table can be stored into Flash or RAM.
+;   The following two lines of code allow selecting the method for coefficients
+;   storage.
+;   In the case of choosing coefficients in RAM, you have to:
+;   1. Include the file table_fft.h, which is a part of the DSP library,
+;      in your main file.
+;   2. Decomment the line LDR.W pssK, =TableFFT and comment the line
+;      ADRL    pssK, TableFFT_V7
+;   3. Comment all the TableFFT_V7 data.
+;------------------------------------------------------------------------------*/
+         ADR    r3, TableFFT_V7
+         /*LDR.W r3, =TableFFT*/
 
 
-        SUB     pssX, pssOUT, Nbin, LSL#2
-        MOV     index, #16
-        MOVS    butternbr, Nbin, LSR#4   //dual use of register 
-        
-//------------------------------------------------------------------------------
-//   The FFT coefficients table can be stored into Flash or RAM. 
-//   The following two lines of code allow selecting the method for coefficients 
-//   storage. 
-//   In the case of choosing coefficients in RAM, you have to:
-//   1. Include the file table_fft.h, which is a part of the DSP library, 
-//      in your main file.
-//   2. Decomment the line LDR.W pssK, =TableFFT and comment the line 
-//      ADRL    pssK, TableFFT_V7
-//   3. Comment all the TableFFT_V7 data.
-//------------------------------------------------------------------------------
-        ADR    pssK, TableFFT_V7    // Coeff in Flash 
-        //LDR.W pssK, =TableFFT      // Coeff in RAM 
-
-//................................
 passloop_v7:
-        STMFD   SP!, {pssX,butternbr}
-        ADD     tmp, index, index, LSL#1
-        ADD     pssX, pssX, tmp
-        SUB     butternbr, butternbr, #1<<16
-//................
-grouploop_v7:
-        ADD     butternbr,butternbr,index,LSL#(16-2)
-//.......
-butterloop_v7:
-        BUTFLY4_V7  pssX,index,pssX,14,pssK
-        SUBS        butternbr,butternbr, #1<<16
-        BGE     butterloop_v7
-//.......
-        ADD     tmp, index, index, LSL#1
-        ADD     pssX, pssX, tmp
-        DEC     butternbr
-        MOVS    tmp2, butternbr, LSL#16
-        IT      NE
-        SUBNE   pssK, pssK, tmp
-        BNE     grouploop_v7
-//................
-        LDMFD   sp!, {pssX, butternbr}
-        QUAD    index
-        MOVS    butternbr, butternbr, LSR#2    // loop nbr /= radix 
-        BNE     passloop_v7
-//................................
-       LDMFD   SP!, {R4-R11, PC}
+         STMFD   SP!, {r1,r2}
+         ADD     r12, r0, r0, LSL#1
+         ADD     r1, r1, r12
+         SUB     r2, r2, #1<<16
 
-//=============================================================================
+grouploop_v7:
+         ADD     r2,r2,r0,LSL#(16-2)
+
+butterloop_v7:
+
+         LDRSH r5, [r1, #2]
+         LDRSH r4, [r1]
+         SUB r1, r1, r0
+
+      	LDRSH r11, [r3, #2]
+      	LDRSH r10, [r3]
+      	ADD r3, r3, #4
+
+         SUB  r14, r5, r4
+         MUL  r12, r14, r11
+         ADD  r14, r10, r11, LSL#1
+         MLA  r11, r5, r10, r12
+         MLA  r10, r4, r14, r12
+
+         LDRSH r5, [r1, #2]
+         LDRSH r4, [r1]
+         SUB r1, r1, r0
+
+      	LDRSH r9, [r3, #2]
+      	LDRSH r8, [r3]
+      	ADD r3, r3, #4
+
+         SUB  r14, r5, r4
+         MUL  r12, r14, r9
+         ADD  r14, r8, r9, LSL#1
+         MLA  r9, r5, r8, r12
+         MLA  r8, r4, r14, r12
+
+         LDRSH r5, [r1, #2]
+         LDRSH r4, [r1]
+         SUB r1, r1, r0
+
+         LDRSH r7, [r3, #2]
+      	LDRSH r6, [r3]
+      	ADD r3, r3, #4
+
+         SUB  r14, r5, r4
+         MUL  r12, r14, r7
+         ADD  r14, r6, r7, LSL#1
+         MLA  r7, r5, r6, r12
+         MLA  r6, r4, r14, r12
+
+         LDRSH r5, [r1, #2]
+      	LDRSH r4, [r1]
+
+         ADD     r8, r8, r10
+         ADD     r9, r9, r11
+         SUB     r10, r8, r10, LSL#1
+         SUB     r11, r9, r11, LSL#1
+
+         MOV     r4, r4, ASR#2
+         MOV     r5, r5, ASR#2
+         ADD     r4, r4, r6, ASR#(2+14)
+         ADD     r5, r5, r7, ASR#(2+14)
+         SUB     r6, r4, r6, ASR#(1+14)
+         SUB     r7, r5, r7, ASR#(1+14)
+
+         ADD     r4, r4, r8, ASR#(2+14)
+         ADD     r5, r5, r9, ASR#(2+14)
+         SUB     r8, r4, r8, ASR#(1+14)
+         SUB     r9, r5, r9, ASR#(1+14)
+
+         ADD     r6, r6, r11, ASR#(2+14)
+         SUB     r7, r7, r10, ASR#(2+14)
+         SUB     r11, r6, r11, ASR#(1+14)
+         ADD     r10, r7, r10, ASR#(1+14)
+
+         STRH    r5, [r1, #2]
+         STRH    r4, [r1]
+         ADD 	r1, r1, r0
+         STRH    r7, [r1, #2]
+         STRH    r6, [r1]
+         ADD     r1, r1, r0
+         STRH    r9, [r1, #2]
+         STRH    r8, [r1]
+         ADD     r1, r1, r0
+         STRH    r10, [r1, #2]
+         STRH    r11, [r1], #4
+         SUBS        r2,r2, #1<<16
+         BGE     butterloop_v7
+         ADD     r12, r0, r0, LSL#1
+         ADD     r1, r1, r12
+
+         SUB     r2, r2, #1
+         MOVS    r14, r2, LSL#16
+         IT      ne
+         SUBNE   r3, r3, r12
+         BNE     grouploop_v7
+
+         LDMFD   sp!, {r1, r2}
+         MOV  r0,r0,LSL#2
+         MOVS    r2, r2, LSR#2
+       	BNE     passloop_v7
+       	LDMFD   SP!, {R4-R11, PC}
+
 
 TableFFT_V7:
-         //N=16
-        .hword 0x4000,0x0000, 0x4000,0x0000, 0x4000,0x0000
-        .hword 0xdd5d,0x3b21, 0x22a3,0x187e, 0x0000,0x2d41
-        .hword 0xa57e,0x2d41, 0x0000,0x2d41, 0xc000,0x4000
-        .hword 0xdd5d,0xe782, 0xdd5d,0x3b21, 0xa57e,0x2d41
-        // N=64
-        .hword 0x4000,0x0000, 0x4000,0x0000, 0x4000,0x0000
-        .hword 0x2aaa,0x1294, 0x396b,0x0646, 0x3249,0x0c7c
-        .hword 0x11a8,0x238e, 0x3249,0x0c7c, 0x22a3,0x187e
-        .hword 0xf721,0x3179, 0x2aaa,0x1294, 0x11a8,0x238e
-        .hword 0xdd5d,0x3b21, 0x22a3,0x187e, 0x0000,0x2d41
-        .hword 0xc695,0x3fb1, 0x1a46,0x1e2b, 0xee58,0x3537
-        .hword 0xb4be,0x3ec5, 0x11a8,0x238e, 0xdd5d,0x3b21
-        .hword 0xa963,0x3871, 0x08df,0x289a, 0xcdb7,0x3ec5
-        .hword 0xa57e,0x2d41, 0x0000,0x2d41, 0xc000,0x4000
-        .hword 0xa963,0x1e2b, 0xf721,0x3179, 0xb4be,0x3ec5
-        .hword 0xb4be,0x0c7c, 0xee58,0x3537, 0xac61,0x3b21
-        .hword 0xc695,0xf9ba, 0xe5ba,0x3871, 0xa73b,0x3537
-        .hword 0xdd5d,0xe782, 0xdd5d,0x3b21, 0xa57e,0x2d41
-        .hword 0xf721,0xd766, 0xd556,0x3d3f, 0xa73b,0x238e
-        .hword 0x11a8,0xcac9, 0xcdb7,0x3ec5, 0xac61,0x187e
-        .hword 0x2aaa,0xc2c1, 0xc695,0x3fb1, 0xb4be,0x0c7c
-        
+
+        .short 0x4000,0x0000, 0x4000,0x0000, 0x4000,0x0000
+        .short 0xdd5d,0x3b21, 0x22a3,0x187e, 0x0000,0x2d41
+        .short 0xa57e,0x2d41, 0x0000,0x2d41, 0xc000,0x4000
+        .short 0xdd5d,0xe782, 0xdd5d,0x3b21, 0xa57e,0x2d41
+
+        .short 0x4000,0x0000, 0x4000,0x0000, 0x4000,0x0000
+        .short 0x2aaa,0x1294, 0x396b,0x0646, 0x3249,0x0c7c
+        .short 0x11a8,0x238e, 0x3249,0x0c7c, 0x22a3,0x187e
+        .short 0xf721,0x3179, 0x2aaa,0x1294, 0x11a8,0x238e
+        .short 0xdd5d,0x3b21, 0x22a3,0x187e, 0x0000,0x2d41
+        .short 0xc695,0x3fb1, 0x1a46,0x1e2b, 0xee58,0x3537
+        .short 0xb4be,0x3ec5, 0x11a8,0x238e, 0xdd5d,0x3b21
+        .short 0xa963,0x3871, 0x08df,0x289a, 0xcdb7,0x3ec5
+        .short 0xa57e,0x2d41, 0x0000,0x2d41, 0xc000,0x4000
+        .short 0xa963,0x1e2b, 0xf721,0x3179, 0xb4be,0x3ec5
+        .short 0xb4be,0x0c7c, 0xee58,0x3537, 0xac61,0x3b21
+        .short 0xc695,0xf9ba, 0xe5ba,0x3871, 0xa73b,0x3537
+        .short 0xdd5d,0xe782, 0xdd5d,0x3b21, 0xa57e,0x2d41
+        .short 0xf721,0xd766, 0xd556,0x3d3f, 0xa73b,0x238e
+        .short 0x11a8,0xcac9, 0xcdb7,0x3ec5, 0xac61,0x187e
+        .short 0x2aaa,0xc2c1, 0xc695,0x3fb1, 0xb4be,0x0c7c
+
+
 .end
+/******************* (C) COPYRIGHT 2009  STMicroelectronics *****END OF FILE****/
