@@ -246,4 +246,3 @@ TableFFT_V7:
 
 
 .end
-/******************* (C) COPYRIGHT 2009  STMicroelectronics *****END OF FILE****/

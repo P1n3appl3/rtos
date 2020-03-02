@@ -86,8 +86,8 @@ bool puts(const char* str) {
     for (; *str;) { putchar(*str++); }
     putchar('\n');
     putchar('\r');
-    return true;
     OS_bSignal(&write_lock);
+    return true;
 }
 
 uint16_t gets(char* str, uint16_t len) {
@@ -99,8 +99,8 @@ uint16_t gets(char* str, uint16_t len) {
         str[count++] = temp;
     }
     str[count] = '\0';
-    return count;
     OS_bSignal(&read_lock);
+    return count;
 }
 
 uint16_t readline(char* str, uint16_t len) {
@@ -109,7 +109,7 @@ uint16_t readline(char* str, uint16_t len) {
     int recieved = 0;
     char current = '\0';
     while (len--) {
-        switch (current = ROM_UARTCharGet(UART0_BASE)) {
+        switch (current = getchar()) {
         case '\r':
             putchar('\n');
             putchar('\r');

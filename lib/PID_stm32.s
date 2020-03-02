@@ -60,4 +60,3 @@ PID_stm32:
   UXTH R0, R0
   POP {R4, R5, R9}
   BX LR
-
