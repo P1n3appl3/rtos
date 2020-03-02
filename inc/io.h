@@ -16,5 +16,5 @@ bool is_whitespace(char c);
 bool is_numeric_char(const char c);
 bool is_numeric_str(const char* c);
 #define is_numeric(X)                                                          \
-    _Generic((X), char : is_numeric_char, char* : is_numeric_str)
+    ((_Generic((X), char : is_numeric_char, char* : is_numeric_str))(X))
 int32_t atoi(char* s);
