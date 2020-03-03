@@ -8,6 +8,8 @@
 #include "timer.h"
 #include "tivaware/hw_ints.h"
 #include "tivaware/hw_memmap.h"
+#include "tivaware/hw_timer.h"
+#include "tivaware/hw_types.h"
 #include "tivaware/rom.h"
 #include "tivaware/sysctl.h"
 #include "tivaware/timer.h"
@@ -345,13 +347,13 @@ uint32_t OS_TimeDifference(uint32_t start, uint32_t stop) {
 void OS_ClearTime(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_WTIMER5);
     ROM_TimerConfigure(WTIMER5_BASE, TIMER_CFG_PERIODIC_UP);
-    ROM_TimerControlStall(WTIMER5_BASE, TIMER_A, false);
+    ROM_TimerControlStall(WTIMER5_BASE, TIMER_A, true);
     // TODO: figure out why this doesn't work
     // ROM_TimerPrescaleSet(WTIMER5_BASE, TIMER_A, SYSTEM_TIME_DIV);
     ROM_TimerEnable(WTIMER5_BASE, TIMER_A);
-    // TODO: figure out why the rom function doesn't work
+    // TODO: figure out why the rom function doesn't work for clearing the value
     // ROM_TimerLoadSet(WTIMER5_BASE, TIMER_A, 0);
-    *(volatile uint32_t*)(WTIMER5_BASE + 0x50) = 0; // clear value register
+    HWREG(WTIMER5_BASE + TIMER_O_TAV) = 0;
 }
 
 uint32_t OS_Time(void) {

@@ -4,6 +4,7 @@
 #include "io.h"
 #include "launchpad.h"
 #include "printf.h"
+#include "std.h"
 #include "timer.h"
 #include <stdint.h>
 
@@ -30,8 +31,6 @@ static bool next_token() {
     return true;
 }
 
-volatile bool heartbeat_enabled = false;
-
 static char* HELPSTRING =
     "Available commands:\n\r"
     "\thelp\t\t\t\t\tprint this help string\n\n\r"
@@ -39,11 +38,9 @@ static char* HELPSTRING =
     "\t\tCOLOR: red, green, or blue\n\r"
     "\t\tACTION: on, off, or toggle\n\n\r"
     "\tadc\t\t\t\t\tread a value from the ADC\n\n\r"
-    "\tlcd 'STRING' [top|bottom] [row #]\tprint a string to the LCD\n\n\r"
-    "\theartbeat [enable|disable]\t\tturn on or off the red LED heartbeat\n\n\r"
-    "\ttime [get|reset]\t\t\tget or reset the OS time\n\n\r";
+    "\tlcd 'STRING' [top|bottom] [row #]\tprint a string to the LCD\n\n\r";
 
-static void interpret_command(void) {
+void interpret_command(void) {
     printf("\n\r> ");
     readline(raw_command, sizeof(raw_command));
     current = raw_command;
@@ -128,17 +125,6 @@ static void interpret_command(void) {
             }
         }
         ST7735_Message(bottom, line, str);
-    } else if (streq(token, "heartbeat")) {
-        if (!next_token()) {
-            heartbeat_enabled = !heartbeat_enabled;
-        } else if (streq(token, "enable")) {
-            heartbeat_enabled = true;
-        } else if (streq(token, "disable")) {
-            heartbeat_enabled = false;
-        } else {
-            printf("ERROR: expected 'enable' or 'disable', got '%s'\n\r",
-                   token);
-        }
     } else if (streq(token, "time")) {
         if (!next_token() || streq(token, "get")) {
             printf("Current time: %dms\n\r", (uint32_t)to_ms(OS_Time()));

@@ -1,3 +1,4 @@
+#pragma once
 #include <stdint.h>
 
 #define disable_interrupts() __asm("CPSID I")

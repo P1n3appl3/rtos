@@ -1,24 +1,26 @@
 #include "OS.h"
 #include "timer.h"
 #include "tivaware/gpio.h"
+#include "tivaware/hw_gpio.h"
+#include "tivaware/hw_ints.h"
 #include "tivaware/hw_memmap.h"
+#include "tivaware/hw_types.h"
 #include "tivaware/pin_map.h"
 #include "tivaware/rom.h"
 #include "tivaware/sysctl.h"
-#include "tm4c123gh6pm.h"
 
 void launchpad_init(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-    GPIO_PORTF_LOCK_R = 0x4C4F434B;
-    GPIO_PORTF_CR_R = 0x1F;
+    HWREG(GPIO_PORTF_BASE + GPIO_O_LOCK) = 0x4C4F434B;
+    HWREG(GPIO_PORTF_BASE + GPIO_O_CR) = 0x1F;
     ROM_GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, 0xE);
     ROM_GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, 0x11);
     ROM_GPIOPadConfigSet(GPIO_PORTF_BASE, 0x11, GPIO_STRENGTH_2MA,
                          GPIO_PIN_TYPE_STD_WPU);
     ROM_GPIOIntTypeSet(GPIO_PORTF_BASE, GPIO_PIN_0 | GPIO_PIN_4,
                        GPIO_RISING_EDGE);
-    GPIO_PORTF_ICR_R = 0x11;
-    GPIO_PORTF_IM_R |= 0x11;
+    HWREG(GPIO_PORTF_BASE + GPIO_O_ICR) = 0x11;
+    HWREG(GPIO_PORTF_BASE + GPIO_O_IM) = 0x11;
     ROM_IntPrioritySet(INT_GPIOF, 0x60); // priority is high 3 bits
     ROM_IntEnable(INT_GPIOF);
 }
@@ -57,17 +59,17 @@ static uint32_t last_sw2;
 
 void gpio_portf_handler(void) {
     uint32_t now = to_ms(OS_Time());
-    if (GPIO_PORTF_RIS_R & 0x01) {
+    if (HWREG(GPIO_PORTF_BASE + GPIO_O_RIS) & 0x01) {
         if (sw1task && now - last_sw1 > debounce_ms) {
             last_sw1 = now;
             sw1task();
         }
     }
-    if (GPIO_PORTF_RIS_R & 0x10) {
+    if (HWREG(GPIO_PORTF_BASE + GPIO_O_RIS) & 0x10) {
         if (sw2task && now - last_sw2 > debounce_ms) {
             last_sw2 = now;
             sw2task();
         }
     }
-    GPIO_PORTF_ICR_R = 0x11;
+    HWREG(GPIO_PORTF_BASE + GPIO_O_ICR) = 0x11;
 }

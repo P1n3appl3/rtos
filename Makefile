@@ -43,14 +43,15 @@ flash: $(build_dir)/$(target)
 run: $(build_dir)/$(target)
 	$(OPENOCD) -c "program $(build_dir)/$(target) verify reset exit"
 
-uart: run
+quick_uart: 
 	screen -L /dev/ttyACM0 115200
 
-debug: flash
-	arm-none-eabi-gdb $(build_dir)/$(target) -x misc/debug.gdb
+uart: | run quick_uart
 
 quick_debug:
 	arm-none-eabi-gdb $(build_dir)/$(target) -x misc/debug.gdb
+
+debug: | flash quick_debug
 
 debug_gui: flash
 	gdbgui -g arm-none-eabi-gdb --gdb-args="-command=misc/debug_gui.gdb" \

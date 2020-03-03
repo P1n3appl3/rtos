@@ -1,30 +1,7 @@
 #include "tivaware/timer.h"
 #include "timer.h"
-#include "tivaware/hw_ints.h"
 #include "tivaware/hw_memmap.h"
 #include "tivaware/rom.h"
-#include "tivaware/sysctl.h"
-
-typedef struct {
-    uint32_t sysctl_periph;
-    uint32_t interrupt;
-    uint32_t base;
-} TimerConfig;
-
-static TimerConfig timers[] = {
-    {SYSCTL_PERIPH_TIMER0, INT_TIMER0A, TIMER0_BASE},
-    {SYSCTL_PERIPH_TIMER1, INT_TIMER1A, TIMER1_BASE},
-    {SYSCTL_PERIPH_TIMER2, INT_TIMER2A, TIMER2_BASE},
-    {SYSCTL_PERIPH_TIMER3, INT_TIMER3A, TIMER3_BASE},
-    {SYSCTL_PERIPH_TIMER4, INT_TIMER4A, TIMER4_BASE},
-    {SYSCTL_PERIPH_TIMER5, INT_TIMER5A, TIMER5_BASE},
-    {SYSCTL_PERIPH_WTIMER0, INT_WTIMER0A, WTIMER0_BASE},
-    {SYSCTL_PERIPH_WTIMER1, INT_WTIMER1A, WTIMER1_BASE},
-    {SYSCTL_PERIPH_WTIMER2, INT_WTIMER2A, WTIMER2_BASE},
-    {SYSCTL_PERIPH_WTIMER3, INT_WTIMER3A, WTIMER3_BASE},
-    {SYSCTL_PERIPH_WTIMER4, INT_WTIMER4A, WTIMER4_BASE},
-    {SYSCTL_PERIPH_WTIMER5, INT_WTIMER5A, WTIMER5_BASE},
-};
 
 static void (*tasks[12])(void);
 
@@ -52,48 +29,54 @@ WTIMERHANDLER(3)
 WTIMERHANDLER(4)
 WTIMERHANDLER(5)
 
-uint32_t us(uint32_t us) {
+duration us(uint32_t us) {
     return us * (80 / SYSTEM_TIME_DIV) - 1; // TODO: check if -1 is needed
 }
 
-uint32_t ms(float ms) {
+duration ms(float ms) {
     return us(ms * 1000);
 }
 
-uint32_t seconds(float s) {
+duration seconds(float s) {
     return us(s * 1000000);
 }
 
-uint32_t to_us(uint32_t time) {
+uint32_t to_us(duration time) {
     return time / (80 / SYSTEM_TIME_DIV);
 }
 
-uint32_t to_ms(uint32_t time) {
+uint32_t to_ms(duration time) {
     return time / (80000 / SYSTEM_TIME_DIV);
 }
 
-uint32_t to_seconds(uint32_t time) {
+uint32_t to_seconds(duration time) {
     return time / (80000000 / SYSTEM_TIME_DIV);
 }
 
-uint32_t get_timer_reload(uint8_t timer_num) {
+duration hz_float(float hz) {
+    return (80000000 / SYSTEM_TIME_DIV) / hz;
+}
+
+duration hz_int(uint32_t hz) {
+    return (80000000 / SYSTEM_TIME_DIV) / hz;
+}
+
+duration get_timer_reload(uint8_t timer_num) {
     TimerConfig config = timers[timer_num];
     return ROM_TimerLoadGet(config.base, TIMER_A) / SYSTEM_TIME_DIV;
 }
 
-uint32_t get_timer_value(uint8_t timer_num) {
+duration get_timer_value(uint8_t timer_num) {
     TimerConfig config = timers[timer_num];
     return ROM_TimerValueGet(config.base, TIMER_A) / SYSTEM_TIME_DIV;
 }
 
-void timer_enable(uint8_t timer_num, uint32_t period, void (*task)(void),
+void timer_enable(uint8_t timer_num, duration period, void (*task)(void),
                   uint8_t priority, bool periodic) {
     TimerConfig config = timers[timer_num];
     ROM_SysCtlPeripheralEnable(config.sysctl_periph);
     ROM_TimerConfigure(config.base,
                        periodic ? TIMER_CFG_PERIODIC : TIMER_CFG_ONE_SHOT);
-    ROM_TimerLoadSet(config.base, TIMER_A, period);
-    ROM_TimerConfigure(config.base, TIMER_CFG_PERIODIC);
     ROM_TimerControlStall(config.base, TIMER_A, true);
     // TODO: use prescale instead of multiplying to get more range
     ROM_TimerLoadSet(config.base, TIMER_A, period * SYSTEM_TIME_DIV);
@@ -105,12 +88,27 @@ void timer_enable(uint8_t timer_num, uint32_t period, void (*task)(void),
     ROM_TimerEnable(config.base, TIMER_BOTH);
 }
 
-void busy_wait(uint8_t timer_num, uint32_t duration) {
-    duration *= SYSTEM_TIME_DIV;
+void busy_wait(uint8_t timer_num, duration period) {
+    period *= SYSTEM_TIME_DIV;
     TimerConfig config = timers[timer_num];
     ROM_SysCtlPeripheralEnable(config.sysctl_periph);
     ROM_TimerConfigure(config.base, TIMER_CFG_ONE_SHOT);
-    ROM_TimerLoadSet(config.base, TIMER_A, duration);
+    ROM_TimerLoadSet(config.base, TIMER_A, period);
     ROM_TimerEnable(config.base, TIMER_BOTH);
-    while (ROM_TimerValueGet(config.base, TIMER_A) != duration) {}
+    while (ROM_TimerValueGet(config.base, TIMER_A) != period) {}
 }
+
+const TimerConfig timers[12] = {
+    {SYSCTL_PERIPH_TIMER0, INT_TIMER0A, TIMER0_BASE},
+    {SYSCTL_PERIPH_TIMER1, INT_TIMER1A, TIMER1_BASE},
+    {SYSCTL_PERIPH_TIMER2, INT_TIMER2A, TIMER2_BASE},
+    {SYSCTL_PERIPH_TIMER3, INT_TIMER3A, TIMER3_BASE},
+    {SYSCTL_PERIPH_TIMER4, INT_TIMER4A, TIMER4_BASE},
+    {SYSCTL_PERIPH_TIMER5, INT_TIMER5A, TIMER5_BASE},
+    {SYSCTL_PERIPH_WTIMER0, INT_WTIMER0A, WTIMER0_BASE},
+    {SYSCTL_PERIPH_WTIMER1, INT_WTIMER1A, WTIMER1_BASE},
+    {SYSCTL_PERIPH_WTIMER2, INT_WTIMER2A, WTIMER2_BASE},
+    {SYSCTL_PERIPH_WTIMER3, INT_WTIMER3A, WTIMER3_BASE},
+    {SYSCTL_PERIPH_WTIMER4, INT_WTIMER4A, WTIMER4_BASE},
+    {SYSCTL_PERIPH_WTIMER5, INT_WTIMER5A, WTIMER5_BASE},
+};

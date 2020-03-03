@@ -25,25 +25,22 @@
 #include "interrupts.h"
 #include "io.h"
 #include "launchpad.h"
+#include "std.h"
 #include "timer.h"
+#include "tivaware/hw_types.h"
 #include "tivaware/rom.h"
 #include "tivaware/sysctl.h"
-#include "tm4c123gh6pm.h"
 #include <stdint.h>
 
-//*********Prototype for FFT in cr4_fft_64_stm32.s
 void cr4_fft_64_stm32(void* pssOUT, void* pssIN, unsigned short Nbin);
-//*********Prototype for PID in PID_stm32.s
 short PID_stm32(short Error, short* Coeff);
 
-uint32_t NumCreated; // number of foreground threads created
-uint32_t PIDWork;    // current number of PID calculations finished
-uint32_t FilterWork; // number of digital filter calculations finished
-uint32_t NumSamples; // incremented every ADC sample, in Producer
-#define FS 400       // producer/consumer sampling
-#define RUNLENGTH                                                              \
-    (20 * FS) // display results and quit when NumSamples==RUNLENGTH
-// 20-sec finite time experiment duration
+uint32_t NumCreated;    // number of foreground threads created
+uint32_t PIDWork;       // current number of PID calculations finished
+uint32_t FilterWork;    // number of digital filter calculations finished
+uint32_t NumSamples;    // incremented every ADC sample, in Producer
+#define SAMPLE_FREQ 400 // producer/consumer sampling
+#define RUNLENGTH (20 * SAMPLE_FREQ) // 20-sec finite time experiment duration
 
 int32_t x[64], y[64]; // input and output arrays for FFT
 
@@ -53,24 +50,14 @@ extern int32_t MaxJitter; // largest time jitter between interrupts
 extern uint32_t const JitterSize;
 extern uint32_t JitterHistogram[];
 
-#define PD0 (*((volatile uint32_t*)0x40007004))
-#define PD1 (*((volatile uint32_t*)0x40007008))
-#define PD2 (*((volatile uint32_t*)0x40007010))
-#define PD3 (*((volatile uint32_t*)0x40007020))
+#define PD0 HWREGBITB(GPIO_PORTD_BASE + GPIO_O_DATA, 0)
+#define PD1 HWREGBITB(GPIO_PORTD_BASE + GPIO_O_DATA, 1)
+#define PD2 HWREGBITB(GPIO_PORTD_BASE + GPIO_O_DATA, 2)
+#define PD3 HWREGBITB(GPIO_PORTD_BASE + GPIO_O_DATA, 3)
 
 void PortD_Init(void) {
-    SYSCTL_RCGCGPIO_R |= 0x08; // activate port D
-    while ((SYSCTL_RCGCGPIO_R & 0x08) == 0) {};
-    GPIO_PORTD_DIR_R |= 0x0F;    // make PD3-0 output heartbeats
-    GPIO_PORTD_AFSEL_R &= ~0x0F; // disable alt funct on PD3-0
-    GPIO_PORTD_DEN_R |= 0x0F;    // enable digital I/O on PD3-0
-    GPIO_PORTD_PCTL_R = ~0x0000FFFF;
-    GPIO_PORTD_AMSEL_R &= ~0x0F;
-    ; // disable analog functionality on PD
-}
-
-int32_t abs(int32_t n) {
-    return n < 0 ? -n : n;
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
+    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, 0x0F);
 }
 
 //------------------Task 1--------------------------------
@@ -159,7 +146,7 @@ void SW1Push(void) {
 // The ADC ISR runs when ADC data is ready
 // The ADC ISR calls this function with a 12-bit sample
 // sends data to the consumer, runs periodically at 400Hz
-void Producer(uint32_t data) {
+void Producer(uint16_t data) {
     if (NumSamples < RUNLENGTH) {     // finite time run
         NumSamples++;                 // number of samples
         if (OS_Fifo_Put(data) == 0) { // send to consumer
@@ -173,8 +160,8 @@ void Producer(uint32_t data) {
 void Display(void) {
     uint32_t data, voltage, distance;
     // uint32_t myId = OS_Id();
-    ST7735_Message_Num(
-        0, 1, "Run length = ", (RUNLENGTH) / FS); // top half used for Display
+    ST7735_Message_Num(0, 1, "Run length = ",
+                       (RUNLENGTH) / SAMPLE_FREQ); // top half used for Display
     while (NumSamples < RUNLENGTH) {
         data = OS_MailBox_Recv();
         voltage =
@@ -195,8 +182,7 @@ void Display(void);
 void Consumer(void) {
     uint32_t data, DCcomponent; // 12-bit raw ADC sample, 0 to 4095
     uint32_t t;                 // time in 2.5 ms
-    ADC0_InitTimer0(1, FS,
-                    &Producer); // start ADC sampling, channel 1, PE2, 400 Hz
+    ADC_timer_init(1, 2, hz(SAMPLE_FREQ), 3, &Producer);
     NumCreated += OS_AddThread(&Display, 128, 0);
     while (NumSamples < RUNLENGTH) {
         PD2 = 0x04;
@@ -281,7 +267,8 @@ void realmain(void) { // realmain
 
     // attach background tasks
     OS_AddSW1Task(&SW1Push, 2);
-    OS_AddPeriodicThread(&DAS, DAS_PERIOD, 1); // 2 kHz real time sampling of PE3
+    OS_AddPeriodicThread(&DAS, DAS_PERIOD,
+                         1); // 2 kHz real time sampling of PE3
 
     // create initial foreground threads
     NumCreated = 0;
