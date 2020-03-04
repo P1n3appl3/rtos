@@ -45,7 +45,7 @@ void adc1_sequence0_handler(void) {
 }
 bool ADC_timer_init(uint8_t channel_num, uint8_t timer_num, uint32_t period,
                     uint8_t priority, void (*task)(uint16_t)) {
-    period = min(period, hz(10000)); // max sample rate = 10kHz
+    period = max(period, hz(10000)); // max sample rate = 10kHz
     TimerConfig timer_config = timers[timer_num];
     ROM_SysCtlPeripheralEnable(timer_config.sysctl_periph);
     ROM_TimerConfigure(timer_config.base, TIMER_CFG_PERIODIC);

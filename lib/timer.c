@@ -30,7 +30,7 @@ WTIMERHANDLER(4)
 WTIMERHANDLER(5)
 
 duration us(uint32_t us) {
-    return us * (80 / SYSTEM_TIME_DIV) - 1; // TODO: check if -1 is needed
+    return us * (80 / SYSTEM_TIME_DIV);
 }
 
 duration ms(float ms) {

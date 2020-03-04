@@ -6,6 +6,7 @@
 #include "launchpad.h"
 #include "tcb.h"
 #include "timer.h"
+#include "tivaware/gpio.h"
 #include "tivaware/hw_ints.h"
 #include "tivaware/hw_memmap.h"
 #include "tivaware/hw_timer.h"
@@ -16,10 +17,8 @@
 #include <stdint.h>
 
 // Performance Measurements
-int32_t MaxJitter; // largest time jitter between interrupts
-#define JITTERSIZE 256
-uint32_t const JitterSize = JITTERSIZE;
-uint32_t JitterHistogram[JITTERSIZE] = {0};
+int32_t MaxJitter;
+uint32_t JitterHistogram[128] = {0};
 
 #define MAX_THREADS 8
 
@@ -34,7 +33,7 @@ static TCB idle = {.next_tcb = &threads[0],
 
 TCB* current_thread = &idle;
 
-ADDFIFO(os, 16, uint32_t)
+ADDFIFO(os, 4, uint32_t)
 
 // must be called from critical section
 static void insert_thread(TCB* adding) {
@@ -159,28 +158,16 @@ bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
     adding->sleep_time = 0;
     adding->id = thread_uuid++;
 
-    insert_thread(adding);
-
     // initialize stack
     adding->sp = &adding->stack[STACK_SIZE - 1];
     adding->sp -= 18;                    // Space for floating point registers
     *(--adding->sp) = 0x21000000;        // PSR
     *(--adding->sp) = (uint32_t)task;    // PC
     *(--adding->sp) = (uint32_t)OS_Kill; // LR
-    *(--adding->sp) = 12;
-    *(--adding->sp) = 3;
-    *(--adding->sp) = 2;
-    *(--adding->sp) = 1;
-    *(--adding->sp) = 0;
-    *(--adding->sp) = 11;
-    *(--adding->sp) = 10;
-    *(--adding->sp) = 9;
-    *(--adding->sp) = 8;
-    *(--adding->sp) = 7;
-    *(--adding->sp) = 6;
-    *(--adding->sp) = 5;
-    *(--adding->sp) = 4;
-    adding->stack[0] = 0xaBad1dea; // TODO: use to detect stack overflow
+    adding->sp -= 13;                    // Space for R0-R12
+    adding->stack[0] = 0xaBad1dea;       // TODO: use to detect stack overflow
+
+    insert_thread(adding);
     end_critical(crit);
     return true;
 }
@@ -220,7 +207,7 @@ void periodic_task(void) {
     for (uint8_t i = 0; i < num_ptasks; i++) {
         ptasks[i].next = 0;
         if (ptasks[i].time <= reload) {
-            ptasks[i].time = ptasks[i].reload;
+            ptasks[i].time = ptasks[i].reload + ptasks[i].time;
             plist_insert(&ptasks[i]);
         } else {
             ptasks[i].time -= reload;
@@ -236,12 +223,7 @@ void periodic_task(void) {
 
 bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
                           uint32_t priority) {
-    ptasks[num_ptasks].task = task;
-    ptasks[num_ptasks].priority = priority;
-    ptasks[num_ptasks].time = period;
-    ptasks[num_ptasks].next = 0;
-    ptasks[num_ptasks].reload = period;
-    num_ptasks++;
+    timer_enable(2, period, task, 0, true);
     return true;
 }
 
@@ -367,7 +349,7 @@ void OS_Launch(uint32_t time_slice) {
     ROM_SysTickIntEnable();
     ROM_SysTickEnable();
     timer_enable(1, ms(1), &sleep_task, 3, true);
-    timer_enable(2, us(100), &periodic_task, 2, true);
+    // timer_enable(2, us(100), &periodic_task, 0, true);
     OS_ClearTime();
     // Set SP to idle's stack
     __asm("LDR R0, =idle\n"

@@ -13,6 +13,8 @@ void Jitter(int32_t MaxJitter, uint32_t const JitterSize,
             uint32_t JitterHistogram[]) {
     // write this for Lab 3 (the latest)
 }
+extern uint32_t MaxJitter;
+extern uint32_t JitterHistogram[128];
 
 char raw_command[128];
 char* current;
@@ -38,6 +40,8 @@ static char* HELPSTRING =
     "\t\tCOLOR: red, green, or blue\n\r"
     "\t\tACTION: on, off, or toggle\n\n\r"
     "\tadc\t\t\t\t\tread a value from the ADC\n\n\r"
+    "\ttime [get|reset]\t\t\tget or reset the OS time\n\n\r"
+    "\tdebug\t\t\tdisplay debug info\n\n\r"
     "\tlcd 'STRING' [top|bottom] [row #]\tprint a string to the LCD\n\n\r";
 
 void interpret_command(void) {
@@ -63,9 +67,8 @@ void interpret_command(void) {
         } else if (streq(token, "green") || streq(token, "g")) {
             led = GREEN_LED;
         } else {
-            printf(
-                "ERROR: invalid led color '%s'\n\rTry red, green, or blue\n\r",
-                token);
+            printf("ERROR: invalid color '%s'\n\rTry red, green, or blue\n\r",
+                   token);
             return;
         }
         if (!next_token() || streq(token, "toggle") || streq(token, "t")) {
@@ -134,6 +137,18 @@ void interpret_command(void) {
         } else {
             printf("ERROR: expected 'get' or 'reset', got '%s'\n\r", token);
         }
+    } else if (streq(token, "debug")) {
+        printf("Max Jitter: %d\n\r", MaxJitter);
+        uint32_t most = 0, most_idx;
+        for (int i = 0;
+             i < sizeof(JitterHistogram) / sizeof(JitterHistogram[0]); ++i) {
+            uint32_t num = JitterHistogram[i];
+            if (num > most) {
+                most = num;
+                most_idx = i;
+            }
+        }
+        printf("Modal Jitter: %d\n\r", most_idx + 1);
     } else {
         printf("ERROR: invalid command '%s'\n\r", token);
     }
