@@ -64,6 +64,7 @@ bool ADC_timer_init(uint8_t channel_num, uint8_t timer_num, uint32_t period,
     process_sample = task;
     ROM_IntEnable(INT_ADC1SS0);
     ROM_IntPrioritySet(INT_ADC1SS0, priority << 5);
+    ROM_ADCIntEnable(ADC1_BASE, 0);
     ROM_ADCSequenceEnable(ADC1_BASE, 0);
     ROM_TimerEnable(timer_config.base, TIMER_BOTH);
     return true;

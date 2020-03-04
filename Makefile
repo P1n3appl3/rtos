@@ -46,12 +46,14 @@ run: $(build_dir)/$(target)
 quick_uart: 
 	screen -L /dev/ttyACM0 115200
 
-uart: | run quick_uart
+uart: run
+	screen -L /dev/ttyACM0 115200
 
 quick_debug:
 	arm-none-eabi-gdb $(build_dir)/$(target) -x misc/debug.gdb
 
-debug: | flash quick_debug
+debug: flash
+	arm-none-eabi-gdb $(build_dir)/$(target) -x misc/debug.gdb
 
 debug_gui: flash
 	gdbgui -g arm-none-eabi-gdb --gdb-args="-command=misc/debug_gui.gdb" \

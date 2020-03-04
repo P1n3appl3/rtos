@@ -25,6 +25,7 @@
 #include "interrupts.h"
 #include "io.h"
 #include "launchpad.h"
+#include "printf.h"
 #include "std.h"
 #include "timer.h"
 #include "tivaware/hw_types.h"
@@ -57,7 +58,7 @@ extern uint32_t JitterHistogram[];
 
 void PortD_Init(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
-    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, 0x0F);
+    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, 0x0F);
 }
 
 //------------------Task 1--------------------------------
@@ -111,9 +112,9 @@ void ButtonWork(void) {
     ST7735_Message_Num(1, 0, "NumCreated =", NumCreated);
     PD1 ^= 0x02;
     OS_Sleep(ms(50));
-    ST7735_Message_Num(1, 1, "PIDWork     =", PIDWork);
-    ST7735_Message_Num(1, 2, "DataLost    =", DataLost);
-    ST7735_Message_Num(1, 3, "Jitter 0.1us=", MaxJitter);
+    ST7735_Message_Num(1, 1, "PIDWork   =", PIDWork);
+    ST7735_Message_Num(1, 2, "DataLost  =", DataLost);
+    ST7735_Message_Num(1, 3, "Jitter 1us=", MaxJitter);
     PD1 ^= 0x02;
     OS_Kill(); // done, OS does not return from a Kill
 }
@@ -250,6 +251,10 @@ void PID(void) {
 // 2) print debugging parameters
 //    i.e., x[], y[]
 
+void toggle(void) {
+    led_toggle(RED_LED);
+}
+
 void realmain(void) { // realmain
     OS_Init();        // initialize, disable interrupts
     PortD_Init();     // debugging profile
@@ -267,8 +272,9 @@ void realmain(void) { // realmain
 
     // attach background tasks
     OS_AddSW1Task(&SW1Push, 2);
-    OS_AddPeriodicThread(&DAS, DAS_PERIOD,
-                         1); // 2 kHz real time sampling of PE3
+    OS_AddSW2Task(&toggle, 1);
+    // 2 kHz real time sampling of PE3
+    OS_AddPeriodicThread(&DAS, DAS_PERIOD, 1);
 
     // create initial foreground threads
     NumCreated = 0;

@@ -11,17 +11,16 @@
 
 void launchpad_init(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-    HWREG(GPIO_PORTF_BASE + GPIO_O_LOCK) = 0x4C4F434B;
-    HWREG(GPIO_PORTF_BASE + GPIO_O_CR) = 0x1F;
+    HWREG(GPIO_PORTF_BASE + GPIO_O_LOCK) = GPIO_LOCK_KEY;
+    HWREG(GPIO_PORTF_BASE + GPIO_O_CR) |= 1;
     ROM_GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, 0xE);
     ROM_GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, 0x11);
     ROM_GPIOPadConfigSet(GPIO_PORTF_BASE, 0x11, GPIO_STRENGTH_2MA,
                          GPIO_PIN_TYPE_STD_WPU);
     ROM_GPIOIntTypeSet(GPIO_PORTF_BASE, GPIO_PIN_0 | GPIO_PIN_4,
-                       GPIO_RISING_EDGE);
-    HWREG(GPIO_PORTF_BASE + GPIO_O_ICR) = 0x11;
+                       GPIO_BOTH_EDGES);
     HWREG(GPIO_PORTF_BASE + GPIO_O_IM) = 0x11;
-    ROM_IntPrioritySet(INT_GPIOF, 0x60); // priority is high 3 bits
+    ROM_IntPrioritySet(INT_GPIOF, 3 << 5); // priority is high 3 bits
     ROM_IntEnable(INT_GPIOF);
 }
 
@@ -53,23 +52,23 @@ void switch2_init(void (*task)(void), uint8_t priority) {
     sw2task = task;
 }
 
-const uint32_t debounce_ms = 5;
+const uint32_t debounce_ms = 50;
 static uint32_t last_sw1;
 static uint32_t last_sw2;
 
 void gpio_portf_handler(void) {
     uint32_t now = to_ms(OS_Time());
     if (HWREG(GPIO_PORTF_BASE + GPIO_O_RIS) & 0x01) {
-        if (sw1task && now - last_sw1 > debounce_ms) {
-            last_sw1 = now;
+        if (sw1task && now - last_sw1 > debounce_ms && right_switch()) {
             sw1task();
         }
+        last_sw1 = now;
     }
     if (HWREG(GPIO_PORTF_BASE + GPIO_O_RIS) & 0x10) {
-        if (sw2task && now - last_sw2 > debounce_ms) {
-            last_sw2 = now;
+        if (sw2task && now - last_sw2 > debounce_ms && left_switch()) {
             sw2task();
         }
+        last_sw2 = now;
     }
     HWREG(GPIO_PORTF_BASE + GPIO_O_ICR) = 0x11;
 }
