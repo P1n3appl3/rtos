@@ -106,14 +106,14 @@ void DAS(void) {
 // foreground treads run for 2 sec and die
 
 void ButtonWork(void) {
-    uint32_t myId = OS_Id();
+    // uint32_t myId = OS_Id();
     DEBUG_TOGGLE(1);
     ST7735_Message_Num(1, 0, "NumCreated =", NumCreated);
     DEBUG_TOGGLE(1);
     OS_Sleep(ms(50));
     ST7735_Message_Num(1, 1, "PIDWork    =", PIDWork);
     ST7735_Message_Num(1, 2, "DataLost   =", DataLost);
-    ST7735_Message_Num(1, 3, "Jitter (us)=", MaxJitter);
+    ST7735_Message_Num(1, 3, "Jitter (c)=", MaxJitter);
     DEBUG_TOGGLE(1);
     OS_Kill(); // done, OS does not return from a Kill
 }

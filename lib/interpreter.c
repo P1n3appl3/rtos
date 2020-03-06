@@ -148,7 +148,7 @@ void interpret_command(void) {
                 most_idx = i;
             }
         }
-        printf("Modal Jitter: %d\n\r", most_idx + 1);
+        printf("Modal Jitter: %d\n\r", most_idx);
     } else {
         printf("ERROR: invalid command '%s'\n\r", token);
     }

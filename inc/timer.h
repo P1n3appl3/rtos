@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 // System time resolution is 1µs
-#define SYSTEM_TIME_DIV 80
+#define SYSTEM_TIME_DIV 1
 
 typedef uint32_t duration;
 
