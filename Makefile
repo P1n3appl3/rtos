@@ -13,8 +13,7 @@ ASSEMBLER = clang --target=thumbv7em-unknown-none-eabi
 ARCHFLAGS = -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard
 COMMONFLAGS = -ggdb3 -nodefaultlibs -nostdlib -Wall -O0
 
-ASMFLAGS = -c $(COMMONFLAGS) $(ARCHFLAGS)
-CFLAGS = -c $(COMMONFLAGS) $(ARCHFLAGS) -fdata-sections -ffunction-sections
+CFLAGS = $(COMMONFLAGS) $(ARCHFLAGS) -fdata-sections -ffunction-sections
 CFLAGS += -pedantic -ffreestanding -MD -MP -std=c2x -Iinc
 
 OPENOCD = openocd -c "source [find board/ek-tm4c123gxl.cfg]"
@@ -24,16 +23,19 @@ SHELL := /bin/zsh
 all: $(target)
 
 $(build_dir)/%.o: src/%.c
-	$(CC) -o $@ $< $(CFLAGS)
+	$(CC) -o $@ $< -c $(CFLAGS)
 
 $(build_dir)/%.o: lib/%.c
-	$(CC) -o $@ $< $(CFLAGS)
+	$(CC) -o $@ $< -c $(CFLAGS)
 
 $(build_dir)/%.o: lib/%.s
-	$(ASSEMBLER) -o $@ $< $(ASMFLAGS)
+	$(ASSEMBLER) -o $@ $< -c $(COMMONFLAGS) $(ARCHFLAGS)
 
 $(target): $(OBJS)
 	$(CC) -o $@ $^ $(COMMONFLAGS) -T misc/tm4c.ld
+
+release:
+	$(CC) src/*.c lib/*.c lib/*.s $(CFLAGS) -Ofast -T misc/tm4c.ld -o $(target)
 
 -include $(DEPS)
 
@@ -66,11 +68,11 @@ size: $(target)
 		> $(build_dir)/sizes
 
 rom_size: size
-	@echo "ROM:" && grep "^0" < $(build_dir)/sizes | cut -f 2,4 -d ' ' | \
+	@grep "^0" < $(build_dir)/sizes | cut -f 2,4 -d ' ' | \
 		numfmt --field 1 --to=iec --padding -6 | sed "/^0/d"
 
 ram_size: size
-	@echo "RAM:" && grep "^[^0]" < $(build_dir)/sizes | cut -f 2,4 -d ' ' | \
+	@grep "^[^0]" < $(build_dir)/sizes | cut -f 2,4 -d ' ' | \
 		numfmt --field 1 --to=iec --padding -6 | sed "/^0/d"
 
 space: $(target)
