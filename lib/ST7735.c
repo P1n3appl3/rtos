@@ -1238,7 +1238,7 @@ void ST7735_OutUDec2(uint32_t n, uint32_t l) {
 //        pt      pointer to a null terminated string to be printed
 //        value   signed integer to be printed
 void ST7735_Message_Num(uint32_t d, uint32_t l, char* pt, int32_t value) {
-    OS_bWait(&LCDFree);
+    OS_Wait(&LCDFree);
     ST7735_Message(d, l, pt);
     if (value < 0) {
         ST7735_OutChar('-');
@@ -1246,7 +1246,7 @@ void ST7735_Message_Num(uint32_t d, uint32_t l, char* pt, int32_t value) {
     } else {
         ST7735_OutUDec(value);
     }
-    OS_bSignal(&LCDFree);
+    OS_Signal(&LCDFree);
 }
 
 //------------ST7735_Message------------

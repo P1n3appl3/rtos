@@ -4,7 +4,6 @@
 #include "interrupts.h"
 #include "io.h"
 #include "launchpad.h"
-#include "tcb.h"
 #include "timer.h"
 #include "tivaware/gpio.h"
 #include "tivaware/hw_ints.h"
@@ -15,21 +14,33 @@
 #include "tivaware/sysctl.h"
 #include "tivaware/timer.h"
 #include <stdint.h>
+#include <stdnoreturn.h>
 
 // Performance Measurements
 int32_t MaxJitter;
 uint32_t JitterHistogram[128] = {0};
 
 #define MAX_THREADS 8
+#define STACK_SIZE 256
 
 static TCB threads[MAX_THREADS];
+static uint32_t stacks[MAX_THREADS][STACK_SIZE];
 uint8_t thread_count = 0;
 
-static TCB idle = {.next_tcb = &threads[0],
-                   .prev_tcb = &threads[0],
-                   .id = 0,
-                   .dead = false,
-                   .sp = &idle.stack[STACK_SIZE]};
+static uint32_t idle_stack[32];
+
+static noreturn void idle_task(void) {
+    while (1)
+        ;
+}
+
+static TCB idle = {
+    .next_tcb = &idle,
+    .prev_tcb = &idle,
+    .id = 0,
+    .alive = true,
+    .sp = &idle_stack[31],
+};
 
 TCB* current_thread = &idle;
 
@@ -71,7 +82,6 @@ void OS_Init(void) {
     disable_interrupts();
     ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
                        SYSCTL_OSC_MAIN);
-    for (int i = 0; i < MAX_THREADS; i++) { threads[i].dead = true; }
     launchpad_init();
     uart_init();
     ST7735_InitR(INITR_REDTAB);
@@ -125,22 +135,6 @@ void OS_Signal(Sema4* sem) {
     end_critical(crit);
 }
 
-void OS_bWait(Sema4* sem) {
-    uint32_t crit = start_critical();
-    // TODO: lab 3 switch this to not spinlock
-    while (sem->value < 0) {
-        end_critical(crit);
-        OS_Suspend();
-        crit = start_critical();
-    }
-    sem->value = -1;
-    end_critical(crit);
-}
-
-void OS_bSignal(Sema4* sem) {
-    sem->value = 0;
-}
-
 uint32_t thread_uuid = 1;
 bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
     uint32_t crit = start_critical();
@@ -150,15 +144,16 @@ bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
     }
     ++thread_count;
     uint8_t thread_index = 0;
-    while (!threads[thread_index].dead) { thread_index++; }
+    while (threads[thread_index].alive) { thread_index++; }
     TCB* adding = &threads[thread_index];
 
-    adding->dead = false;
+    adding->alive = true;
     adding->sleep = false;
     adding->sleep_time = 0;
     adding->id = thread_uuid++;
 
     // initialize stack
+    adding->stack = stacks[thread_index];
     adding->sp = &adding->stack[STACK_SIZE - 1];
     adding->sp -= 18;                    // Space for floating point registers
     *(--adding->sp) = 0x21000000;        // PSR
@@ -250,7 +245,7 @@ void OS_Sleep(uint32_t time) {
 void OS_Kill(void) {
     uint32_t crit = start_critical();
     --thread_count;
-    current_thread->dead = true;
+    current_thread->alive = false;
     remove_current_thread();
     OS_Suspend();
     end_critical(crit);
@@ -295,15 +290,15 @@ void OS_MailBox_Init(void) {
 }
 
 void OS_MailBox_Send(uint32_t data) {
-    OS_bWait(&BoxFree);
+    OS_Wait(&BoxFree);
     MailBox = data;
-    OS_bSignal(&DataValid);
+    OS_Signal(&DataValid);
 }
 
 uint32_t OS_MailBox_Recv(void) {
-    OS_bWait(&DataValid);
+    OS_Wait(&DataValid);
     uint32_t temp = MailBox;
-    OS_bSignal(&BoxFree);
+    OS_Signal(&BoxFree);
     return temp;
 }
 
@@ -340,7 +335,7 @@ void OS_Launch(duration time_slice) {
           "LDR R0, [R0]\n"
           "MOV SP, R0\n");
     enable_interrupts();
-    while (true) {}
+    idle_task();
 }
 
 void systick_handler() {

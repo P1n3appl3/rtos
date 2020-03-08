@@ -1,6 +1,7 @@
 -   semahpore blocking linked list
 -   stack protection with MPU
--   printf
+-   investigate static analysis for max stack usage (gcc fstack-usage)
+-   printf rewrite
 -   periodic optimal scheduling
 -   sleep optimal scheduling
 -   handle priority for bg threads

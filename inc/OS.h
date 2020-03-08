@@ -1,7 +1,23 @@
 #pragma once
 #include "timer.h"
 #include <stdint.h>
-#include <tcb.h>
+
+typedef struct tcb {
+    uint32_t* sp;
+    struct tcb* next_tcb;
+    struct tcb* prev_tcb;
+    uint32_t id;
+
+    uint32_t sleep_time;
+    bool sleep;
+
+    struct tcb* next_blocked;
+    bool blocked;
+
+    bool alive;
+
+    uint32_t* stack;
+} TCB;
 
 typedef struct {
     int32_t value; // >=0 means free, negative means busy
@@ -17,21 +33,13 @@ void OS_InitSemaphore(Sema4* semaPt, int32_t value);
 
 // decrement semaphore
 // Lab3 block if less than zero
-// input: pointer to a counting semaphore
+// input: pointer to a semaphore
 void OS_Wait(Sema4* semaPt);
 
 // increment semaphore
 // Lab3 wakeup blocked thread if appropriate
-// input:  pointer to a counting semaphore
+// input:  pointer to a semaphore
 void OS_Signal(Sema4* semaPt);
-
-// Lab3 block if less than zero
-// input: pointer to a binary semaphore
-void OS_bWait(Sema4* semaPt);
-
-// Lab3 wakeup blocked thread if appropriate
-// input: pointer to a binary semaphore
-void OS_bSignal(Sema4* semaPt);
 
 // add a foregound thread to the scheduler
 // inputs: pointer to a void/void foreground task
