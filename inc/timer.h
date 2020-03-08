@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// System time resolution is 1µs
+// System time resolution in cycles
 #define SYSTEM_TIME_DIV 1
 
 typedef uint32_t duration;

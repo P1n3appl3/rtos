@@ -123,7 +123,7 @@ void ButtonWork(void) {
 // Adds another foreground task
 // background threads execute once and return
 void SW1Push(void) {
-    if (ms(OS_Time()) > 20) { // debounce
+    if (OS_Time() > ms(20)) { // debounce
         if (OS_AddThread(&ButtonWork, 100, 0)) {
             NumCreated++;
         }
@@ -250,7 +250,7 @@ void PID(void) {
 // 2) print debugging parameters
 //    i.e., x[], y[]
 
-void main(void) {  // realmain
+void main(void) { // realmain
     OS_Init();     // initialize, disable interrupts
     PortD_Init();  // debugging profile
     MaxJitter = 0; // in 1us units

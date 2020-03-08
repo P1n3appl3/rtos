@@ -67,32 +67,36 @@ void uart_init(void) {
 }
 
 bool putchar(char x) {
+    OS_Wait(&write_lock);
     // Skip the buffer and go straight to the hardware fifo if possible
     if (txfifo_empty() && ROM_UARTCharPutNonBlocking(UART0_BASE, x)) {
         return true;
     }
     txfifo_put(x);
     sw_to_hw_fifo();
+    OS_Signal(&write_lock);
     return true;
 }
 
 char getchar(void) {
     uint8_t temp;
+    OS_Wait(&read_lock);
     while (!rxfifo_get(&temp)) {}
+    OS_Signal(&read_lock);
     return temp;
 }
 
 bool puts(const char* str) {
-    OS_bWait(&write_lock);
+    OS_Wait(&write_lock);
     for (; *str;) { putchar(*str++); }
     putchar('\n');
     putchar('\r');
-    OS_bSignal(&write_lock);
+    OS_Signal(&write_lock);
     return true;
 }
 
 uint16_t gets(char* str, uint16_t len) {
-    OS_bWait(&read_lock);
+    OS_Wait(&read_lock);
     char temp = '\0';
     uint16_t count = 0;
     while (temp != '\n' && temp != '\r' && len--) {
@@ -100,13 +104,13 @@ uint16_t gets(char* str, uint16_t len) {
         str[count++] = temp;
     }
     str[count] = '\0';
-    OS_bSignal(&read_lock);
+    OS_Signal(&read_lock);
     return count;
 }
 
 uint16_t readline(char* str, uint16_t len) {
-    OS_bWait(&write_lock);
-    OS_bWait(&read_lock);
+    OS_Wait(&write_lock);
+    OS_Wait(&read_lock);
     int recieved = 0;
     char current = '\0';
     while (len--) {
@@ -118,8 +122,8 @@ uint16_t readline(char* str, uint16_t len) {
                 break;
             }
             *str = '\0';
-            OS_bSignal(&read_lock);
-            OS_bSignal(&write_lock);
+            OS_Signal(&read_lock);
+            OS_Signal(&write_lock);
             return recieved + 1;
         case 127:
             if (recieved > 0) {
@@ -137,7 +141,7 @@ uint16_t readline(char* str, uint16_t len) {
         }
     }
     *--str = '\0';
-    OS_bSignal(&read_lock);
-    OS_bSignal(&write_lock);
+    OS_Signal(&read_lock);
+    OS_Signal(&write_lock);
     return recieved;
 }

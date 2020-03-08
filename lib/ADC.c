@@ -1,7 +1,7 @@
-#include "tivaware/adc.h"
 #include "ADC.h"
 #include "std.h"
 #include "timer.h"
+#include "tivaware/adc.h"
 #include "tivaware/hw_ints.h"
 #include "tivaware/hw_memmap.h"
 #include "tivaware/rom.h"

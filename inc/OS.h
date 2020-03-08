@@ -1,4 +1,5 @@
 #pragma once
+#include "timer.h"
 #include <stdint.h>
 #include <tcb.h>
 
@@ -6,14 +7,6 @@ typedef struct {
     int32_t value; // >=0 means free, negative means busy
     TCB* blocked_head;
 } Sema4;
-
-typedef struct ptask {
-    void (*task)(void);
-    uint32_t time;
-    uint32_t reload;
-    uint32_t priority;
-    struct ptask* next;
-} PTask;
 
 // Initialize operating system, disable interrupts until OS_Launch.
 // Initialize OS controlled I/O: serial, ADC, systick, LaunchPad I/O and timers.
@@ -23,23 +16,19 @@ void OS_Init(void);
 void OS_InitSemaphore(Sema4* semaPt, int32_t value);
 
 // decrement semaphore
-// Lab2 spinlock
 // Lab3 block if less than zero
 // input: pointer to a counting semaphore
 void OS_Wait(Sema4* semaPt);
 
 // increment semaphore
-// Lab2 spinlock
 // Lab3 wakeup blocked thread if appropriate
 // input:  pointer to a counting semaphore
 void OS_Signal(Sema4* semaPt);
 
-// Lab2 spinlock
 // Lab3 block if less than zero
 // input: pointer to a binary semaphore
 void OS_bWait(Sema4* semaPt);
 
-// Lab2 spinlock
 // Lab3 wakeup blocked thread if appropriate
 // input: pointer to a binary semaphore
 void OS_bSignal(Sema4* semaPt);
@@ -50,8 +39,7 @@ void OS_bSignal(Sema4* semaPt);
 //         priority, 0 is highest, 5 is the lowest
 // returns: true if successful, false if this thread can not be added
 // stack size must be divisable by 8 (aligned to double word boundary)
-// In Lab 2, you can ignore both the stackSize and priority fields
-// In Lab 3, you can ignore the stackSize fields
+// In Lab 3, you can ignore the stackSize field
 bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority);
 
 // returns the thread ID for the currently running thread
@@ -67,14 +55,12 @@ uint32_t OS_Id(void);
 // You are free to select the time resolution for this function
 // It is assumed that the user task will run to completion and return
 // This task can not spin, block, loop, sleep, or kill
-// This task can call OS_Signal  OS_bSignal   OS_AddThread
+// This task can call OS_Signal, OS_bSignal, OS_AddThread
 // This task does not have a Thread ID
-// In lab 2, this command will be called 0 or 1 times
-// In lab 2, the priority field can be ignored
 // In lab 3, this command will be called 0 1 or 2 times
 // In lab 3, there will be up to four background threads, and this priority
 // field determines the relative priority of these four threads
-bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
+bool OS_AddPeriodicThread(void (*task)(void), duration period,
                           uint32_t priority);
 
 // add a background task to run whenever the SW1 (PF4) button is pushed
@@ -86,7 +72,6 @@ bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
 // This task can call OS_Signal  OS_bSignal   OS_AddThread
 // This task does not have a Thread ID
 // In labs 2 and 3, this command will be called 0 or 1 times
-// In lab 2, the priority field can be ignored
 // In lab 3, there will be up to four background threads, and this priority
 // field determines the relative priority of these four threads
 bool OS_AddSW1Task(void (*task)(void), uint32_t priority);
@@ -164,22 +149,19 @@ void OS_MailBox_Send(uint32_t data);
 uint32_t OS_MailBox_Recv(void);
 
 // return the system time
-uint32_t OS_Time(void);
+duration OS_Time(void);
 
 // Calculates difference between two times
 // inputs: two times measured with OS_Time
 // returns: time difference in system time units
-uint32_t OS_TimeDifference(uint32_t start, uint32_t stop);
+duration OS_TimeDifference(duration start, duration stop);
 
 // sets the system time to zero
 void OS_ClearTime(void);
 
 // start the scheduler, enable interrupts
 // inputs: number of system time units for each time slice
-// In Lab 2, you can ignore the theTimeSlice field
-// In Lab 3, you should implement the user-defined TimeSlice field
-// It is ok to limit the range of theTimeSlice to match the 24-bit SysTick
-void OS_Launch(uint32_t theTimeSlice);
+void OS_Launch(duration theTimeSlice);
 
 // open the file for writing, redirect stream I/O (printf) to this file
 // if the file exists it will append to the end

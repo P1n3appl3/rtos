@@ -176,54 +176,39 @@ uint32_t OS_Id(void) {
     return current_thread->id;
 }
 
-#define MAX_PTASKS 1
-PTask ptasks[MAX_PTASKS];
-uint8_t num_ptasks = 0;
-PTask* phead = 0;
+typedef struct ptask {
+    void (*task)(void);
+    duration reload;
+    uint8_t priority;
+} PTask;
 
-void plist_insert(PTask* task) {
-    if (phead == 0) {
-        phead = task;
-    } else if (task->priority < phead->priority) {
-        task->next = phead;
-        phead = task;
-    } else if (num_ptasks == 1) {
-        phead->next = task;
-    } else {
-        PTask* ptr = phead;
-        while (ptr->next->priority < task->priority) { ptr = ptr->next; }
-        task->next = ptr->next;
-        ptr->next = task;
-    }
-}
+#define MAX_PTASKS 8
+PTask ptasks[MAX_PTASKS];
+uint8_t num_ptasks;
+PTask* current_ptask;
 
 void periodic_task(void) {
-    if (num_ptasks == 0) {
-        return;
-    }
-    uint32_t reload = get_timer_reload(2);
-    phead = 0;
-
-    for (uint8_t i = 0; i < num_ptasks; i++) {
-        ptasks[i].next = 0;
-        if (ptasks[i].time <= reload) {
-            ptasks[i].time = ptasks[i].reload + ptasks[i].time;
-            plist_insert(&ptasks[i]);
-        } else {
-            ptasks[i].time -= reload;
-        }
-    }
-
-    PTask* task = phead;
-    while (task != 0) {
-        (task->task)();
-        task = task->next;
-    }
+    current_ptask->task();
 }
 
-bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
+bool OS_AddPeriodicThread(void (*task)(void), duration period,
                           uint32_t priority) {
-    timer_enable(2, period, task, 0, true);
+    timer_enable(2, period, task, 1, true);
+    return true;
+    // rework for lab 3
+    if (num_ptasks >= MAX_PTASKS) {
+        return false;
+    }
+    PTask* current = ptasks;
+    current->priority = priority;
+    current->task = task;
+    current->reload = period;
+    if (!num_ptasks) {
+        current_ptask = ptasks;
+        timer_enable(2, period, periodic_task, 1, false);
+        return true;
+    }
+    ptasks[num_ptasks++] = *current;
     return true;
 }
 
@@ -322,7 +307,7 @@ uint32_t OS_MailBox_Recv(void) {
     return temp;
 }
 
-uint32_t OS_TimeDifference(uint32_t start, uint32_t stop) {
+duration OS_TimeDifference(duration start, duration stop) {
     return stop - start;
 }
 
@@ -338,18 +323,17 @@ void OS_ClearTime(void) {
     HWREG(WTIMER5_BASE + TIMER_O_TAV) = 0;
 }
 
-uint32_t OS_Time(void) {
+duration OS_Time(void) {
     return ROM_TimerValueGet(WTIMER5_BASE, TIMER_A) / SYSTEM_TIME_DIV;
 }
 
-void OS_Launch(uint32_t time_slice) {
+void OS_Launch(duration time_slice) {
     ROM_IntPrioritySet(FAULT_PENDSV, 0xff); // priority is high 3 bits
     ROM_IntPendSet(FAULT_PENDSV);
     ROM_SysTickPeriodSet(time_slice * SYSTEM_TIME_DIV);
     ROM_SysTickIntEnable();
     ROM_SysTickEnable();
     timer_enable(1, ms(1), &sleep_task, 3, true);
-    // timer_enable(2, us(100), &periodic_task, 0, true);
     OS_ClearTime();
     // Set SP to idle's stack
     __asm("LDR R0, =idle\n"

@@ -1,4 +1,5 @@
 #pragma once
+#include "tivaware/gpio.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -11,9 +12,9 @@
 // Initializes the LED and button pins on the launchpad
 void launchpad_init(void);
 
-#define RED_LED 2
-#define BLUE_LED 4
-#define GREEN_LED 8
+#define RED_LED GPIO_PIN_1
+#define BLUE_LED GPIO_PIN_2
+#define GREEN_LED GPIO_PIN_3
 
 void switch1_init(void (*task)(void), uint8_t priority);
 

@@ -1,0 +1,15 @@
+-   semahpore blocking linked list
+-   stack protection with MPU
+-   printf
+-   periodic optimal scheduling
+-   sleep optimal scheduling
+-   handle priority for bg threads
+-   priority foreground scheduler
+-   rewrite screen driver
+-   check rom vs normal driverlib speed/space
+-   port SPI driver from valvano's code to driverlib
+-   LTO
+-   allocator
+-   file system
+-   Make only flash when necessary (allow parallel builds with serial steps like
+    flash -> debug)

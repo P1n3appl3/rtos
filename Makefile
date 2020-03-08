@@ -1,5 +1,5 @@
-target = out.elf
 build_dir = out
+target = $(build_dir)/out.elf
 
 SRCS = $(wildcard src/*.c) $(wildcard lib/*.c)
 ASM_SRCS = $(wildcard src/*.s) $(wildcard lib/*.s)
@@ -21,7 +21,7 @@ OPENOCD = openocd -c "source [find board/ek-tm4c123gxl.cfg]"
 
 SHELL := /bin/zsh
 
-all: $(build_dir)/$(target)
+all: $(target)
 
 $(build_dir)/%.o: src/%.c
 	$(CC) -o $@ $< $(CFLAGS)
@@ -32,46 +32,55 @@ $(build_dir)/%.o: lib/%.c
 $(build_dir)/%.o: lib/%.s
 	$(ASSEMBLER) -o $@ $< $(ASMFLAGS)
 
-$(build_dir)/$(target): $(OBJS)
+$(target): $(OBJS)
 	$(CC) -o $@ $^ $(COMMONFLAGS) -T misc/tm4c.ld
 
 -include $(DEPS)
 
-flash: $(build_dir)/$(target)
-	$(OPENOCD) -c "program $(build_dir)/$(target) verify exit"
+flash: $(target)
+	$(OPENOCD) -c "program $(target) exit"
 
-run: $(build_dir)/$(target)
-	$(OPENOCD) -c "program $(build_dir)/$(target) verify reset exit"
+run: $(target)
+	$(OPENOCD) -c "program $(target) reset exit"
 
-quick_uart: 
+# TODO: only flash if necessary
+quick_uart:
 	screen -L /dev/ttyACM0 115200
 
 uart: run
 	screen -L /dev/ttyACM0 115200
 
+# TODO: only flash if necessary
 quick_debug:
-	arm-none-eabi-gdb $(build_dir)/$(target) -x misc/debug.gdb
+	arm-none-eabi-gdb $(target) -x misc/debug.gdb
 
 debug: flash
-	arm-none-eabi-gdb $(build_dir)/$(target) -x misc/debug.gdb
+	arm-none-eabi-gdb $(target) -x misc/debug.gdb
 
 debug_gui: flash
 	gdbgui -g arm-none-eabi-gdb --gdb-args="-command=misc/debug_gui.gdb" \
-		$(build_dir)/$(target)
+		$(target)
 
-size: $(build_dir)/$(target)
-	llvm-nm --demangle --print-size --size-sort -no-weak --radix=d \
-		$(build_dir)/$(target) | cut -f 2,4 -d " " | sed "/^ *$$/d" | \
+size: $(target)
+	llvm-nm --demangle --print-size --size-sort --no-weak --radix=d $(target) \
+		> $(build_dir)/sizes
+
+rom_size: size
+	@echo "ROM:" && grep "^0" < $(build_dir)/sizes | cut -f 2,4 -d ' ' | \
 		numfmt --field 1 --to=iec --padding -6 | sed "/^0/d"
 
-space: $(build_dir)/$(target)
-	llvm-size $(build_dir)/$(target) | tail -1 | read -r rom data bss rest \
+ram_size: size
+	@echo "RAM:" && grep "^[^0]" < $(build_dir)/sizes | cut -f 2,4 -d ' ' | \
+		numfmt --field 1 --to=iec --padding -6 | sed "/^0/d"
+
+space: $(target)
+	@llvm-size $(target) | tail -1 | read -r rom data bss rest \
 		&& ram=$$(expr $$data + $$bss) \
-		&& echo "\nROM: $$(numfmt --to=iec $$rom)/256K ($$(expr $$rom \* 100 / 262144)%)" \
+		&& echo "ROM: $$(numfmt --to=iec $$rom)/256K ($$(expr $$rom \* 100 / 262144)%)" \
 		&& echo "RAM: $$(numfmt --to=iec $$ram)/32K ($$(expr $$ram \* 100 / 32768)%)"
 
-disassemble: $(build_dir)/$(target)
-	arm-none-eabi-objdump $(build_dir)/$(target) -S -C \
+disassemble: $(target)
+	arm-none-eabi-objdump $(target) -S -C \
 		--no-show-raw-insn > $(build_dir)/disassembly.asm
 
 clean:
@@ -79,4 +88,4 @@ clean:
 
 $(shell mkdir -p $(build_dir))
 
-.PHONY: all clean debug debug_gui flash run size space quick_debug
+.PHONY: all clean debug debug_gui flash run ram_size rom_size space quick_debug quick_uart
