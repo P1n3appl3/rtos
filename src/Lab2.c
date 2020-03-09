@@ -106,7 +106,6 @@ void DAS(void) {
 // foreground treads run for 2 sec and die
 
 void ButtonWork(void) {
-    // uint32_t myId = OS_Id();
     DEBUG_TOGGLE(1);
     ST7735_Message_Num(1, 0, "NumCreated =", NumCreated);
     DEBUG_TOGGLE(1);
@@ -115,7 +114,6 @@ void ButtonWork(void) {
     ST7735_Message_Num(1, 2, "DataLost   =", DataLost);
     ST7735_Message_Num(1, 3, "Jitter (c)=", MaxJitter);
     DEBUG_TOGGLE(1);
-    OS_Kill(); // done, OS does not return from a Kill
 }
 
 //************SW1Push*************
@@ -124,7 +122,7 @@ void ButtonWork(void) {
 // background threads execute once and return
 void SW1Push(void) {
     if (OS_Time() > ms(20)) { // debounce
-        if (OS_AddThread(&ButtonWork, 100, 0)) {
+        if (OS_AddThread(&ButtonWork, "Button work", 100, 0)) {
             NumCreated++;
         }
         OS_ClearTime(); // at least 20ms between touches
@@ -172,7 +170,6 @@ void Display(void) {
         ST7735_Message_Num(0, 2, "v(mV) =", voltage);
         ST7735_Message_Num(0, 3, "d(mm) =", distance);
     }
-    OS_Kill(); // done
 }
 
 // foreground thread, accepts data from producer
@@ -183,7 +180,7 @@ void Consumer(void) {
     uint32_t data, DCcomponent; // 12-bit raw ADC sample, 0 to 4095
     uint32_t t;                 // time in 2.5 ms
     ADC_timer_init(1, 0, hz(SAMPLE_FREQ), 3, &Producer);
-    NumCreated += OS_AddThread(&Display, 128, 0);
+    NumCreated += OS_AddThread(&Display, "Display", 128, 0);
     while (NumSamples < RUNLENGTH) {
         DEBUG_TOGGLE(2);
         for (t = 0; t < 64; t++) { // collect 64 ADC samples
@@ -197,7 +194,6 @@ void Consumer(void) {
             0xFFFF; // Real part at frequency 0, imaginary part should be zero
         OS_MailBox_Send(DCcomponent); // called every 2.5ms*64 = 160ms
     }
-    OS_Kill(); // done
 }
 
 //------------------Task 4--------------------------------
@@ -250,7 +246,7 @@ void PID(void) {
 // 2) print debugging parameters
 //    i.e., x[], y[]
 
-void main(void) { // realmain
+void main(void) {  // realmain
     OS_Init();     // initialize, disable interrupts
     PortD_Init();  // debugging profile
     MaxJitter = 0; // in 1us units
@@ -271,9 +267,9 @@ void main(void) { // realmain
 
     // create initial foreground threads
     NumCreated = 0;
-    NumCreated += OS_AddThread(&Consumer, 128, 0);
-    NumCreated += OS_AddThread(&interpreter, 128, 0);
-    NumCreated += OS_AddThread(&PID, 128, 0);
+    NumCreated += OS_AddThread(&Consumer, "Consumer", 128, 0);
+    NumCreated += OS_AddThread(&interpreter, "interpreter", 128, 0);
+    NumCreated += OS_AddThread(&PID, "PID", 128, 0);
 
     OS_Launch(ms(2));
 }

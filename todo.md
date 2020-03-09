@@ -2,8 +2,7 @@
 -   stack protection with MPU
 -   investigate static analysis for max stack usage (gcc fstack-usage)
 -   printf rewrite
--   periodic optimal scheduling
--   sleep optimal scheduling
+-   sleep optimal scheduling (like periodic with oneshot timers)
 -   handle priority for bg threads
 -   priority foreground scheduler
 -   rewrite screen driver

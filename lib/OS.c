@@ -4,6 +4,7 @@
 #include "interrupts.h"
 #include "io.h"
 #include "launchpad.h"
+#include "std.h"
 #include "timer.h"
 #include "tivaware/gpio.h"
 #include "tivaware/hw_ints.h"
@@ -25,11 +26,14 @@ uint32_t JitterHistogram[128] = {0};
 
 static TCB threads[MAX_THREADS];
 static uint32_t stacks[MAX_THREADS][STACK_SIZE];
-uint8_t thread_count = 0;
+static uint8_t thread_count = 0;
 
 static uint32_t idle_stack[32];
 
+static bool os_running;
+
 static noreturn void idle_task(void) {
+    enable_interrupts();
     while (1)
         ;
 }
@@ -42,7 +46,7 @@ static TCB idle = {
     .sp = &idle_stack[31],
 };
 
-TCB* current_thread = &idle;
+static TCB* current_thread = &idle;
 
 // must be called from critical section
 static void insert_thread(TCB* adding) {
@@ -120,8 +124,9 @@ void OS_Signal(Sema4* sem) {
     end_critical(crit);
 }
 
-uint32_t thread_uuid = 1;
-bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
+static uint32_t thread_uuid = 1;
+bool OS_AddThread(void (*task)(void), const char* name, uint32_t stackSize,
+                  uint32_t priority) {
     uint32_t crit = start_critical();
     if (thread_count >= MAX_THREADS - 1) {
         end_critical(crit);
@@ -136,6 +141,7 @@ bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
     adding->sleep = false;
     adding->sleep_time = 0;
     adding->id = thread_uuid++;
+    adding->name = name;
 
     // initialize stack
     adding->stack = stacks[thread_index];
@@ -157,37 +163,75 @@ uint32_t OS_Id(void) {
 
 typedef struct ptask {
     void (*task)(void);
+    struct ptask* next;
     uint32_t reload;
+    uint32_t current;
     uint8_t priority;
 } PTask;
 
 #define MAX_PTASKS 8
-PTask ptasks[MAX_PTASKS];
-uint8_t num_ptasks;
-PTask* current_ptask;
+static PTask ptasks[MAX_PTASKS];
+static uint8_t num_ptasks;
+static PTask* current_ptask;
 
-void periodic_task(void) {
-    current_ptask->task();
+static void setup_next_ptask(uint32_t lag);
+
+static void ptask_insert(PTask* task) {
+    if (!current_ptask) {
+        current_ptask = task;
+        task->next = 0;
+        return;
+    }
+    if (task->priority < current_ptask->priority) {
+        task->next = current_ptask;
+        current_ptask = task;
+    }
+    PTask* temp = current_ptask;
+    while (temp->next && task->priority > temp->next->priority) {
+        temp = temp->next;
+    }
+    task->next = temp->next;
+    temp->next = task;
+}
+
+static void periodic_task(void) {
+    uint32_t time = OS_Time();
+    do { current_ptask->task(); } while ((current_ptask = current_ptask->next));
+    current_ptask = 0;
+    setup_next_ptask(OS_Time() - time);
+}
+
+static void setup_next_ptask(uint32_t lag) {
+    uint32_t min_time = UINT32_MAX;
+    for (int i = 0; i < num_ptasks; ++i) {
+        min_time = min(min_time, ptasks[i].current);
+    }
+    min_time = max(min_time, lag);
+    for (int i = 0; i < num_ptasks; ++i) {
+        if (ptasks[i].current <= min_time) {
+            ptask_insert(&ptasks[i]);
+            ptasks[i].current = ptasks[i].reload;
+        } else {
+            ptasks[i].current -= min_time;
+        }
+    }
+    timer_enable(2, min_time, periodic_task, 1, false);
 }
 
 bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
                           uint32_t priority) {
-    timer_enable(2, period, task, 1, true);
-    return true;
-    // rework for lab 3
-    if (num_ptasks >= MAX_PTASKS) {
+    if (num_ptasks >= MAX_PTASKS - 1) {
         return false;
     }
-    PTask* current = ptasks;
+    PTask* current = &ptasks[num_ptasks++];
     current->priority = priority;
     current->task = task;
-    current->reload = period;
-    if (!num_ptasks) {
-        current_ptask = ptasks;
-        timer_enable(2, period, periodic_task, 1, false);
-        return true;
+    current->current = current->reload = period;
+    // if the first periodic task is added after the OS starts, the oneshot
+    // timer isn't running yet
+    if (num_ptasks == 1 && os_running) {
+        setup_next_ptask(0);
     }
-    ptasks[num_ptasks++] = *current;
     return true;
 }
 
@@ -308,19 +352,22 @@ uint32_t OS_Time(void) {
     return ROM_TimerValueGet(WTIMER5_BASE, TIMER_A);
 }
 
-void OS_Launch(uint32_t time_slice) {
+noreturn void OS_Launch(uint32_t time_slice) {
     ROM_IntPrioritySet(FAULT_PENDSV, 0xff); // priority is high 3 bits
     ROM_IntPendSet(FAULT_PENDSV);
     ROM_SysTickPeriodSet(time_slice);
     ROM_SysTickIntEnable();
     ROM_SysTickEnable();
     timer_enable(1, time_slice, &sleep_task, 3, true);
+    if (num_ptasks) {
+        setup_next_ptask(0);
+    }
     OS_ClearTime();
-    // Set SP to idle's stack
-    __asm("LDR R0, =idle\n"
-          "LDR R0, [R0]\n"
-          "MOV SP, R0\n");
-    enable_interrupts();
+    // Set SP to idle's stack and run the idle task
+    __asm("LDR R0, =idle");
+    __asm("LDR R0, [R0]");
+    __asm("MOV SP, R0");
+    os_running = true;
     idle_task();
 }
 
@@ -330,14 +377,14 @@ void systick_handler() {
 
 void pendsv_handler(void) {
     disable_interrupts();
-    __asm("PUSH    {R4 - R11}\n"
-          "LDR     R0, =current_thread\n" // R0 = &current_thread
-          "LDR     R1, [R0]\n"            // R1 = current_thread
-          "STR     SP, [R1]\n"    // SP = *current_thread aka current_thread->sp
-          "LDR     R1, [R1,#4]\n" // R1 = current_thread->next_tcb;
-          "STR     R1, [R0]\n"    // current_thread = current_thread->next_tcb;
-          "LDR     SP, [R1]\n"    // SP = current_thread->sp
-          "POP     {R4 - R11}");
+    __asm("PUSH {R4 - R11}");
+    __asm("LDR  R0, =current_thread"); // R0 = &current_thread
+    __asm("LDR  R1, [R0]");            // R1 = current_thread
+    __asm("STR  SP, [R1]");    // SP = *current_thread aka current_thread->sp
+    __asm("LDR  R1, [R1,#4]"); // R1 = current_thread->next_tcb;
+    __asm("STR  R1, [R0]");    // current_thread = current_thread->next_tcb;
+    __asm("LDR  SP, [R1]");    // SP = current_thread->sp
+    __asm("POP  {R4 - R11}");
     enable_interrupts();
 }
 

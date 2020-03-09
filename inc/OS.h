@@ -6,7 +6,9 @@ typedef struct tcb {
     uint32_t* sp;
     struct tcb* next_tcb;
     struct tcb* prev_tcb;
+
     uint32_t id;
+    const char* name;
 
     uint32_t sleep_time;
     bool sleep;
@@ -34,7 +36,8 @@ void OS_Init(void);
 //         priority, 0 is highest, 5 is the lowest
 // returns: true if successful, false if this thread can not be added
 // stack size must be divisable by 8 (aligned to double word boundary)
-bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority);
+bool OS_AddThread(void (*task)(void), const char* name, uint32_t stackSize,
+                  uint32_t priority);
 
 // add a background periodic task
 // typically this function receives the highest priority
@@ -42,8 +45,6 @@ bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority);
 //         period given in cycles
 //         priority 0 is the highest, 5 is the lowest
 // returns: true if successful, false if this thread can not be added
-// You are free to select the time resolution for this function
-// It is assumed that the user task will run to completion and return
 // This task can't block, but it can call OS_Signal or OS_AddThread
 // In lab 3, this command will be called 0 1 or 2 times
 // In lab 3, there will be up to four background threads, and this priority
@@ -54,26 +55,13 @@ bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
 // add a background task to run whenever the SW1 (PF4) button is pushed
 // inputs: pointer to a void/void background function
 //         priority 0 is the highest, 5 is the lowest
-// returns: true if successful, false if this thread can not be added
-// It is assumed that the user task will run to completion and return
 // This task can't block, but it can call OS_Signal or OS_AddThread
-// In labs 2 and 3, this command will be called 0 or 1 times
-// In lab 3, there will be up to four background threads, and this priority
-// field determines the relative priority of these four threads
 bool OS_AddSW1Task(void (*task)(void), uint32_t priority);
 
 // add a background task to run whenever the SW2 (PF0) button is pushed
 // inputs: pointer to a void/void background function
-//         priority 0 is highest, 5 is lowest
-// returns: true if successful, false if this thread can not be added
-// It is assumed user task will run to completion and return
-// This task can not spin block loop sleep or kill
-// This task can call issue OS_Signal, it can call OS_AddThread
-// This task does not have a Thread ID
-// In lab 2, this function can be ignored
-// In lab 3, this command will be called will be called 0 or 1 times
-// In lab 3, there will be up to four background threads, and this priority
-// field determines the relative priority of these four threads
+//         priority 0 is the highest, 5 is the lowest
+// This task can't block, but it can call OS_Signal or OS_AddThread
 bool OS_AddSW2Task(void (*task)(void), uint32_t priority);
 
 void OS_InitSemaphore(Sema4* semaPt, int32_t value);

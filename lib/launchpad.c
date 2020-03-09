@@ -18,7 +18,7 @@ void launchpad_init(void) {
     ROM_GPIOPadConfigSet(GPIO_PORTF_BASE, 0x11, GPIO_STRENGTH_2MA,
                          GPIO_PIN_TYPE_STD_WPU);
     ROM_GPIOIntTypeSet(GPIO_PORTF_BASE, GPIO_PIN_0 | GPIO_PIN_4,
-                       GPIO_BOTH_EDGES);
+                       GPIO_RISING_EDGE);
     HWREG(GPIO_PORTF_BASE + GPIO_O_IM) = 0x11;
     ROM_IntPrioritySet(INT_GPIOF, 3 << 5); // priority is high 3 bits
     ROM_IntEnable(INT_GPIOF);
