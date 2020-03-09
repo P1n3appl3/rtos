@@ -1,15 +1,13 @@
--   semahpore blocking linked list
+-   only flash when necessary (allow parallel make for compilation but with
+    serial steps like flash -> debug)
 -   stack protection with MPU
 -   investigate static analysis for max stack usage (gcc fstack-usage)
 -   printf rewrite
--   sleep optimal scheduling (like periodic with oneshot timers)
--   priority foreground scheduler
--   rewrite screen driver
+-   more optimal sleep scheduling (like periodic with one-shot timers)
 -   check rom vs normal driverlib speed/space
 -   port SPI driver from valvano's code to driverlib
+-   rewrite screen driver with our SPI driver
 -   LTO
--   allocator
--   use heap for dynamically sized stacks and OS fifo
+-   simple allocator
+-   use ^ for dynamically sized stacks and OS fifo
 -   file system
--   Make only flash when necessary (allow parallel builds with serial steps like
-    flash -> debug)

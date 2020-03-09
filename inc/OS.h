@@ -10,10 +10,10 @@ typedef struct tcb {
     uint32_t id;
     const char* name;
 
-    uint32_t sleep_time;
     struct tcb* next_blocked;
 
-    bool blocked;
+    uint32_t sleep_time;
+
     bool asleep;
     bool alive;
     uint8_t priority;

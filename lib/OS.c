@@ -30,44 +30,74 @@ static uint8_t thread_count = 0;
 
 static bool os_running;
 
-static noreturn void idle_task(void) {
-    enable_interrupts();
-    while (true) { wait_for_interrupts(); }
-}
-
 static uint32_t idle_stack[32];
 static TCB idle = {
     .next_tcb = &idle,
     .prev_tcb = &idle,
     .id = 0,
     .alive = true,
+    .priority = 255,
     .sp = &idle_stack[31],
 };
 
-static TCB* current_thread = &idle;
-
-// must be called from critical section
-static void insert_thread(TCB* adding) {
-    if (thread_count > 0) {
-        adding->next_tcb = current_thread->next_tcb->next_tcb;
-        adding->prev_tcb = current_thread->next_tcb;
-    } else {
-        adding->prev_tcb = adding;
-        adding->next_tcb = adding;
+static noreturn void idle_task(void) {
+    enable_interrupts();
+    while (true) {
+        idle.next_tcb = &idle;
+        wait_for_interrupts();
     }
-    current_thread->next_tcb->next_tcb->prev_tcb = adding;
-    current_thread->next_tcb->next_tcb = adding;
 }
 
-// must be called from critical section
+static TCB* current_thread = &idle;
+
+static void insert_behind(TCB* a, TCB* b) {
+    a->next_tcb = b;
+    a->prev_tcb = b->prev_tcb;
+    a->prev_tcb->next_tcb = a;
+    b->prev_tcb = a;
+}
+
+static void insert_thread(TCB* adding) {
+    uint32_t crit = start_critical();
+    if (adding->priority < current_thread->priority) {
+        TCB* next = current_thread->next_tcb;
+        if (next->priority > adding->priority) {
+            current_thread->next_tcb = adding;
+            OS_Suspend();
+        } else if (next->priority == adding->priority) {
+            insert_behind(adding, next);
+        }
+    } else if (adding->priority == current_thread->priority) {
+        insert_behind(adding, current_thread);
+    }
+    end_critical(crit);
+}
+
+// only called from sleep/kill/suspend so no additional critical section needed
 static void remove_current_thread() {
     if (current_thread->next_tcb == current_thread &&
         current_thread->prev_tcb == current_thread) {
-        current_thread = &idle;
+        uint8_t my_count = thread_count;
+        TCB* new_current = &idle;
+        for (int i = 0; my_count > 0; ++i) {
+            if (!threads[i].alive) {
+                continue;
+            }
+            --my_count;
+            if (!(threads[i].asleep || threads[i].next_blocked)) {
+                if (threads[i].priority < new_current->priority) {
+                    new_current = &threads[i];
+                } else if (threads[i].priority == new_current->priority) {
+                    insert_behind(&threads[i], new_current);
+                }
+            }
+            current_thread->next_tcb = new_current;
+        }
     } else {
         current_thread->prev_tcb->next_tcb = current_thread->next_tcb;
         current_thread->next_tcb->prev_tcb = current_thread->prev_tcb;
     }
+    OS_Suspend();
 }
 
 unsigned long OS_LockScheduler(void) {
@@ -94,12 +124,12 @@ void OS_InitSemaphore(Sema4* sem, int32_t value) {
 
 void OS_Wait(Sema4* sem) {
     uint32_t crit = start_critical();
+    current_thread->next_blocked = 0;
     if (sem->value-- >= 0) {
         end_critical(crit);
         return;
     }
     if (!sem->blocked_head) {
-        current_thread->next_blocked = 0;
         sem->blocked_head = current_thread;
     } else {
         TCB* tail = sem->blocked_head;
@@ -111,7 +141,6 @@ void OS_Wait(Sema4* sem) {
         tail->next_blocked = current_thread;
     }
     remove_current_thread();
-    OS_Suspend();
     end_critical(crit);
 }
 
@@ -271,7 +300,6 @@ void OS_Sleep(uint32_t time) {
     current_thread->sleep_time =
         time + get_timer_reload(1) - get_timer_value(1);
     remove_current_thread();
-    OS_Suspend();
     end_critical(crit);
 }
 
@@ -280,7 +308,6 @@ void OS_Kill(void) {
     --thread_count;
     current_thread->alive = false;
     remove_current_thread();
-    OS_Suspend();
     end_critical(crit);
 }
 
