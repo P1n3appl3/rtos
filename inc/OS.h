@@ -11,12 +11,12 @@ typedef struct tcb {
     const char* name;
 
     uint32_t sleep_time;
-    bool sleep;
-
     struct tcb* next_blocked;
-    bool blocked;
 
+    bool blocked;
+    bool asleep;
     bool alive;
+    uint8_t priority;
 
     uint32_t* stack;
 } TCB;

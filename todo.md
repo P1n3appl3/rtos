@@ -3,7 +3,6 @@
 -   investigate static analysis for max stack usage (gcc fstack-usage)
 -   printf rewrite
 -   sleep optimal scheduling (like periodic with oneshot timers)
--   handle priority for bg threads
 -   priority foreground scheduler
 -   rewrite screen driver
 -   check rom vs normal driverlib speed/space

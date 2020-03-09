@@ -28,16 +28,14 @@ static TCB threads[MAX_THREADS];
 static uint32_t stacks[MAX_THREADS][STACK_SIZE];
 static uint8_t thread_count = 0;
 
-static uint32_t idle_stack[32];
-
 static bool os_running;
 
 static noreturn void idle_task(void) {
     enable_interrupts();
-    while (1)
-        ;
+    while (true) { wait_for_interrupts(); }
 }
 
+static uint32_t idle_stack[32];
 static TCB idle = {
     .next_tcb = &idle,
     .prev_tcb = &idle,
@@ -96,7 +94,7 @@ void OS_InitSemaphore(Sema4* sem, int32_t value) {
 
 void OS_Wait(Sema4* sem) {
     uint32_t crit = start_critical();
-    if (--sem->value >= 0) {
+    if (sem->value-- >= 0) {
         end_critical(crit);
         return;
     }
@@ -105,12 +103,16 @@ void OS_Wait(Sema4* sem) {
         sem->blocked_head = current_thread;
     } else {
         TCB* tail = sem->blocked_head;
-        while (tail->next_blocked) { tail = tail->next_blocked; }
+        while (tail->next_blocked &&
+               tail->next_blocked->priority <= current_thread->priority) {
+            tail = tail->next_blocked;
+        }
+        current_thread->next_blocked = tail->next_blocked;
         tail->next_blocked = current_thread;
     }
     remove_current_thread();
-    end_critical(crit);
     OS_Suspend();
+    end_critical(crit);
 }
 
 void OS_Signal(Sema4* sem) {
@@ -120,6 +122,9 @@ void OS_Signal(Sema4* sem) {
         return;
     }
     insert_thread(sem->blocked_head);
+    if (sem->blocked_head->priority > current_thread->priority) {
+        OS_Suspend();
+    }
     sem->blocked_head = sem->blocked_head->next_blocked;
     end_critical(crit);
 }
@@ -138,8 +143,9 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stackSize,
     TCB* adding = &threads[thread_index];
 
     adding->alive = true;
-    adding->sleep = false;
+    adding->asleep = false;
     adding->sleep_time = 0;
+    adding->priority = priority;
     adding->id = thread_uuid++;
     adding->name = name;
 
@@ -197,12 +203,11 @@ static void ptask_insert(PTask* task) {
 static void periodic_task(void) {
     uint32_t time = OS_Time();
     do { current_ptask->task(); } while ((current_ptask = current_ptask->next));
-    current_ptask = 0;
     setup_next_ptask(OS_Time() - time);
 }
 
 static void setup_next_ptask(uint32_t lag) {
-    uint32_t min_time = UINT32_MAX;
+    int32_t min_time = INT32_MAX;
     for (int i = 0; i < num_ptasks; ++i) {
         min_time = min(min_time, ptasks[i].current);
     }
@@ -248,10 +253,10 @@ bool OS_AddSW2Task(void (*task)(void), uint32_t priority) {
 static void sleep_task(void) {
     uint32_t reload = get_timer_reload(1);
     for (int i = 0; i < MAX_THREADS; i++) {
-        if (threads[i].sleep) {
+        if (threads[i].asleep) {
             if (threads[i].sleep_time <= reload) {
                 threads[i].sleep_time = 0;
-                threads[i].sleep = false;
+                threads[i].asleep = false;
                 insert_thread(&threads[i]);
             } else {
                 threads[i].sleep_time -= reload;
@@ -262,7 +267,7 @@ static void sleep_task(void) {
 
 void OS_Sleep(uint32_t time) {
     uint32_t crit = start_critical();
-    current_thread->sleep = true;
+    current_thread->asleep = true;
     current_thread->sleep_time =
         time + get_timer_reload(1) - get_timer_value(1);
     remove_current_thread();
@@ -354,11 +359,12 @@ uint32_t OS_Time(void) {
 
 noreturn void OS_Launch(uint32_t time_slice) {
     ROM_IntPrioritySet(FAULT_PENDSV, 0xff); // priority is high 3 bits
+    ROM_IntPrioritySet(FAULT_SYSTICK, 0xff);
     ROM_IntPendSet(FAULT_PENDSV);
     ROM_SysTickPeriodSet(time_slice);
     ROM_SysTickIntEnable();
     ROM_SysTickEnable();
-    timer_enable(1, time_slice, &sleep_task, 3, true);
+    timer_enable(1, ms(1), &sleep_task, 3, true);
     if (num_ptasks) {
         setup_next_ptask(0);
     }
