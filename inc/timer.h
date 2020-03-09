@@ -5,48 +5,44 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// System time resolution in cycles
-#define SYSTEM_TIME_DIV 1
+// Hertz to cycles
+uint32_t hz(float hz);
 
-typedef uint32_t duration;
+// Cycles to hertz
+float to_hz(uint32_t time);
 
-// Hertz to system units
-#define hz(X) ((_Generic((X), int : hz_int, float : hz_float))(X))
-duration hz_int(uint32_t hz);
-duration hz_float(float hz);
+// Microseconds to cycles
+uint32_t us(uint32_t us);
 
-// Microseconds to system units
-duration us(uint32_t us);
+// Cycles to microseconds
+float to_us(uint32_t time);
 
-// System units to microseconds
-uint32_t to_us(duration time);
+// Milliseconds to cycles
+uint32_t ms(float ms);
 
-// Milliseconds to system units
-duration ms(float ms);
+// Cycles to milliseconds
+float to_ms(uint32_t time);
 
-// System units to milliseconds
-uint32_t to_ms(duration time);
+// Seconds to cycles
+uint32_t seconds(float s);
 
-// Seconds to system units
-duration seconds(float s);
-
-// System units to seconds
-uint32_t to_seconds(duration time);
+// Cycles to seconds
+float to_seconds(uint32_t time);
 
 // Enables periodic timer interrupts
 // timer_num: 0-11 (6-11 use 64 bit timers)
 // priority: 0-7 (0=highest)
-void timer_enable(uint8_t timer_num, duration period, void (*task)(void),
+void timer_enable(uint8_t timer_num, uint32_t period, void (*task)(void),
                   uint8_t priority, bool periodic);
 
 // Spin
-void busy_wait(uint8_t timer_num, duration duration);
+void busy_wait(uint8_t timer_num, uint32_t duration);
 
 // Get the current value of a certain timer
-duration get_timer_value(uint8_t timer_num);
+uint32_t get_timer_value(uint8_t timer_num);
 
 // Get the reload value for a certain timer
-duration get_timer_reload(uint8_t timer_num);
+uint32_t get_timer_reload(uint8_t timer_num);
 
 typedef struct {
     uint32_t sysctl_periph;

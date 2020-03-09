@@ -39,7 +39,7 @@ bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority);
 // add a background periodic task
 // typically this function receives the highest priority
 // inputs: pointer to a void/void background function
-//         period given in system time units
+//         period given in cycles
 //         priority 0 is the highest, 5 is the lowest
 // returns: true if successful, false if this thread can not be added
 // You are free to select the time resolution for this function
@@ -48,7 +48,7 @@ bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority);
 // In lab 3, this command will be called 0 1 or 2 times
 // In lab 3, there will be up to four background threads, and this priority
 // field determines the relative priority of these four threads
-bool OS_AddPeriodicThread(void (*task)(void), duration period,
+bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
                           uint32_t priority);
 
 // add a background task to run whenever the SW1 (PF4) button is pushed
@@ -90,8 +90,8 @@ void OS_Signal(Sema4* semaPt);
 uint32_t OS_Id(void);
 
 // place this thread into a dormant state
-// input: number of system time units to sleep
-void OS_Sleep(uint32_t sleepTime);
+// input: number of cycles to sleep
+void OS_Sleep(uint32_t sleep_time);
 
 // kill the currently running thread, release its TCB and stack
 void OS_Kill(void);
@@ -129,19 +129,19 @@ void OS_MailBox_Send(uint32_t data);
 // remove mail from the MailBox, blocks if mailbox is empty
 uint32_t OS_MailBox_Recv(void);
 
-// return the system time
-duration OS_Time(void);
+// return the system time in cycles
+uint32_t OS_Time(void);
 
 // Calculates difference between two times
-// returns: time difference in system time units
-duration OS_TimeDifference(duration a, duration b);
+// returns: time difference in cycles
+uint32_t OS_TimeDifference(uint32_t a, uint32_t b);
 
 // sets the system time to zero
 void OS_ClearTime(void);
 
 // start the scheduler, enable interrupts
-// inputs: number of system time units for each time slice
-void OS_Launch(duration theTimeSlice);
+// inputs: number of cycles for each time slice
+void OS_Launch(uint32_t time_slice);
 
 // open the file for writing, redirect stream I/O (printf) to this file
 // if the file exists it will append to the end

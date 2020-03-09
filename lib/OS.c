@@ -157,7 +157,7 @@ uint32_t OS_Id(void) {
 
 typedef struct ptask {
     void (*task)(void);
-    duration reload;
+    uint32_t reload;
     uint8_t priority;
 } PTask;
 
@@ -170,7 +170,7 @@ void periodic_task(void) {
     current_ptask->task();
 }
 
-bool OS_AddPeriodicThread(void (*task)(void), duration period,
+bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
                           uint32_t priority) {
     timer_enable(2, period, task, 1, true);
     return true;
@@ -292,7 +292,7 @@ uint32_t OS_MailBox_Recv(void) {
     return temp;
 }
 
-duration OS_TimeDifference(duration a, duration b) {
+uint32_t OS_TimeDifference(uint32_t a, uint32_t b) {
     return a < b ? b - a : a - b;
 }
 
@@ -300,23 +300,21 @@ void OS_ClearTime(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_WTIMER5);
     ROM_TimerConfigure(WTIMER5_BASE, TIMER_CFG_PERIODIC_UP);
     ROM_TimerControlStall(WTIMER5_BASE, TIMER_A, true);
-    // TODO: figure out why this doesn't work
-    // ROM_TimerPrescaleSet(WTIMER5_BASE, TIMER_A, SYSTEM_TIME_DIV);
     ROM_TimerEnable(WTIMER5_BASE, TIMER_A);
     HWREG(WTIMER5_BASE + TIMER_O_TAV) = 0;
 }
 
-duration OS_Time(void) {
-    return ROM_TimerValueGet(WTIMER5_BASE, TIMER_A) / SYSTEM_TIME_DIV;
+uint32_t OS_Time(void) {
+    return ROM_TimerValueGet(WTIMER5_BASE, TIMER_A);
 }
 
-void OS_Launch(duration time_slice) {
+void OS_Launch(uint32_t time_slice) {
     ROM_IntPrioritySet(FAULT_PENDSV, 0xff); // priority is high 3 bits
     ROM_IntPendSet(FAULT_PENDSV);
-    ROM_SysTickPeriodSet(time_slice * SYSTEM_TIME_DIV);
+    ROM_SysTickPeriodSet(time_slice);
     ROM_SysTickIntEnable();
     ROM_SysTickEnable();
-    timer_enable(1, ms(1), &sleep_task, 3, true);
+    timer_enable(1, time_slice, &sleep_task, 3, true);
     OS_ClearTime();
     // Set SP to idle's stack
     __asm("LDR R0, =idle\n"

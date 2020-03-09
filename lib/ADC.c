@@ -8,12 +8,10 @@
 #include "tivaware/timer.h"
 #include <stdint.h>
 
-// channel_num (0 to 11) specifies which pin is sampled with sequencer 3
-// software start
-// return with error 1, if channel_num>11,
-// otherwise initialize ADC and return 0 (success)
-
 bool ADC_init(uint8_t channel_num) {
+    if (channel_num > 11) {
+        return false;
+    }
     ADCConfig config = adcs[channel_num];
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
     ROM_SysCtlPeripheralEnable(config.port);
@@ -50,7 +48,7 @@ bool ADC_timer_init(uint8_t channel_num, uint8_t timer_num, uint32_t period,
     ROM_SysCtlPeripheralEnable(timer_config.sysctl_periph);
     ROM_TimerConfigure(timer_config.base, TIMER_CFG_PERIODIC);
     ROM_TimerControlStall(timer_config.base, TIMER_A, true);
-    ROM_TimerLoadSet(timer_config.base, TIMER_A, period * SYSTEM_TIME_DIV);
+    ROM_TimerLoadSet(timer_config.base, TIMER_A, period);
     ROM_TimerControlTrigger(timer_config.base, TIMER_BOTH, true);
 
     ADCConfig adc_config = adcs[channel_num];
