@@ -15,6 +15,7 @@ typedef struct tcb {
     uint32_t sleep_time;
 
     bool asleep;
+    bool blocked;
     bool alive;
     uint8_t priority;
 
@@ -119,10 +120,6 @@ uint32_t OS_MailBox_Recv(void);
 
 // return the system time in cycles
 uint32_t OS_Time(void);
-
-// Calculates difference between two times
-// returns: time difference in cycles
-uint32_t OS_TimeDifference(uint32_t a, uint32_t b);
 
 // sets the system time to zero
 void OS_ClearTime(void);

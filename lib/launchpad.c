@@ -59,13 +59,13 @@ static uint32_t last_sw2;
 void gpio_portf_handler(void) {
     uint32_t now = to_ms(OS_Time());
     if (HWREG(GPIO_PORTF_BASE + GPIO_O_RIS) & 0x01) {
-        if (sw1task && now - last_sw1 > debounce_ms && right_switch()) {
+        if (sw1task && now - last_sw1 > debounce_ms) {
             sw1task();
         }
         last_sw1 = now;
     }
     if (HWREG(GPIO_PORTF_BASE + GPIO_O_RIS) & 0x10) {
-        if (sw2task && now - last_sw2 > debounce_ms && left_switch()) {
+        if (sw2task && now - last_sw2 > debounce_ms) {
             sw2task();
         }
         last_sw2 = now;

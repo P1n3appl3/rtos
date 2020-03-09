@@ -1,6 +1,8 @@
 #include "OS.h"
 #include "io.h"
+#include "launchpad.h"
 #include "printf.h"
+#include "std.h"
 #include <stdint.h>
 
 #define PD0 (*((volatile uint32_t*)0x40007004))
@@ -296,11 +298,11 @@ uint32_t CountB; // number of times Task B called
 uint32_t Count1; // number of times thread1 loops
 
 // simple time delay, simulates user program doing real work
-// Input: amount of work in 100ns units (free free to change units)
+// Input: amount of work in cycles
 void PseudoWork(uint32_t work) {
     uint32_t startTime;
     startTime = OS_Time(); // time in 100ns units
-    while (OS_TimeDifference(startTime, OS_Time()) <= work) {}
+    while (difference(startTime, OS_Time()) <= work) {}
 }
 void Thread6(void) { // foreground thread
     Count1 = 0;
@@ -315,7 +317,7 @@ extern void Jitter(int32_t, uint32_t const,
                    uint32_t[]); // prints jitter information (write this)
 void Thread7(void) {            // foreground thread
     puts("\n\rEE345M/EE380L, Lab 3 Procedure 2");
-    OS_Sleep(seconds(10));                          // 10 seconds
+    OS_Sleep(seconds(10)); // 10 seconds
     OS_ReportJitter();
     // Jitter(MaxJitter, JitterHistogram); // print jitter information
     // Jitter(MaxJitter2, JitterHistogram2);  // print jitter of
@@ -328,15 +330,14 @@ void Thread7(void) {            // foreground thread
 void TaskA(void) {   // called every {1000, 2990us} in background
     PD1 = 0x02;      // debugging profile
     CountA++;
-    PseudoWork(workA * counts1us); //  do work (100ns time resolution)
-    PD1 = 0x00;                    // debugging profile
+    PseudoWork(us(500));
+    PD1 = 0x00; // debugging profile
 }
-#define workB 250  // 250 us work in Task B
 void TaskB(void) { // called every pB in background
     PD2 = 0x04;    // debugging profile
     CountB++;
-    PseudoWork(workB * counts1us); //  do work (100ns time resolution)
-    PD2 = 0x00;                    // debugging profile
+    PseudoWork(us(250)); //  do work
+    PD2 = 0x00;          // debugging profile
 }
 
 int testmain6(void) { // testmain6 Lab 3
@@ -523,15 +524,43 @@ int testmainFIFO(void) { // testmainFIFO
     return 0;         // this never executes
 }
 
+void mytask(void) {
+    led_toggle(RED_LED);
+}
+
+void my_busy(void) {
+    while (true) {
+        OS_Sleep(ms(1000));
+        led_toggle(BLUE_LED);
+    }
+}
+
+void my_other(void) {
+    OS_Sleep(ms(500));
+    while (true) {
+        OS_Sleep(ms(1000));
+        led_toggle(GREEN_LED);
+    }
+}
+
+void mytestmain(void) {
+    OS_Init();
+    OS_AddPeriodicThread(mytask, ms(500), 1);
+    OS_AddThread(my_other, "other", 128, 0);
+    OS_AddThread(my_busy, "busy", 128, 1);
+    OS_Launch(ms(2));
+}
+
 extern void realmain(void);
 
 void main(void) {
-    testmain1();
+    // mytestmain();
+    // testmain1();
     // testmain2();
     // testmain3();
     // testmain4();
     // testmain5();
-    // testmain6();
+    testmain6();
     // testmain7();
     // realmain();
 }

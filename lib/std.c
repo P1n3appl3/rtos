@@ -2,6 +2,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+uint32_t difference(uint32_t a, uint32_t b) {
+    return a < b ? b - a : a - b;
+}
+
 int32_t abs(int32_t n) {
     return n < 0 ? -n : n;
 }

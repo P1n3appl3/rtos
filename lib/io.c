@@ -73,6 +73,7 @@ bool putchar(char x) {
     OS_Wait(&write_lock);
     // Skip the buffer and go straight to the hardware fifo if possible
     if (txfifo_empty() && ROM_UARTCharPutNonBlocking(UART0_BASE, x)) {
+        OS_Signal(&write_lock);
         return true;
     }
     txfifo_put(x);

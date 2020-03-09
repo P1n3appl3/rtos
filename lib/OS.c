@@ -90,9 +90,10 @@ static void remove_current_thread() {
                 continue;
             }
             --my_count;
-            if (!(threads[i].asleep || threads[i].next_blocked)) {
+            if (!(threads[i].asleep || threads[i].blocked)) {
                 if (threads[i].priority < new_current->priority) {
                     new_current = &threads[i];
+                    new_current->next_tcb = new_current->prev_tcb = new_current;
                 } else if (threads[i].priority == new_current->priority) {
                     insert_behind(&threads[i], new_current);
                 }
@@ -135,6 +136,7 @@ void OS_Wait(Sema4* sem) {
         end_critical(crit);
         return;
     }
+    current_thread->blocked = true;
     if (!sem->blocked_head) {
         sem->blocked_head = current_thread;
     } else {
@@ -157,6 +159,7 @@ void OS_Signal(Sema4* sem) {
         return;
     }
     insert_thread(sem->blocked_head);
+    sem->blocked_head->blocked = false;
     if (sem->blocked_head->priority > current_thread->priority) {
         OS_Suspend();
     }
@@ -240,9 +243,13 @@ static void periodic_task(void) {
     uint32_t time = OS_Time();
     do {
         uint32_t current = OS_Time();
-        uint32_t jitter = current - current_ptask->last;
+        uint32_t jitter = difference(difference(current, current_ptask->last),
+                                     current_ptask->reload);
         MaxJitter = max(MaxJitter, jitter);
-        ++JitterHistogram[jitter / 80];
+        uint8_t idx =
+            min(sizeof(JitterHistogram) / sizeof(JitterHistogram[0]) - 1,
+                jitter / 8000);
+        ++JitterHistogram[idx];
         current_ptask->last = current;
         current_ptask->task();
     } while ((current_ptask = current_ptask->next));
@@ -382,10 +389,6 @@ uint32_t OS_MailBox_Recv(void) {
     return temp;
 }
 
-uint32_t OS_TimeDifference(uint32_t a, uint32_t b) {
-    return a < b ? b - a : a - b;
-}
-
 void OS_ClearTime(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_WTIMER5);
     ROM_TimerConfigure(WTIMER5_BASE, TIMER_CFG_PERIODIC_UP);
@@ -414,9 +417,6 @@ noreturn void OS_Launch(uint32_t time_slice) {
     __asm("LDR R0, =idle");
     __asm("LDR R0, [R0]");
     __asm("MOV SP, R0");
-    if (thread_count > 0) {
-        idle.next_tcb = &threads[0];
-    }
     idle_task();
 }
 
