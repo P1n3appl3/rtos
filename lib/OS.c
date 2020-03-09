@@ -4,6 +4,7 @@
 #include "interrupts.h"
 #include "io.h"
 #include "launchpad.h"
+#include "printf.h"
 #include "std.h"
 #include "timer.h"
 #include "tivaware/gpio.h"
@@ -30,17 +31,21 @@ static uint8_t thread_count = 0;
 
 static bool os_running;
 
-static uint32_t idle_stack[32];
+#define IDLE_STACK_SIZE 64
+static uint32_t idle_stack[IDLE_STACK_SIZE];
 static TCB idle = {
     .next_tcb = &idle,
     .prev_tcb = &idle,
     .id = 0,
     .alive = true,
     .priority = 255,
-    .sp = &idle_stack[31],
+    .name = "Idle",
+    .stack = idle_stack,
+    .sp = &idle_stack[IDLE_STACK_SIZE - 1],
 };
 
 static noreturn void idle_task(void) {
+    os_running = true;
     enable_interrupts();
     while (true) {
         idle.next_tcb = &idle;
@@ -62,6 +67,7 @@ static void insert_thread(TCB* adding) {
     if (adding->priority < current_thread->priority) {
         TCB* next = current_thread->next_tcb;
         if (next->priority > adding->priority) {
+            adding->next_tcb = adding->prev_tcb = adding;
             current_thread->next_tcb = adding;
             OS_Suspend();
         } else if (next->priority == adding->priority) {
@@ -201,10 +207,11 @@ typedef struct ptask {
     struct ptask* next;
     uint32_t reload;
     uint32_t current;
+    uint32_t last;
     uint8_t priority;
 } PTask;
 
-#define MAX_PTASKS 8
+#define MAX_PTASKS 4
 static PTask ptasks[MAX_PTASKS];
 static uint8_t num_ptasks;
 static PTask* current_ptask;
@@ -231,7 +238,14 @@ static void ptask_insert(PTask* task) {
 
 static void periodic_task(void) {
     uint32_t time = OS_Time();
-    do { current_ptask->task(); } while ((current_ptask = current_ptask->next));
+    do {
+        uint32_t current = OS_Time();
+        uint32_t jitter = current - current_ptask->last;
+        MaxJitter = max(MaxJitter, jitter);
+        ++JitterHistogram[jitter / 80];
+        current_ptask->last = current;
+        current_ptask->task();
+    } while ((current_ptask = current_ptask->next));
     setup_next_ptask(OS_Time() - time);
 }
 
@@ -400,7 +414,9 @@ noreturn void OS_Launch(uint32_t time_slice) {
     __asm("LDR R0, =idle");
     __asm("LDR R0, [R0]");
     __asm("MOV SP, R0");
-    os_running = true;
+    if (thread_count > 0) {
+        idle.next_tcb = &threads[0];
+    }
     idle_task();
 }
 
@@ -419,6 +435,20 @@ void pendsv_handler(void) {
     __asm("LDR  SP, [R1]");    // SP = current_thread->sp
     __asm("POP  {R4 - R11}");
     enable_interrupts();
+}
+
+void OS_ReportJitter(void) {
+    printf("Max Jitter: %d\n\r", MaxJitter);
+    uint32_t most = 0, most_idx;
+    for (int i = 0; i < sizeof(JitterHistogram) / sizeof(JitterHistogram[0]);
+         ++i) {
+        uint32_t num = JitterHistogram[i];
+        if (num > most) {
+            most = num;
+            most_idx = i;
+        }
+    }
+    printf("Modal Jitter: %d\n\r", most_idx);
 }
 
 int OS_RedirectToFile(char* name) {

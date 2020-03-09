@@ -149,3 +149,6 @@ int OS_RedirectToUART(void);
 // redirect stream I/O (printf) to the ST7735 LCD
 // returns: 0 if successful and 1 on failure
 int OS_RedirectToST7735(void);
+
+// print jitter stats
+void OS_ReportJitter(void);

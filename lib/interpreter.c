@@ -138,17 +138,7 @@ void interpret_command(void) {
             printf("ERROR: expected 'get' or 'reset', got '%s'\n\r", token);
         }
     } else if (streq(token, "debug")) {
-        printf("Max Jitter: %d\n\r", MaxJitter);
-        uint32_t most = 0, most_idx;
-        for (int i = 0;
-             i < sizeof(JitterHistogram) / sizeof(JitterHistogram[0]); ++i) {
-            uint32_t num = JitterHistogram[i];
-            if (num > most) {
-                most = num;
-                most_idx = i;
-            }
-        }
-        printf("Modal Jitter: %d\n\r", most_idx);
+        OS_ReportJitter();
     } else {
         printf("ERROR: invalid command '%s'\n\r", token);
     }
