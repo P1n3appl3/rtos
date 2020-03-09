@@ -11,6 +11,7 @@
 -   port SPI driver from valvano's code to driverlib
 -   LTO
 -   allocator
+-   use heap for dynamically sized stacks and OS fifo
 -   file system
 -   Make only flash when necessary (allow parallel builds with serial steps like
     flash -> debug)

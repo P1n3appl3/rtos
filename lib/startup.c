@@ -1,3 +1,4 @@
+#include "tivaware/rom.h"
 #include <stdint.h>
 
 #define mkstr(s) #s
@@ -265,7 +266,6 @@ extern uint32_t _ebss;
 extern uint32_t _etext;
 extern uint32_t _data;
 extern uint32_t _edata;
-volatile uint32_t* const CPACR = (uint32_t*)0xE000ED88;
 
 void default_reset_handler(void) {
     uint32_t* src = &_etext;
@@ -275,8 +275,7 @@ void default_reset_handler(void) {
     dest = &_bss;
     while (dest < &_ebss) { *dest++ = 0; }
 
-    *CPACR |= 0xF << 20; // enable FPU
-
+    ROM_FPUEnable();
     main();
     while (1) {}
 }

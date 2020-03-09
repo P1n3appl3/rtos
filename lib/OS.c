@@ -44,8 +44,6 @@ static TCB idle = {
 
 TCB* current_thread = &idle;
 
-ADDFIFO(os, 4, uint32_t)
-
 // must be called from critical section
 static void insert_thread(TCB* adding) {
     if (thread_count > 0) {
@@ -94,15 +92,6 @@ void OS_InitSemaphore(Sema4* sem, int32_t value) {
 
 void OS_Wait(Sema4* sem) {
     uint32_t crit = start_critical();
-    while (sem->value < 0) {
-        end_critical(crit);
-        OS_Suspend();
-        crit = start_critical();
-    }
-    --sem->value;
-    end_critical(crit);
-    return;
-    // TODO: use this stuff for lab 3
     if (--sem->value >= 0) {
         end_critical(crit);
         return;
@@ -122,10 +111,6 @@ void OS_Wait(Sema4* sem) {
 
 void OS_Signal(Sema4* sem) {
     uint32_t crit = start_critical();
-    ++sem->value;
-    end_critical(crit);
-    return;
-    // TODO: use this stuff for lab 3
     if (++sem->value >= 0) {
         end_critical(crit);
         return;
@@ -160,7 +145,6 @@ bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority) {
     *(--adding->sp) = (uint32_t)task;    // PC
     *(--adding->sp) = (uint32_t)OS_Kill; // LR
     adding->sp -= 13;                    // Space for R0-R12
-    adding->stack[0] = 0xaBad1dea;       // TODO: use to detect stack overflow
 
     insert_thread(adding);
     end_critical(crit);
@@ -255,35 +239,41 @@ void OS_Suspend(void) {
     ROM_IntPendSet(FAULT_PENDSV);
 }
 
-Sema4 FifoAvailable;
+static Sema4 fifo_data_available;
+#define MAX_OS_FIFO 64
+static uint32_t os_fifo_buf[MAX_OS_FIFO];
+static uint8_t os_fifo_head;
+static uint8_t os_fifo_tail;
+static uint8_t os_fifo_size;
 void OS_Fifo_Init(uint32_t size) {
-    OS_InitSemaphore(&FifoAvailable, -1);
-    osfifo_init();
+    os_fifo_head = os_fifo_tail = 0;
+    os_fifo_size = size + 1;
+    OS_InitSemaphore(&fifo_data_available, -1);
 }
 
 bool OS_Fifo_Put(uint32_t data) {
-    if (osfifo_full()) {
+    if (OS_Fifo_Size() == os_fifo_size - 1) {
         return false;
     }
-    osfifo_put(data);
-    OS_Signal(&FifoAvailable);
+    os_fifo_buf[os_fifo_head++] = data;
+    os_fifo_head %= os_fifo_size;
+    OS_Signal(&fifo_data_available);
     return true;
 }
 
 uint32_t OS_Fifo_Get(void) {
-    OS_Wait(&FifoAvailable);
-    uint32_t temp;
-    osfifo_get(&temp);
+    OS_Wait(&fifo_data_available);
+    uint32_t temp = os_fifo_buf[os_fifo_tail++];
+    os_fifo_tail %= os_fifo_size;
     return temp;
 }
 
 int32_t OS_Fifo_Size(void) {
-    return osfifo_size();
+    return (os_fifo_size + os_fifo_head - os_fifo_tail) % os_fifo_size;
 }
 
-uint32_t MailBox;
+uint32_t mailbox_data;
 Sema4 BoxFree, DataValid;
-
 void OS_MailBox_Init(void) {
     OS_InitSemaphore(&BoxFree, 0);
     OS_InitSemaphore(&DataValid, -1);
@@ -291,19 +281,19 @@ void OS_MailBox_Init(void) {
 
 void OS_MailBox_Send(uint32_t data) {
     OS_Wait(&BoxFree);
-    MailBox = data;
+    mailbox_data = data;
     OS_Signal(&DataValid);
 }
 
 uint32_t OS_MailBox_Recv(void) {
     OS_Wait(&DataValid);
-    uint32_t temp = MailBox;
+    uint32_t temp = mailbox_data;
     OS_Signal(&BoxFree);
     return temp;
 }
 
-duration OS_TimeDifference(duration start, duration stop) {
-    return stop - start;
+duration OS_TimeDifference(duration a, duration b) {
+    return a < b ? b - a : a - b;
 }
 
 void OS_ClearTime(void) {
@@ -313,8 +303,6 @@ void OS_ClearTime(void) {
     // TODO: figure out why this doesn't work
     // ROM_TimerPrescaleSet(WTIMER5_BASE, TIMER_A, SYSTEM_TIME_DIV);
     ROM_TimerEnable(WTIMER5_BASE, TIMER_A);
-    // TODO: figure out why the rom function doesn't work for clearing the value
-    // ROM_TimerLoadSet(WTIMER5_BASE, TIMER_A, 0);
     HWREG(WTIMER5_BASE + TIMER_O_TAV) = 0;
 }
 

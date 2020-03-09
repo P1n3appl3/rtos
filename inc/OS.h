@@ -24,35 +24,17 @@ typedef struct {
     TCB* blocked_head;
 } Sema4;
 
-// Initialize operating system, disable interrupts until OS_Launch.
-// Initialize OS controlled I/O: serial, ADC, systick, LaunchPad I/O and timers.
-// Interrupts not yet enabled.
+// initialize OS controlled I/O: UART, ADC, Systick, LaunchPad I/O and timers
+// disable interrupts until OS_Launch
 void OS_Init(void);
 
-void OS_InitSemaphore(Sema4* semaPt, int32_t value);
-
-// decrement semaphore
-// Lab3 block if less than zero
-// input: pointer to a semaphore
-void OS_Wait(Sema4* semaPt);
-
-// increment semaphore
-// Lab3 wakeup blocked thread if appropriate
-// input:  pointer to a semaphore
-void OS_Signal(Sema4* semaPt);
-
 // add a foregound thread to the scheduler
-// inputs: pointer to a void/void foreground task
+// inputs: pointer to a foreground task
 //         number of bytes allocated for its stack
 //         priority, 0 is highest, 5 is the lowest
 // returns: true if successful, false if this thread can not be added
 // stack size must be divisable by 8 (aligned to double word boundary)
-// In Lab 3, you can ignore the stackSize field
 bool OS_AddThread(void (*task)(void), uint32_t stackSize, uint32_t priority);
-
-// returns the thread ID for the currently running thread
-// returns: Thread ID, number greater than zero
-uint32_t OS_Id(void);
 
 // add a background periodic task
 // typically this function receives the highest priority
@@ -62,9 +44,7 @@ uint32_t OS_Id(void);
 // returns: true if successful, false if this thread can not be added
 // You are free to select the time resolution for this function
 // It is assumed that the user task will run to completion and return
-// This task can not spin, block, loop, sleep, or kill
-// This task can call OS_Signal, OS_bSignal, OS_AddThread
-// This task does not have a Thread ID
+// This task can't block, but it can call OS_Signal or OS_AddThread
 // In lab 3, this command will be called 0 1 or 2 times
 // In lab 3, there will be up to four background threads, and this priority
 // field determines the relative priority of these four threads
@@ -76,9 +56,7 @@ bool OS_AddPeriodicThread(void (*task)(void), duration period,
 //         priority 0 is the highest, 5 is the lowest
 // returns: true if successful, false if this thread can not be added
 // It is assumed that the user task will run to completion and return
-// This task can not spin, block, loop, sleep, or kill
-// This task can call OS_Signal  OS_bSignal   OS_AddThread
-// This task does not have a Thread ID
+// This task can't block, but it can call OS_Signal or OS_AddThread
 // In labs 2 and 3, this command will be called 0 or 1 times
 // In lab 3, there will be up to four background threads, and this priority
 // field determines the relative priority of these four threads
@@ -98,6 +76,19 @@ bool OS_AddSW1Task(void (*task)(void), uint32_t priority);
 // field determines the relative priority of these four threads
 bool OS_AddSW2Task(void (*task)(void), uint32_t priority);
 
+void OS_InitSemaphore(Sema4* semaPt, int32_t value);
+
+// block until a semaphore is available
+// input: pointer to a semaphore
+void OS_Wait(Sema4* semaPt);
+
+// increment semaphore value and wake waiting thread if necessary
+// input:  pointer to a semaphore
+void OS_Signal(Sema4* semaPt);
+
+// returns the thread id for the currently running thread
+uint32_t OS_Id(void);
+
 // place this thread into a dormant state
 // input: number of system time units to sleep
 void OS_Sleep(uint32_t sleepTime);
@@ -115,54 +106,35 @@ unsigned long OS_LockScheduler(void);
 // resume foreground thread switching
 void OS_UnLockScheduler(unsigned long previous);
 
-// Initialize the Fifo to be empty
-// In Lab 2, you can ignore the size field
-// In Lab 3, you should implement the user-defined fifo size
-// In Lab 3, you can put whatever restrictions you want on size
-//    e.g., 4 to 64 elements
-//    e.g., must be a power of 2,4,8,16,32,64,128
+// initialize the fifo to be empty
+// size must be < 64    TODO: use dynamic memory to allow larger sizes
 void OS_Fifo_Init(uint32_t size);
 
-// Enter one data sample into the Fifo
-// Called from the background, so no waiting
-// returns: true if data is properly saved, false if data not saved, because it
-// was full
-// Since this is called by interrupt handlers this function can not
-// disable or enable interrupts
+// attempts to add an element to the fifo without blocking
+// returns: true if data is properly added, false if fifo was full
 bool OS_Fifo_Put(uint32_t data);
 
-// Remove one data sample from the Fifo
-// Called in foreground, will spin/block if empty
-// returns: data
+// remove one data sample from the fifo (blocks if empty)
 uint32_t OS_Fifo_Get(void);
 
-// Check the status of the Fifo
-// returns: returns the number of elements in the Fifo
-//          greater than zero if a call to OS_Fifo_Get will return right away
-//          zero or less than zero if the Fifo is empty
-//          zero or less than zero if a call to OS_Fifo_Get will spin or block
+// returns the number of elements in the fifo
 int32_t OS_Fifo_Size(void);
 
-// Initialize communication channel
+// initialize the mailbox to be empty
 void OS_MailBox_Init(void);
 
-// enter mail into the MailBox
-// This function will be called from a foreground thread
-// It will spin/block if the MailBox contains data not yet received
+// enter mail into the MailBox, blocks if mailbox is full
 void OS_MailBox_Send(uint32_t data);
 
-// remove mail from the MailBox
-// This function will be called from a foreground thread
-// It will spin/block if the MailBox is empty
+// remove mail from the MailBox, blocks if mailbox is empty
 uint32_t OS_MailBox_Recv(void);
 
 // return the system time
 duration OS_Time(void);
 
 // Calculates difference between two times
-// inputs: two times measured with OS_Time
 // returns: time difference in system time units
-duration OS_TimeDifference(duration start, duration stop);
+duration OS_TimeDifference(duration a, duration b);
 
 // sets the system time to zero
 void OS_ClearTime(void);

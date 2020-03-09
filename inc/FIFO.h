@@ -1,7 +1,7 @@
 #pragma once
 
-// ADDFIFO(Tx, 32, char) Creates Txfifo_init(), Txfifo_size(),
-// Txfifo_full(), Txfifo_empty(), Txfifo_get() and Txfifo_put()
+// ADDFIFO(tx, 32, char) Creates txfifo_init(), txfifo_size(),
+// txfifo_full(), txfifo_empty(), txfifo_get() and txfifo_put()
 #define ADDFIFO(NAME, SIZE, TYPE)                                              \
     uint16_t volatile NAME##putidx;                                            \
     uint16_t volatile NAME##getidx;                                            \
