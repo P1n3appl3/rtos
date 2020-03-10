@@ -6,5 +6,4 @@
 #define wait_for_interrupts() __asm("WFI")
 
 uint32_t start_critical(void);
-
 void end_critical(uint32_t x);

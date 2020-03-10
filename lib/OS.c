@@ -31,26 +31,19 @@ static uint8_t thread_count = 0;
 
 static bool os_running;
 
-#define IDLE_STACK_SIZE 64
-static uint32_t idle_stack[IDLE_STACK_SIZE];
 static TCB idle = {
     .next_tcb = &idle,
     .prev_tcb = &idle,
     .id = 0,
     .alive = true,
     .priority = 255,
-    .name = "Idle",
-    .stack = idle_stack,
-    .sp = &idle_stack[IDLE_STACK_SIZE - 1],
+    .name = "OS Idle",
 };
 
 static noreturn void idle_task(void) {
     os_running = true;
     enable_interrupts();
-    while (true) {
-        idle.next_tcb = &idle;
-        wait_for_interrupts();
-    }
+    while (true) { wait_for_interrupts(); }
 }
 
 TCB* current_thread = &idle;
@@ -66,7 +59,7 @@ static void insert_thread(TCB* adding) {
     uint32_t crit = start_critical();
     if (adding->priority < current_thread->priority) {
         TCB* next = current_thread->next_tcb;
-        if (next->priority > adding->priority) {
+        if (adding->priority < next->priority) {
             adding->next_tcb = adding->prev_tcb = adding;
             current_thread->next_tcb = adding;
             OS_Suspend();
@@ -85,6 +78,7 @@ static void remove_current_thread() {
         current_thread->prev_tcb == current_thread) {
         uint8_t my_count = thread_count;
         TCB* new_current = &idle;
+        idle.next_tcb = &idle;
         for (int i = 0; my_count > 0; ++i) {
             if (!threads[i].alive) {
                 continue;
@@ -98,8 +92,8 @@ static void remove_current_thread() {
                     insert_behind(&threads[i], new_current);
                 }
             }
-            current_thread->next_tcb = new_current;
         }
+        current_thread->next_tcb = new_current;
     } else {
         current_thread->prev_tcb->next_tcb = current_thread->next_tcb;
         current_thread->next_tcb->prev_tcb = current_thread->prev_tcb;
@@ -159,11 +153,8 @@ void OS_Signal(Sema4* sem) {
         end_critical(crit);
         return;
     }
-    insert_thread(sem->blocked_head);
     sem->blocked_head->blocked = false;
-    if (sem->blocked_head->priority > current_thread->priority) {
-        OS_Suspend();
-    }
+    insert_thread(sem->blocked_head);
     sem->blocked_head = sem->blocked_head->next_blocked;
     end_critical(crit);
 }
@@ -266,7 +257,7 @@ static void setup_next_ptask(uint32_t lag) {
         if (ptasks[i].current <= threshold) {
             ptask_insert(&ptasks[i]);
             ptasks[i].current =
-                ptasks[i].reload - (threshold - ptasks[i].current);
+                max(0, ptasks[i].reload - (threshold - ptasks[i].current));
         } else {
             ptasks[i].current -= threshold;
         }
@@ -405,8 +396,7 @@ uint32_t OS_Time(void) {
 
 noreturn void OS_Launch(uint32_t time_slice) {
     ROM_IntPrioritySet(FAULT_PENDSV, 0xff); // priority is high 3 bits
-    ROM_IntPrioritySet(FAULT_SYSTICK, 0xff);
-    ROM_IntPendSet(FAULT_PENDSV);
+    ROM_IntPrioritySet(FAULT_SYSTICK, 6 << 5);
     ROM_SysTickPeriodSet(time_slice);
     ROM_SysTickIntEnable();
     ROM_SysTickEnable();
@@ -415,10 +405,6 @@ noreturn void OS_Launch(uint32_t time_slice) {
         setup_next_ptask(0);
     }
     OS_ClearTime();
-    // Set SP to idle's stack and run the idle task
-    __asm("LDR R0, =idle");
-    __asm("LDR R0, [R0]");
-    __asm("MOV SP, R0");
     idle_task();
 }
 

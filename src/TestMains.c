@@ -319,8 +319,8 @@ void Thread7(void) {
     puts("\n");
     OS_Kill();
 }
-void TaskA(void) {   // called every {1000, 2990us} in background
-    PD1 = 0x02;      // debugging profile
+void TaskA(void) { // called every {1000, 2990us} in background
+    PD1 = 0x02;    // debugging profile
     CountA++;
     PseudoWork(us(500));
     PD1 = 0x00; // debugging profile
@@ -412,15 +412,8 @@ void Signal3(void) { // foreground
     OS_Kill();
 }
 
-int32_t add(const int32_t n, const int32_t m) {
-    static int32_t result;
-    result = m + n;
-    return result;
-}
 int testmain7(void) { // testmain7  Lab 3
-    volatile uint32_t delay;
-    OS_Init(); // initialize, disable interrupts
-    delay = add(3, 4);
+    OS_Init();        // initialize, disable interrupts
     PortD_Init();
     SignalCount1 = 0;        // number of times s is signaled
     SignalCount2 = 0;        // number of times s is signaled
@@ -516,43 +509,47 @@ int testmainFIFO(void) { // testmainFIFO
     return 0;         // this never executes
 }
 
+Sema4 my_sem;
 void mytask(void) {
-    led_toggle(RED_LED);
+    for (int i = 0; i < 100; ++i) { OS_Signal(&my_sem); }
 }
 
-void my_busy(void) {
+uint32_t num_a = 0;
+uint32_t num_b = 0;
+
+void thread_a(void) {
     while (true) {
-        OS_Sleep(ms(1000));
-        led_toggle(BLUE_LED);
+        OS_Wait(&my_sem);
+        ++num_a;
     }
 }
 
-void my_other(void) {
-    OS_Sleep(ms(500));
+void thread_b(void) {
     while (true) {
-        OS_Sleep(ms(1000));
-        led_toggle(GREEN_LED);
+        OS_Wait(&my_sem);
+        ++num_b;
     }
 }
 
 void mytestmain(void) {
     OS_Init();
-    OS_AddPeriodicThread(mytask, ms(500), 1);
-    OS_AddThread(my_other, "other", 128, 0);
-    OS_AddThread(my_busy, "busy", 128, 1);
+    OS_InitSemaphore(&my_sem, 0);
+    OS_AddPeriodicThread(mytask, ms(10), 1);
+    OS_AddThread(thread_a, "AAAA", 128, 0);
+    OS_AddThread(thread_b, "BBBB", 128, 1);
     OS_Launch(ms(2));
 }
 
 extern void realmain(void);
 
 void main(void) {
-    // mytestmain();
+    mytestmain();
     // testmain1();
     // testmain2();
     // testmain3();
     // testmain4();
     // testmain5();
-    testmain6();
+    // testmain6();
     testmain7();
     // realmain();
 }
