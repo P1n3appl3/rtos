@@ -67,15 +67,17 @@ static void insert_thread(TCB* adding) {
             insert_behind(adding, next);
         }
     } else if (adding->priority == current_thread->priority) {
-        insert_behind(adding, current_thread);
+        insert_behind(adding,
+                      (current_thread->blocked || current_thread->asleep)
+                          ? current_thread->next_tcb
+                          : current_thread);
     }
     end_critical(crit);
 }
 
 // only called from sleep/kill/suspend so no additional critical section needed
 static void remove_current_thread() {
-    if (current_thread->next_tcb == current_thread &&
-        current_thread->prev_tcb == current_thread) {
+    if (current_thread->next_tcb == current_thread) {
         uint8_t my_count = thread_count;
         TCB* new_current = &idle;
         idle.next_tcb = &idle;

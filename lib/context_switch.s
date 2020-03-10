@@ -5,12 +5,19 @@
 .text
 
 .extern current_thread
+.extern context_switch_hook
 .global pendsv_handler
 
 .thumb_func
 pendsv_handler:
     CPSID I
     PUSH {R4 - R11}
+
+// For debugging context switches in C
+    // PUSH {LR}
+    // BL context_switch_hook
+    // POP  {LR}
+
     LDR  R0, =current_thread    // R0 = &current_thread
     LDR  R1, [R0]               // R1 = current_thread
     STR  SP, [R1]               // SP = *current_thread aka current_thread->sp

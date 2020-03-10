@@ -16,7 +16,6 @@ ADDFIFO(tx, 128, uint8_t)
 ADDFIFO(rx, 128, uint8_t)
 
 Sema4 chars_avail;
-Sema4 tx_has_room;
 
 static void hw_to_sw_fifo() {
     do {
@@ -44,7 +43,6 @@ void uart0_handler(void) {
     if (source & UART_INT_TX) {
         ROM_UARTIntClear(UART0_BASE, UART_INT_TX);
         sw_to_hw_fifo();
-        OS_Signal(&tx_has_room);
     }
 }
 
@@ -66,16 +64,14 @@ void uart_init(void) {
     txfifo_init();
     rxfifo_init();
     OS_InitSemaphore(&chars_avail, 0);
-    OS_InitSemaphore(&tx_has_room, 0);
 }
 
 bool putchar(char x) {
-    OS_Wait(&tx_has_room);
     // Skip the buffer and go straight to the hardware fifo if possible
     if (txfifo_empty() && ROM_UARTCharPutNonBlocking(UART0_BASE, x)) {
-        OS_Signal(&tx_has_room);
         return true;
     }
+    while (txfifo_full()) { OS_Suspend(); }
     txfifo_put(x);
     sw_to_hw_fifo();
     return true;

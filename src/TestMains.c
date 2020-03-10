@@ -364,7 +364,7 @@ uint32_t WaitCount3;   // number of times s is successfully waited on
 void OutputThread(void) { // foreground thread
     puts("\n\rEE445M/EE380L, Lab 3 Procedure 4\n\r");
     while (SignalCount1 + SignalCount2 + SignalCount3 < 100 * MAXCOUNT) {
-        OS_Sleep(seconds(1)); // 1 second
+        OS_Sleep(seconds(1));
         putchar('.');
     }
     puts(" done");
@@ -526,10 +526,20 @@ void mytask(void) {
 
 uint32_t num_a = 0;
 uint32_t num_b = 0;
+uint32_t num_c = 0;
+
+void context_switch_hook(void) {
+    if (current_thread->next_tcb->blocked) {
+        __asm("BKPT");
+    }
+}
 
 void thread_a(void) {
     while (true) {
         OS_Wait(&my_sem);
+        if (current_thread->blocked) {
+            __asm("BKPT");
+        }
         ++num_a;
     }
 }
@@ -537,7 +547,18 @@ void thread_a(void) {
 void thread_b(void) {
     while (true) {
         OS_Wait(&my_sem);
+        if (current_thread->blocked) {
+            __asm("BKPT");
+        }
         ++num_b;
+    }
+}
+
+void thread_c(void) {
+    while (true) {
+        OS_Sleep(ms(10));
+        busy_wait(7, ms(10));
+        ++num_c;
     }
 }
 
@@ -545,8 +566,9 @@ void mytestmain(void) {
     OS_Init();
     OS_InitSemaphore(&my_sem, 0);
     OS_AddPeriodicThread(mytask, ms(10), 1);
-    OS_AddThread(thread_a, "AAAA", 128, 0);
+    OS_AddThread(thread_a, "AAAA", 128, 1);
     OS_AddThread(thread_b, "BBBB", 128, 1);
+    OS_AddThread(thread_c, "CCCC", 128, 1);
     OS_Launch(ms(2));
 }
 
@@ -560,6 +582,6 @@ void main(void) {
     // testmain4();
     // testmain5();
     // testmain6();
-    testmain7();
-    // realmain();
+    // testmain7();
+    realmain();
 }

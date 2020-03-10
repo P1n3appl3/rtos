@@ -6,6 +6,7 @@
 -   more optimal sleep scheduling (like periodic with one-shot timers)
 -   check rom vs normal driverlib speed/space
 -   port SPI driver from valvano's code to driverlib
+-   better UART blocking for TX
 -   rewrite screen driver with our SPI driver
 -   LTO
 -   simple allocator

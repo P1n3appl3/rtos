@@ -108,6 +108,7 @@ void Display(void) {
         ST7735_Message_Num(0, 2, "v(mV) =", voltage);
         ST7735_Message_Num(0, 3, "d(mm) =", distance);
     }
+    led_toggle(GREEN_LED);
 }
 
 // foreground thread, accepts data from producer
