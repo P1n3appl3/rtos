@@ -138,7 +138,9 @@ void interpret_command(void) {
             printf("ERROR: expected 'get' or 'reset', got '%s'\n\r", token);
         }
     } else if (streq(token, "debug")) {
+        extern uint32_t CPUUtil;
         OS_ReportJitter();
+        printf("CPU Utilization: %d%%\n\r", CPUUtil / 100);
     } else {
         printf("ERROR: invalid command '%s'\n\r", token);
     }

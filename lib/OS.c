@@ -178,6 +178,7 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stackSize,
     adding->priority = priority;
     adding->id = thread_uuid++;
     adding->name = name;
+    adding->next_tcb = adding->prev_tcb = &idle;
 
     // initialize stack
     adding->stack = stacks[thread_index];
@@ -413,17 +414,22 @@ void systick_handler() {
 }
 
 void OS_ReportJitter(void) {
-    printf("Max Jitter: %d\n\r", MaxJitter);
+    printf("Max Jitter: %d microseconds\n\r", MaxJitter);
     uint32_t most = 0, most_idx;
+    uint32_t sum = 0;
+    uint32_t total_num = 0;
     for (int i = 0; i < sizeof(JitterHistogram) / sizeof(JitterHistogram[0]);
          ++i) {
         uint32_t num = JitterHistogram[i];
+        sum += i * num;
+        total_num += num;
         if (num > most) {
             most = num;
             most_idx = i;
         }
     }
-    printf("Modal Jitter: %d\n\r", most_idx);
+    printf("Modal Jitter: %d microseconds\n\r", most_idx);
+    printf("Average Jitter: %d microseconds\n\r", sum / total_num);
 }
 
 int OS_RedirectToFile(char* name) {

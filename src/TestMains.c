@@ -373,21 +373,31 @@ void OutputThread(void) { // foreground thread
            WaitCount1 + WaitCount2 + WaitCount3);
     OS_Kill();
 }
+extern TCB* current_thread;
 void Wait1(void) { // foreground thread
     for (;;) {
         OS_Wait(&s); // three threads waiting
+        if (current_thread->blocked) {
+            __asm("BKPT");
+        }
         WaitCount1++;
     }
 }
 void Wait2(void) { // foreground thread
     for (;;) {
         OS_Wait(&s); // three threads waiting
+        if (current_thread->blocked) {
+            __asm("BKPT");
+        }
         WaitCount2++;
     }
 }
 void Wait3(void) { // foreground thread
     for (;;) {
         OS_Wait(&s); // three threads waiting
+        if (current_thread->blocked) {
+            __asm("BKPT");
+        }
         WaitCount3++;
     }
 }

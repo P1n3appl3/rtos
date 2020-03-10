@@ -4,11 +4,32 @@ monitor reset halt
 
 define show_threads
     set $current = current_thread
-    echo Current thread linked list: (top is current thread)\n
-    p $current->name
+    set $max = thread_count
+    printf "%s -> ", $current->name
     while $current->next_tcb != current_thread
         set $current=$current->next_tcb
-        p $current->name
+        printf "%s -> ", $current->name
+        set $max = $max - 1
+        if $max < 0
+            Quit
+        end
+    end
+    echo (loops)\n
+end
+
+define show_all_threads
+    set $current = 0
+    set $count = thread_count
+    printf "Current: %s\n", current_thread->name
+    while $count > 0
+        if threads[$current].alive
+            set $count = $count - 1
+            set $temp = &threads[$current]
+            printf "%d: %-15snext: %-15sasleep: %d  blocked: %d  priority: %d\n", \
+            $current, $temp->name, $temp->next_tcb->name, $temp->asleep, \
+            $temp->blocked, $temp->priority
+        end
+        set $current = $current + 1
     end
 end
 
