@@ -543,13 +543,13 @@ void mytestmain(void) {
 extern void realmain(void);
 
 void main(void) {
-    mytestmain();
+    // mytestmain();
     // testmain1();
     // testmain2();
     // testmain3();
     // testmain4();
     // testmain5();
     // testmain6();
-    testmain7();
-    // realmain();
+    // testmain7();
+    realmain();
 }

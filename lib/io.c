@@ -15,10 +15,10 @@
 ADDFIFO(tx, 128, uint8_t)
 ADDFIFO(rx, 128, uint8_t)
 
+Sema4 chars_avail;
+Sema4 tx_has_room;
+
 static void hw_to_sw_fifo() {
-    if (rxfifo_full()) {
-        return;
-    }
     do {
         rxfifo_put(ROM_UARTCharGet(UART0_BASE));
     } while (ROM_UARTCharsAvail(UART0_BASE));
@@ -39,15 +39,15 @@ void uart0_handler(void) {
     if (source & (UART_INT_RX | UART_INT_RT)) {
         ROM_UARTIntClear(UART0_BASE, UART_INT_RX | UART_INT_RT);
         hw_to_sw_fifo();
+        OS_Signal(&chars_avail);
     }
     if (source & UART_INT_TX) {
         ROM_UARTIntClear(UART0_BASE, UART_INT_TX);
         sw_to_hw_fifo();
+        OS_Signal(&tx_has_room);
     }
 }
 
-Sema4 write_lock;
-Sema4 read_lock;
 void uart_init(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
@@ -65,28 +65,26 @@ void uart_init(void) {
     ROM_UARTEnable(UART0_BASE);
     txfifo_init();
     rxfifo_init();
-    OS_InitSemaphore(&write_lock, 0);
-    OS_InitSemaphore(&read_lock, 0);
+    OS_InitSemaphore(&chars_avail, 0);
+    OS_InitSemaphore(&tx_has_room, 0);
 }
 
 bool putchar(char x) {
-    OS_Wait(&write_lock);
+    OS_Wait(&tx_has_room);
     // Skip the buffer and go straight to the hardware fifo if possible
     if (txfifo_empty() && ROM_UARTCharPutNonBlocking(UART0_BASE, x)) {
-        OS_Signal(&write_lock);
+        OS_Signal(&tx_has_room);
         return true;
     }
     txfifo_put(x);
     sw_to_hw_fifo();
-    OS_Signal(&write_lock);
     return true;
 }
 
 char getchar(void) {
-    OS_Wait(&read_lock);
+    OS_Wait(&chars_avail);
     uint8_t temp;
-    while (!rxfifo_get(&temp)) { OS_Suspend(); }
-    OS_Signal(&read_lock);
+    rxfifo_get(&temp);
     return temp;
 }
 

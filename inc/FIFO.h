@@ -13,7 +13,9 @@
     }                                                                          \
     bool NAME##fifo_full() { return NAME##fifo_size() == SIZE - 1; }           \
     void NAME##fifo_put(TYPE data) {                                           \
-        while (NAME##fifo_full()) {}                                           \
+        if (NAME##fifo_full()) {                                               \
+            return;                                                            \
+        }                                                                      \
         NAME##fifo[NAME##putidx] = data;                                       \
         NAME##putidx = (NAME##putidx + 1) % SIZE;                              \
     }                                                                          \
