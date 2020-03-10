@@ -41,8 +41,8 @@ uint32_t seconds(float s) {
     return us(s * 1000000);
 }
 
-float to_us(uint32_t time) {
-    return time / 80.f;
+uint32_t to_us(uint32_t time) {
+    return time / 80;
 }
 
 float to_ms(uint32_t time) {

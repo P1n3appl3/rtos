@@ -15,7 +15,7 @@ float to_hz(uint32_t time);
 uint32_t us(uint32_t us);
 
 // Cycles to microseconds
-float to_us(uint32_t time);
+uint32_t to_us(uint32_t time);
 
 // Milliseconds to cycles
 uint32_t ms(float ms);

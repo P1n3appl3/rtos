@@ -311,22 +311,14 @@ void Thread6(void) { // foreground thread
         PD0 ^= 0x01; // debugging toggle bit 0
     }
 }
-extern uint32_t MaxJitter;
-extern uint32_t JitterHistogram[128];
-extern void Jitter(int32_t, uint32_t const,
-                   uint32_t[]); // prints jitter information (write this)
-void Thread7(void) {            // foreground thread
+void Thread7(void) {
     puts("\n\rEE345M/EE380L, Lab 3 Procedure 2");
-    OS_Sleep(seconds(10)); // 10 seconds
+    OS_Sleep(seconds(5));
+    led_write(RED_LED, true);
     OS_ReportJitter();
-    // Jitter(MaxJitter, JitterHistogram); // print jitter information
-    // Jitter(MaxJitter2, JitterHistogram2);  // print jitter of
-    // second thread
     puts("\n");
     OS_Kill();
 }
-#define workA 500    // {5,50,500 us} work in Task A
-#define counts1us 10 // number of OS_Time counts per 1us
 void TaskA(void) {   // called every {1000, 2990us} in background
     PD1 = 0x02;      // debugging profile
     CountA++;
@@ -346,8 +338,8 @@ int testmain6(void) { // testmain6 Lab 3
     NumCreated = 0;
     NumCreated += OS_AddThread(&Thread7, "Thread7", 128, 1);
     NumCreated += OS_AddThread(&Thread6, "Thread6", 128, 2);
-    OS_AddPeriodicThread(&TaskA, ms(1), 0);     // 1 ms, higher priority
-    OS_AddPeriodicThread(&TaskB, 2 * ms(1), 1); // 2 ms, lower priority
+    OS_AddPeriodicThread(&TaskA, ms(1), 0);
+    OS_AddPeriodicThread(&TaskB, ms(2), 1);
 
     OS_Launch(ms(2)); // 2ms, doesn't return, interrupts enabled in here
     return 0;         // this never executes
@@ -561,6 +553,6 @@ void main(void) {
     // testmain4();
     // testmain5();
     testmain6();
-    // testmain7();
+    testmain7();
     // realmain();
 }

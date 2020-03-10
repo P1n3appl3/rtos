@@ -20,7 +20,7 @@
 
 // Performance Measurements
 int32_t MaxJitter;
-uint32_t JitterHistogram[128] = {0};
+static uint32_t JitterHistogram[128] = {0};
 
 #define MAX_THREADS 8
 #define STACK_SIZE 256
@@ -53,7 +53,7 @@ static noreturn void idle_task(void) {
     }
 }
 
-static TCB* current_thread = &idle;
+TCB* current_thread = &idle;
 
 static void insert_behind(TCB* a, TCB* b) {
     a->next_tcb = b;
@@ -121,6 +121,7 @@ void OS_Init(void) {
                        SYSCTL_OSC_MAIN);
     launchpad_init();
     uart_init();
+    MaxJitter = 0;
     ST7735_InitR(INITR_REDTAB);
 }
 
@@ -243,14 +244,13 @@ static void periodic_task(void) {
     uint32_t time = OS_Time();
     do {
         uint32_t current = OS_Time();
-        uint32_t jitter = difference(difference(current, current_ptask->last),
-                                     current_ptask->reload);
-        MaxJitter = max(MaxJitter, jitter);
-        uint8_t idx =
-            min(sizeof(JitterHistogram) / sizeof(JitterHistogram[0]) - 1,
-                jitter / 8000);
-        ++JitterHistogram[idx];
+        uint32_t jitter = to_us(
+            difference(current - current_ptask->last, current_ptask->reload));
         current_ptask->last = current;
+        MaxJitter = max(MaxJitter, jitter);
+        uint8_t idx = min(
+            sizeof(JitterHistogram) / sizeof(JitterHistogram[0]) - 1, jitter);
+        ++JitterHistogram[idx];
         current_ptask->task();
     } while ((current_ptask = current_ptask->next));
     setup_next_ptask(OS_Time() - time);
@@ -261,16 +261,17 @@ static void setup_next_ptask(uint32_t lag) {
     for (int i = 0; i < num_ptasks; ++i) {
         min_time = min(min_time, ptasks[i].current);
     }
-    min_time = max(min_time, lag);
+    uint32_t threshold = max(min_time, lag);
     for (int i = 0; i < num_ptasks; ++i) {
-        if (ptasks[i].current <= min_time) {
+        if (ptasks[i].current <= threshold) {
             ptask_insert(&ptasks[i]);
-            ptasks[i].current = ptasks[i].reload;
+            ptasks[i].current =
+                ptasks[i].reload - (threshold - ptasks[i].current);
         } else {
-            ptasks[i].current -= min_time;
+            ptasks[i].current -= threshold;
         }
     }
-    timer_enable(2, min_time, periodic_task, 1, false);
+    timer_enable(2, max(min_time - lag, 1), periodic_task, 1, false);
 }
 
 bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
@@ -281,6 +282,7 @@ bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
     PTask* current = &ptasks[num_ptasks++];
     current->priority = priority;
     current->task = task;
+    current->last = os_running ? OS_Time() : 0;
     current->current = current->reload = period;
     // if the first periodic task is added after the OS starts, the oneshot
     // timer isn't running yet
@@ -422,19 +424,6 @@ noreturn void OS_Launch(uint32_t time_slice) {
 
 void systick_handler() {
     ROM_IntPendSet(FAULT_PENDSV);
-}
-
-void pendsv_handler(void) {
-    disable_interrupts();
-    __asm("PUSH {R4 - R11}");
-    __asm("LDR  R0, =current_thread"); // R0 = &current_thread
-    __asm("LDR  R1, [R0]");            // R1 = current_thread
-    __asm("STR  SP, [R1]");    // SP = *current_thread aka current_thread->sp
-    __asm("LDR  R1, [R1,#4]"); // R1 = current_thread->next_tcb;
-    __asm("STR  R1, [R0]");    // current_thread = current_thread->next_tcb;
-    __asm("LDR  SP, [R1]");    // SP = current_thread->sp
-    __asm("POP  {R4 - R11}");
-    enable_interrupts();
 }
 
 void OS_ReportJitter(void) {

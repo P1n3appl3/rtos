@@ -1,21 +1,3 @@
-// LED outputs to logic analyzer for use by OS profile
-// PF1 is preemptive thread switch
-// PF2 is periodic task (DAS samples PE3)
-// PC4 is PF4 button touch (SW1 task)
-
-// IR distance sensors
-// J5/A3/PE3 analog channel 0  <- connect an IR distance sensor to J5 to get a
-// realistic analog signal on PE3 J6/A2/PE2 analog channel 1  <- connect an IR
-// distance sensor to J6 to get a realistic analog signal on PE2 J7/A1/PE1
-// analog channel 2 J8/A0/PE0 analog channel 3
-
-// Button inputs
-// PF4 is SW1 button input
-
-// Analog inputs
-// PE3 Ain0 sampled at 2kHz, sequencer 3, by DAS, using software start in ISR
-// PE2 Ain1 sampled at 250Hz, sequencer 0, by Producer, timer tigger
-
 #include "ADC.h"
 #include "IRDistance.h"
 #include "LPF.h"
@@ -52,7 +34,6 @@ uint32_t CPUUtil; // calculated CPU utilization (in 0.01%)
 
 uint32_t DataLost;        // data sent by Producer, but not received by Consumer
 extern int32_t MaxJitter; // largest time jitter between interrupts
-extern uint32_t JitterHistogram[128];
 
 #define DEBUG_TOGGLE(X)                                                        \
     ROM_GPIOPinWrite(GPIO_PORTD_BASE, GPIO_PIN_##X,                            \
@@ -178,7 +159,6 @@ void Idle(void) {
 void realmain(void) { // realmain
     OS_Init();
     PortD_Init();
-    MaxJitter = 0;
     DataLost = 0; // lost data between producer and consumer
     IdleCount = 0;
     CPUUtil = 0;

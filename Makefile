@@ -35,7 +35,7 @@ $(target): $(OBJS)
 	$(CC) -o $@ $^ $(COMMONFLAGS) -T misc/tm4c.ld
 
 release:
-	$(CC) src/*.c lib/*.c lib/*.s $(CFLAGS) -Ofast -T misc/tm4c.ld -o $(target)
+	$(CC) src/*.c lib/*.c lib/*.s $(CFLAGS) -O2 -T misc/tm4c.ld -o $(target)
 
 -include $(DEPS)
 
