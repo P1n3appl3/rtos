@@ -14,55 +14,6 @@
 // VCC (pin 2) connected to +3.3 V
 // Gnd (pin 1) connected to ground
 
-// **********wide.hk ST7735R with ADXL345 accelerometer *******************
-// Silkscreen Label (SDC side up; LCD side down) - Connection
-// VCC  - +3.3 V
-// GND  - Ground
-// !SCL - PA2 Sclk SPI clock from microcontroller to TFT or SDC
-// !SDA - PA5 MOSI SPI data from microcontroller to TFT or SDC
-// DC   - PA6 TFT data/command
-// RES  - PA7 TFT reset
-// CS   - PA3 TFT_CS, active low to enable TFT
-// *CS  - (NC) SDC_CS, active low to enable SDC
-// MISO - (NC) MISO SPI data from SDC to microcontroller
-// SDA  – (NC) I2C data for ADXL345 accelerometer
-// SCL  – (NC) I2C clock for ADXL345 accelerometer
-// SDO  – (NC) I2C alternate address for ADXL345 accelerometer
-// Backlight + - Light, backlight connected to +3.3 V
-
-// **********wide.hk ST7735R with ADXL335 accelerometer *******************
-// Silkscreen Label (SDC side up; LCD side down) - Connection
-// VCC  - +3.3 V
-// GND  - Ground
-// !SCL - PA2 Sclk SPI clock from microcontroller to TFT or SDC
-// !SDA - PA5 MOSI SPI data from microcontroller to TFT or SDC
-// DC   - PA6 TFT data/command
-// RES  - PA7 TFT reset
-// CS   - PA3 TFT_CS, active low to enable TFT
-// *CS  - (NC) SDC_CS, active low to enable SDC
-// MISO - (NC) MISO SPI data from SDC to microcontroller
-// X– (NC) analog input X-axis from ADXL335 accelerometer
-// Y– (NC) analog input Y-axis from ADXL335 accelerometer
-// Z– (NC) analog input Z-axis from ADXL335 accelerometer
-// Backlight + - Light, backlight connected to +3.3 V
-
-// **********HiLetgo ST7735 TFT and SDC (SDC not tested)*******************
-// ST7735
-// LED-   (pin 16) TFT, connected to ground
-// LED+   (pin 15) TFT, connected to +3.3 V
-// SD_CS  (pin 14) SDC, chip select
-// MOSI   (pin 13) SDC, MOSI
-// MISO   (pin 12) SDC, MISO
-// SCK    (pin 11) SDC, serial clock
-// CS     (pin 10) TFT, PA3 (SSI0Fss)
-// SCL    (pin 9)  TFT, SCK  PA2 (SSI0Clk)
-// SDA    (pin 8)  TFT, MOSI PA5 (SSI0Tx)
-// A0     (pin 7)  TFT, Data/Command PA6 (GPIO), high for data, low for command
-// RESET  (pin 6)  TFT, to PA7 (GPIO)
-// NC     (pins 3,4,5) not connected
-// VCC    (pin 2)  connected to +3.3 V
-// GND    (pin 1)  connected to ground
-
 #pragma once
 #include <stdint.h>
 // some flags for ST7735_InitR()
@@ -80,12 +31,6 @@ enum initRFlags { none, INITR_GREENTAB, INITR_REDTAB, INITR_BLACKTAB };
 #define ST7735_MAGENTA 0xF81F
 #define ST7735_YELLOW 0x07FF
 #define ST7735_WHITE 0xFFFF
-
-//------------ST7735_InitB------------
-// Initialization for ST7735B screens.
-// Input: none
-// Output: none
-void ST7735_InitB(void);
 
 //------------ST7735_InitR------------
 // Initialization for ST7735R screens (green or red tabs).
@@ -387,49 +332,6 @@ void ST7735_PlotNext(void);
 // Inputs: none
 // Outputs: none
 void ST7735_PlotNextErase(void);
-
-// Used in all the plots to write buffer to LCD
-// Example 1 Voltage versus time
-//    ST7735_PlotClear(0,4095);  // range from 0 to 4095
-//    ST7735_PlotPoint(data); ST7735_PlotNext(); // called 128 times
-
-// Example 2a Voltage versus time (N data points/pixel, time scale)
-//    ST7735_PlotClear(0,4095);  // range from 0 to 4095
-//    {   for(j=0;j<N;j++){
-//          ST7735_PlotPoint(data[i++]); // called N times
-//        }
-//        ST7735_PlotNext();
-//    }   // called 128 times
-
-// Example 2b Voltage versus time (N data points/pixel, time scale)
-//    ST7735_PlotClear(0,4095);  // range from 0 to 4095
-//    {   for(j=0;j<N;j++){
-//          ST7735_PlotLine(data[i++]); // called N times
-//        }
-//        ST7735_PlotNext();
-//    }   // called 128 times
-
-// Example 3 Voltage versus frequency (512 points)
-//    perform FFT to get 512 magnitudes, mag[i] (0 to 4095)
-//    ST7735_PlotClear(0,1023);  // clip large magnitudes
-//    {
-//        ST7735_PlotBar(mag[i++]); // called 4 times
-//        ST7735_PlotBar(mag[i++]);
-//        ST7735_PlotBar(mag[i++]);
-//        ST7735_PlotBar(mag[i++]);
-//        ST7735_PlotNext();
-//    }   // called 128 times
-
-// Example 4 Voltage versus frequency (512 points), dB scale
-//    perform FFT to get 512 magnitudes, mag[i] (0 to 4095)
-//    ST7735_PlotClear(0,511);  // parameters ignored
-//    {
-//        ST7735_PlotdBfs(mag[i++]); // called 4 times
-//        ST7735_PlotdBfs(mag[i++]);
-//        ST7735_PlotdBfs(mag[i++]);
-//        ST7735_PlotdBfs(mag[i++]);
-//        ST7735_PlotNext();
-//    }   // called 128 times
 
 // *************** ST7735_OutChar ********************
 // Output one character to the LCD

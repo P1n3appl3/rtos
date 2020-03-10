@@ -1,3 +1,10 @@
+#include "tivaware/gpio.h"
+#include "tivaware/hw_memmap.h"
+#include "tivaware/pin_map.h"
+#include "tivaware/rom.h"
+#include "tivaware/ssi.h"
+#include "tivaware/sysctl.h"
+
 // there is a #define below to select SDC CS as PD7 or PB0
 
 // Backlight (pin 10) connected to +3.3 V
@@ -27,7 +34,6 @@
 // SDO  – (NC) I2C alternate address for ADXL345 accelerometer
 // Backlight + - Light, backlight connected to +3.3 V
 #include "eDisk.h"
-#include "tm4c123gh6pm.h"
 #include <stdint.h>
 
 // these defines are in two places, here and in ST7735.c
@@ -48,13 +54,10 @@ void CS_Init(void) {
     while ((SYSCTL_PRGPIO_R & 0x08) == 0) {};
     GPIO_PORTD_LOCK_R = 0x4C4F434B; // 2) unlock PortD PD7
     GPIO_PORTD_CR_R |= 0xFF;        // allow changes to PD7-0
-    GPIO_PORTD_PUR_R |= 0x80;       // enable weak pullup on PD7
-    GPIO_PORTD_DIR_R |= 0x80;       // make PD7 output
-    GPIO_PORTD_DR4R_R |= 0x80;      // 4mA output on outputs
+    ROM_GPIOPadConfigSet(GPIO_PORTD_BASE, 0x80, GPIO_STRENGTH_4MA,
+                         GPIO_PIN_TYPE_STD_WPU);
+    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, 0x80);
     SDC_CS = SDC_CS_HIGH;
-    GPIO_PORTD_PCTL_R &= ~0xF0000000;
-    GPIO_PORTD_AMSEL_R &= ~0x80; // disable analog functionality on PD7
-    GPIO_PORTD_DEN_R |= 0x80;    // enable digital I/O on PD7
 }
 #endif
 #if SDC_CS_PB0
@@ -64,15 +67,12 @@ void CS_Init(void) {
 #define SDC_CS_LOW 0 // CS controlled by software
 #define SDC_CS_HIGH 0x01
 void CS_Init(void) {
-    SYSCTL_RCGCGPIO_R |= 0x02; // activate port B
-    while ((SYSCTL_PRGPIO_R & 0x02) == 0) {};
-    GPIO_PORTB_PUR_R |= 0x01;  // enable weak pullup on PB0
-    GPIO_PORTB_DIR_R |= 0x01;  // make PB0 output
-    GPIO_PORTB_DR4R_R |= 0x01; // 4mA output on outputs
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
+    while (!ROM_SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOB)) {}
+    ROM_GPIOPadConfigSet(GPIO_PORTF_BASE, 0x1, GPIO_STRENGTH_4MA,
+                         GPIO_PIN_TYPE_STD_WPU);
+    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, 0x1);
     SDC_CS = SDC_CS_HIGH;
-    GPIO_PORTB_PCTL_R &= ~0x0000000F;
-    GPIO_PORTB_AMSEL_R &= ~0x01; // disable analog functionality on PB0
-    GPIO_PORTB_DEN_R |= 0x01;    // enable digital I/O on PB0
 }
 #endif
 
@@ -86,44 +86,30 @@ void CS_Init(void) {
 // 8   for 10,000,000 bps fast mode, used during disk I/O
 // void Timer5_Init(void);
 void SSI0_Init(unsigned long CPSDVSR) {
-    SYSCTL_RCGCSSI_R |= 0x01; // activate SSI0
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI0);
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
     //  Timer5_Init(); // in this version the OS will schedule disk_timerproc
     CS_Init(); // initialize whichever GPIO pin is CS for the SD card
     // initialize Port A
-    SYSCTL_RCGCGPIO_R |= 0x01; // activate clock for Port A
-    while ((SYSCTL_PRGPIO_R & 0x01) == 0) {
-    };                           // allow time for clock to stabilize
-    GPIO_PORTA_DIR_R |= 0x08;    // make PA3 out
-    GPIO_PORTA_AFSEL_R |= 0x34;  // enable alt funct on PA2,4,5
-    GPIO_PORTA_AFSEL_R &= ~0x08; // disable alt funct on PA3
-    GPIO_PORTA_DR4R_R |= 0xFC;   // 4mA drive on outputs
-    GPIO_PORTA_PUR_R |= 0x3C;    // enable weak pullup on PA2,3,4,5
-    GPIO_PORTA_DEN_R |= 0x3C;    // enable digital I/O on PA2,3,4,5
-                                 // configure PA2,4,5 as SSI
-    GPIO_PORTA_PCTL_R = (GPIO_PORTA_PCTL_R & 0xFF00F0FF) + 0x00220200;
-    // configure PA3 as GPIO
-    GPIO_PORTA_PCTL_R = (GPIO_PORTA_PCTL_R & 0xFFFF0FFF) + 0x00000000;
-    GPIO_PORTA_AMSEL_R &= ~0x3C; // disable analog functionality on PA2,3,4,5
-    GPIO_PORTA_DATA_R |= 0x88;   // PA7, PA3 high (disable LCD)
-    // initialize SSI0
-    SYSCTL_RCGCSSI_R |= 0x01; // activate clock for SSI0
-    while ((SYSCTL_PRSSI_R & 0x01) == 0) {
-    };                          // allow time for clock to stabilize
-    SSI0_CR1_R &= ~SSI_CR1_SSE; // disable SSI
-    SSI0_CR1_R &=
-        ~SSI_CR1_MS; // master mode
-                     // clock divider for 8 MHz SSIClk (assumes 16 MHz PIOSC)
-    SSI0_CPSR_R = (SSI0_CPSR_R & ~SSI_CPSR_CPSDVSR_M) + CPSDVSR;
-    // CPSDVSR must be even from 2 to 254
+    while (!ROM_SysCtlPeripheralReady(SYSCTL_PERIPH_SSI0)) {}
+    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTA_BASE, 0xC8); // make A3,A6,A7 out
+    ROM_GPIOPinConfigure(GPIO_PA2_SSI0CLK);
+    ROM_GPIOPinConfigure(GPIO_PA4_SSI0RX);
+    ROM_GPIOPinConfigure(GPIO_PA5_SSI0TX);
+    ROM_GPIOPinTypeSSI(GPIO_PORTA_BASE, GPIO_PIN_5 | GPIO_PIN_4 | GPIO_PIN_2);
 
-    SSI0_CR0_R &= ~(SSI_CR0_SCR_M | // SCR = 0 (80 Mbps base clock)
-                    SSI_CR0_SPH |   // SPH = 0
-                    SSI_CR0_SPO);   // SPO = 0
-                                    // FRF = Freescale format
-    SSI0_CR0_R = (SSI0_CR0_R & ~SSI_CR0_FRF_M) + SSI_CR0_FRF_MOTO;
-    // DSS = 8-bit data
-    SSI0_CR0_R = (SSI0_CR0_R & ~SSI_CR0_DSS_M) + SSI_CR0_DSS_8;
-    SSI0_CR1_R |= SSI_CR1_SSE; // enable SSI
+    // PA7, PA3 high (disable LCD)
+    ROM_GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_3, 1);
+    ROM_GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, 1);
+
+    ROM_SSIDisable(SSI0_BASE);
+    ROM_SSIConfigSetExpClk(SSI0_BASE, ROM_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0,
+                           SSI_MODE_MASTER, ROM_SysCtlClockGet() / CPSDVSR, 8);
+    ROM_SSIEnable(SSI0_BASE);
+
+    // read any residual data from ssi port
+    uint32_t temp;
+    while (ROM_SSIDataGetNonBlocking(SSI0_BASE, &temp)) {}
 }
 
 // void Timer5_Init(void){volatile unsigned short delay;
@@ -200,10 +186,10 @@ void SSI0_Init(unsigned long CPSDVSR) {
 
 static volatile DSTATUS Stat = STA_NOINIT; /* Physical drive status */
 
-static volatile UINT Timer1,
+static volatile uint32_t Timer1,
     Timer2; /* 1kHz decrement timer stopped at zero (disk_timerproc()) */
 
-static BYTE CardType; /* Card type flags */
+static uint8_t CardType; /* Card type flags */
 
 /*-----------------------------------------------------------------------*/
 /* SPI controls (Platform dependent)                                     */
@@ -222,14 +208,13 @@ static void init_spi(void) {
 // Inputs:  byte to be sent to SPI
 // Outputs: byte received from SPI
 // assumes it has been selected with CS low
-static BYTE xchg_spi(BYTE dat) {
-    BYTE volatile rcvdat;
+static uint8_t xchg_spi(uint8_t dat) {
+    uint32_t rcvdat;
     // wait until SSI0 not busy/transmit FIFO empty
-    while ((SSI0_SR_R & SSI_SR_BSY) == SSI_SR_BSY) {};
-    SSI0_DR_R = dat;                          // data out
-    while ((SSI0_SR_R & SSI_SR_RNE) == 0) {}; // wait until response
-    rcvdat = SSI0_DR_R;                       // acknowledge response
-    return rcvdat;
+    while (ROM_SSIBusy(SSI0_BASE)) {}
+    ROM_SSIDataPut(SSI0_BASE, dat);
+    ROM_SSIDataGet(SSI0_BASE, &rcvdat);
+    return rcvdat & 0xFF;
 }
 
 /*-----------------------------------------------------------------------*/
@@ -238,19 +223,20 @@ static BYTE xchg_spi(BYTE dat) {
 // Inputs:  none
 // Outputs: byte received from SPI
 // assumes it has been selected with CS low
-static BYTE rcvr_spi(void) {
+static uint8_t rcvr_spi(void) {
     // wait until SSI0 not busy/transmit FIFO empty
-    while ((SSI0_SR_R & SSI_SR_BSY) == SSI_SR_BSY) {};
-    SSI0_DR_R = 0xFF;                         // data out, garbage
-    while ((SSI0_SR_R & SSI_SR_RNE) == 0) {}; // wait until response
-    return (BYTE)SSI0_DR_R;                   // read received data
+    while (ROM_SSIBusy(SSI0_BASE)) {}
+    ROM_SSIDataPut(SSI0_BASE, 0xFF); // data out, garbage
+    uint32_t response;
+    ROM_SSIDataGet(SSI0_BASE, &response);
+    return (uint8_t)(response & 0xFF);
 }
 
 /* Receive multiple byte */
 // Input:  buff Pointer to empty buffer into which data will be received
 //         btr  Number of bytes to receive (even number)
 // Output: none
-static void rcvr_spi_multi(BYTE* buff, UINT btr) {
+static void rcvr_spi_multi(uint8_t* buff, uint32_t btr) {
     while (btr) {
         *buff = rcvr_spi(); // return by reference
         btr--;
@@ -263,12 +249,11 @@ static void rcvr_spi_multi(BYTE* buff, UINT btr) {
 // Input:  buff Pointer to the data which will be sent
 //         btx  Number of bytes to send (even number)
 // Output: none
-static void xmit_spi_multi(const BYTE* buff, UINT btx) {
-    BYTE volatile rcvdat;
+static void xmit_spi_multi(const uint8_t* buff, uint32_t btx) {
+    uint32_t rcvdat;
     while (btx) {
-        SSI0_DR_R = *buff;                        // data out
-        while ((SSI0_SR_R & SSI_SR_RNE) == 0) {}; // wait until response
-        rcvdat = SSI0_DR_R;                       // acknowledge response
+        ROM_SSIDataPut(SSI0_BASE, *buff);   // data out
+        ROM_SSIDataGet(SSI0_BASE, &rcvdat); // get response
         btx--;
         buff++;
     }
@@ -280,8 +265,8 @@ static void xmit_spi_multi(const BYTE* buff, UINT btx) {
 /*-----------------------------------------------------------------------*/
 // Input:  time to wait in ms
 // Output: 1:Ready, 0:Timeout
-static int wait_ready(UINT wt) {
-    BYTE d;
+static int wait_ready(uint32_t wt) {
+    uint8_t d;
     Timer2 = wt;
     do {
         d = xchg_spi(0xFF);
@@ -320,8 +305,8 @@ static int select(void) {
 // Input:  buff Pointer to empty buffer into which data will be received
 //         btr  Number of bytes to receive (even number)
 // Output: 1:OK, 0:Error on timeout
-static int rcvr_datablock(BYTE* buff, UINT btr) {
-    BYTE token;
+static int rcvr_datablock(uint8_t* buff, uint32_t btr) {
+    uint8_t token;
     Timer1 = 200;
     do { /* Wait for DataStart token in timeout of 200ms */
         token = xchg_spi(0xFF);
@@ -345,8 +330,8 @@ static int rcvr_datablock(BYTE* buff, UINT btr) {
 // Input:  buff Pointer to 512 byte data which will be sent
 //         token  Token
 // Output: 1:OK, 0:Failed on timeout
-static int xmit_datablock(const BYTE* buff, BYTE token) {
-    BYTE resp;
+static int xmit_datablock(const uint8_t* buff, uint8_t token) {
+    uint8_t resp;
     if (!wait_ready(500))
         return 0; /* Wait for card ready */
 
@@ -371,8 +356,8 @@ static int xmit_datablock(const BYTE* buff, BYTE token) {
 // Inputs:  cmd Command index
 //          arg    /* Argument
 // Outputs: R1 resp (bit7==1:Failed to send)
-static BYTE send_cmd(BYTE cmd, DWORD arg) {
-    BYTE n, res;
+static uint8_t send_cmd(uint8_t cmd, uint32_t arg) {
+    uint8_t n, res;
     if (cmd & 0x80) { /* Send a CMD55 prior to ACMD<n> */
         cmd &= 0x7F;
         res = send_cmd(CMD55, 0);
@@ -388,12 +373,12 @@ static BYTE send_cmd(BYTE cmd, DWORD arg) {
     }
 
     /* Send command packet */
-    xchg_spi(0x40 | cmd);        /* Start + command index */
-    xchg_spi((BYTE)(arg >> 24)); /* Argument[31..24] */
-    xchg_spi((BYTE)(arg >> 16)); /* Argument[23..16] */
-    xchg_spi((BYTE)(arg >> 8));  /* Argument[15..8] */
-    xchg_spi((BYTE)arg);         /* Argument[7..0] */
-    n = 0x01;                    /* Dummy CRC + Stop */
+    xchg_spi(0x40 | cmd);           /* Start + command index */
+    xchg_spi((uint8_t)(arg >> 24)); /* Argument[31..24] */
+    xchg_spi((uint8_t)(arg >> 16)); /* Argument[23..16] */
+    xchg_spi((uint8_t)(arg >> 8));  /* Argument[15..8] */
+    xchg_spi((uint8_t)arg);         /* Argument[7..0] */
+    n = 0x01;                       /* Dummy CRC + Stop */
     if (cmd == CMD0)
         n = 0x95; /* Valid CRC for CMD0(0) */
     if (cmd == CMD8)
@@ -422,8 +407,8 @@ static BYTE send_cmd(BYTE cmd, DWORD arg) {
 /*-----------------------------------------------------------------------*/
 // Inputs:  Physical drive number, which must be 0
 // Outputs: status (see DSTATUS)
-DSTATUS eDisk_Init(BYTE drv) {
-    BYTE n, cmd, ty, ocr[4];
+DSTATUS eDisk_Init(uint8_t drv) {
+    uint8_t n, cmd, ty, ocr[4];
 
     if (drv)
         return STA_NOINIT; /* Supports only drive 0 */
@@ -444,7 +429,7 @@ DSTATUS eDisk_Init(BYTE drv) {
                     xchg_spi(0xFF); /* Get 32 bit return value of R7 resp */
             if (ocr[2] == 0x01 &&
                 ocr[3] == 0xAA) { /* Is the card supports vcc of 2.7-3.6V? */
-                while (Timer1 && send_cmd(ACMD41, 1UL << 30))
+                while (Timer1 && send_cmd(ACMD41, 1 << 30))
                     ; /* Wait for end of initialization with ACMD41(HCS) */
                 if (Timer1 &&
                     send_cmd(CMD58, 0) == 0) { /* Check CCS bit in the OCR */
@@ -486,7 +471,7 @@ DSTATUS eDisk_Init(BYTE drv) {
 /*-----------------------------------------------------------------------*/
 // Inputs:  Physical drive number, which must be 0
 // Outputs: status (see DSTATUS)
-DSTATUS eDisk_Status(BYTE drv) {
+DSTATUS eDisk_Status(uint8_t drv) {
     if (drv)
         return STA_NOINIT; /* Supports only drive 0 */
     return Stat;           /* Return disk status */
@@ -500,7 +485,7 @@ DSTATUS eDisk_Status(BYTE drv) {
 //         sector Start sector number (LBA)
 //         count  Number of sectors to read (1..128)
 // Outputs: status (see DRESULT)
-DRESULT eDisk_Read(BYTE drv, BYTE* buff, DWORD sector, UINT count) {
+DRESULT eDisk_Read(uint8_t drv, uint8_t* buff, uint16_t sector, uint8_t count) {
     if (drv || !count)
         return RES_PARERR; /* Check parameter */
     if (Stat & STA_NOINIT)
@@ -539,8 +524,9 @@ DRESULT eDisk_Read(BYTE drv, BYTE* buff, DWORD sector, UINT count) {
 //  RES_NOTRDY    3: Not Ready
 //  RES_PARERR    4: Invalid Parameter
 DRESULT
-eDisk_ReadBlock(BYTE* buff, /* Pointer to the data buffer to store read data */
-                DWORD sector) { /* Start sector number (LBA) */
+eDisk_ReadBlock(
+    uint8_t* buff,     /* Pointer to the data buffer to store read data */
+    uint16_t sector) { /* Start sector number (LBA) */
     return eDisk_Read(0, buff, sector, 1);
 }
 
@@ -554,7 +540,8 @@ eDisk_ReadBlock(BYTE* buff, /* Pointer to the data buffer to store read data */
 //         sector Start sector number (LBA)
 //         count  Number of sectors to write (1..128)
 // Outputs: status (see DRESULT)
-DRESULT eDisk_Write(BYTE drv, const BYTE* buff, DWORD sector, UINT count) {
+DRESULT eDisk_Write(uint8_t drv, const uint8_t* buff, uint16_t sector,
+                    uint8_t count) {
     if (drv || !count)
         return RES_PARERR; /* Check parameter */
     if (Stat & STA_NOINIT)
@@ -597,8 +584,8 @@ DRESULT eDisk_Write(BYTE drv, const BYTE* buff, DWORD sector, UINT count) {
 //  RES_NOTRDY    3: Not Ready
 //  RES_PARERR    4: Invalid Parameter
 DRESULT
-eDisk_WriteBlock(const BYTE* buff, /* Pointer to the data to be written */
-                 DWORD sector) {   /* Start sector number (LBA) */
+eDisk_WriteBlock(const uint8_t* buff, /* Pointer to the data to be written */
+                 uint16_t sector) {   /* Start sector number (LBA) */
     return eDisk_Write(0, buff, sector, 1); // 1 block
 }
 
@@ -612,10 +599,10 @@ eDisk_WriteBlock(const BYTE* buff, /* Pointer to the data to be written */
 //          buff   Pointer to the control data
 // Outputs: status (see DRESULT)
 #if _USE_IOCTL
-DRESULT disk_ioctl(BYTE drv, BYTE cmd, void* buff) {
+DRESULT disk_ioctl(uint8_t drv, uint8_t cmd, void* buff) {
     DRESULT res;
-    BYTE n, csd[16];
-    DWORD *dp, st, ed, csize;
+    uint8_t n, csd[16];
+    uint16_t *dp, st, ed, csize;
 
     if (drv)
         return RES_PARERR; /* Check parameter */
@@ -630,31 +617,31 @@ DRESULT disk_ioctl(BYTE drv, BYTE cmd, void* buff) {
             res = RES_OK;
         break;
 
-    case GET_SECTOR_COUNT: /* Get drive capacity in unit of sector (DWORD) */
+    case GET_SECTOR_COUNT: /* Get drive capacity in unit of sector (uint16_t) */
         if ((send_cmd(CMD9, 0) == 0) && rcvr_datablock(csd, 16)) {
             if ((csd[0] >> 6) == 1) { /* SDC ver 2.00 */
                 csize = csd[9] + ((WORD)csd[8] << 8) +
-                        ((DWORD)(csd[7] & 63) << 16) + 1;
-                *(DWORD*)buff = csize << 10;
+                        ((uint16_t)(csd[7] & 63) << 16) + 1;
+                *(uint16_t*)buff = csize << 10;
             } else { /* SDC ver 1.XX or MMC ver 3 */
                 n = (csd[5] & 15) + ((csd[10] & 128) >> 7) +
                     ((csd[9] & 3) << 1) + 2;
                 csize = (csd[8] >> 6) + ((WORD)csd[7] << 2) +
                         ((WORD)(csd[6] & 3) << 10) + 1;
-                *(DWORD*)buff = csize << (n - 9);
+                *(uint16_t*)buff = csize << (n - 9);
             }
             res = RES_OK;
         }
         break;
 
-    case GET_BLOCK_SIZE: /* Get erase block size in unit of sector (DWORD) */
+    case GET_BLOCK_SIZE: /* Get erase block size in unit of sector (uint16_t) */
         if (CardType & CT_SD2) {            /* SDC ver 2.00 */
             if (send_cmd(ACMD13, 0) == 0) { /* Read SD status */
                 xchg_spi(0xFF);
                 if (rcvr_datablock(csd, 16)) { /* Read partial block */
                     for (n = 64 - 16; n; n--)
                         xchg_spi(0xFF); /* Purge trailing data */
-                    *(DWORD*)buff = 16UL << (csd[10] >> 4);
+                    *(uint16_t*)buff = 16UL << (csd[10] >> 4);
                     res = RES_OK;
                 }
             }
@@ -662,11 +649,11 @@ DRESULT disk_ioctl(BYTE drv, BYTE cmd, void* buff) {
             if ((send_cmd(CMD9, 0) == 0) &&
                 rcvr_datablock(csd, 16)) { /* Read CSD */
                 if (CardType & CT_SD1) {   /* SDC ver 1.XX */
-                    *(DWORD*)buff = (((csd[10] & 63) << 1) +
-                                     ((WORD)(csd[11] & 128) >> 7) + 1)
-                                    << ((csd[13] >> 6) - 1);
+                    *(uint16_t*)buff = (((csd[10] & 63) << 1) +
+                                        ((WORD)(csd[11] & 128) >> 7) + 1)
+                                       << ((csd[13] >> 6) - 1);
                 } else { /* MMC */
-                    *(DWORD*)buff =
+                    *(uint16_t*)buff =
                         ((WORD)((csd[10] & 124) >> 2) + 1) *
                         (((csd[11] & 3) << 3) + ((csd[11] & 224) >> 5) + 1);
                 }
@@ -713,8 +700,8 @@ DRESULT disk_ioctl(BYTE drv, BYTE cmd, void* buff) {
 */
 
 void disk_timerproc(void) {
-    WORD n;
-    BYTE s;
+    uint16_t n;
+    uint8_t s;
 
     n = Timer1; /* 1kHz decrement timer stopped at 0 */
     if (n)

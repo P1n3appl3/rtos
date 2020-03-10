@@ -1,33 +1,12 @@
 #ifndef _DISKIO
 #define _USE_WRITE 1
 
-typedef signed int INT;
-typedef unsigned int UINT;
-
-/* These types are assumed as 8-bit integer */
-typedef signed char CHAR;
-typedef unsigned char UCHAR;
-typedef unsigned char BYTE;
-
-/* These types are assumed as 16-bit integer */
-typedef signed short SHORT;
-typedef unsigned short USHORT;
-typedef unsigned short WORD;
-
-/* These types are assumed as 32-bit integer */
-typedef signed long LONG;
-typedef unsigned long ULONG;
-typedef unsigned long DWORD;
-
-/**
- * \brief Boolean type
- */
-typedef enum { FALSE = 0, TRUE } BOOL;
+#include <stdint.h>
 
 /**
  * \brief Status of Disk Functions
  */
-typedef BYTE DSTATUS;
+typedef uint8_t DSTATUS;
 
 /* Results of Disk Functions */
 typedef enum {
@@ -57,7 +36,7 @@ typedef enum {
  * @return status (0 means OK)
  * @brief  Initialize the interface between microcontroller and the SD card.
  */
-DSTATUS eDisk_Init(BYTE drive);
+DSTATUS eDisk_Init(uint8_t drive);
 
 /**
  * @details  Checks the status of the secure digital care.
@@ -73,7 +52,7 @@ DSTATUS eDisk_Init(BYTE drive);
  * @return status (0 means OK)
  * @brief  Check the status of the SD card.
  */
-DSTATUS eDisk_Status(BYTE drive);
+DSTATUS eDisk_Status(uint8_t drive);
 
 /**
  * @details  Read data from the SD card  (write to RAM)
@@ -93,10 +72,10 @@ DSTATUS eDisk_Status(BYTE drive);
  * @return result (0 means OK)
  * @brief  Read bytes from SD card.
  */
-DRESULT eDisk_Read(BYTE drv,     // Physical drive number (0)
-                   BYTE* buff,   // Pointer to buffer to read data
-                   DWORD sector, // Start sector number (LBA)
-                   UINT count);  // Sector count (1..255)
+DRESULT eDisk_Read(uint8_t drv,     // Physical drive number (0)
+                   uint8_t* buff,   // Pointer to buffer to read data
+                   uint16_t sector, // Start sector number (LBA)
+                   uint8_t count);  // Sector count (1..255)
 
 /**
  * @details  Read one block from the SD card  (write to RAM)
@@ -115,8 +94,9 @@ DRESULT eDisk_Read(BYTE drv,     // Physical drive number (0)
  * @brief  Read 512-byte block from SD card.
  */
 DRESULT
-eDisk_ReadBlock(BYTE* buff, /* Pointer to the data buffer to store read data */
-                DWORD sector); /* Start sector number (LBA) */
+eDisk_ReadBlock(
+    uint8_t* buff,    /* Pointer to the data buffer to store read data */
+    uint16_t sector); /* Start sector number (LBA) */
 
 #if _READONLY == 0
 
@@ -138,10 +118,10 @@ eDisk_ReadBlock(BYTE* buff, /* Pointer to the data buffer to store read data */
  * @return result (0 means OK)
  * @brief  Write bytes to SD card.
  */
-DRESULT eDisk_Write(BYTE drv,         // Physical drive number (0)
-                    const BYTE* buff, // Pointer to the data to be written
-                    DWORD sector,     // Start sector number (LBA)
-                    UINT count);      // Sector count (1..255)
+DRESULT eDisk_Write(uint8_t drv,         // Physical drive number (0)
+                    const uint8_t* buff, // Pointer to the data to be written
+                    uint16_t sector,     // Start sector number (LBA)
+                    uint8_t count);      // Sector count (1..255)
 
 /**
  * @details  Write one block to the SD card  (read to RAM)
@@ -160,17 +140,12 @@ DRESULT eDisk_Write(BYTE drv,         // Physical drive number (0)
  * @brief  Write 512-byte block from SD card.
  */
 DRESULT
-eDisk_WriteBlock(const BYTE* buff, /* Pointer to the data to be written */
-                 DWORD sector);    /* Start sector number (LBA) */
+eDisk_WriteBlock(const uint8_t* buff, /* Pointer to the data to be written */
+                 uint16_t sector);    /* Start sector number (LBA) */
 
 #endif
-/**
- * @details  Enable SDC chip select, so it is an output
- * @param  none
- * @return none
- * @brief  Configure SDC chip select
- */
-void CS_Init(void);
+
+void SSI0_Init(unsigned long CPSDVSR);
 
 /**
  * @details  This implements timeout functions
@@ -188,7 +163,7 @@ void disk_timerproc(void);
  * @return result (0 means OK)
  * @brief  Disk input/output.
  */
-DRESULT disk_ioctl(BYTE drv, BYTE cmd, void* buff);
+DRESULT disk_ioctl(uint8_t drv, uint8_t cmd, void* buff);
 
 /**
  * \brief Disk Status Bits (DSTATUS)

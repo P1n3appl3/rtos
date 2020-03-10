@@ -81,13 +81,13 @@ void timer_enable(uint8_t timer_num, uint32_t period, void (*task)(void),
     ROM_TimerEnable(config.base, TIMER_BOTH);
 }
 
-void busy_wait(uint8_t timer_num, uint32_t period) {
+void busy_wait(uint8_t timer_num, uint32_t duration) {
     TimerConfig config = timers[timer_num];
     ROM_SysCtlPeripheralEnable(config.sysctl_periph);
     ROM_TimerConfigure(config.base, TIMER_CFG_ONE_SHOT);
-    ROM_TimerLoadSet(config.base, TIMER_A, period);
+    ROM_TimerLoadSet(config.base, TIMER_A, duration);
     ROM_TimerEnable(config.base, TIMER_BOTH);
-    while (ROM_TimerValueGet(config.base, TIMER_A) != period) {}
+    while (ROM_TimerValueGet(config.base, TIMER_A) != duration) {}
 }
 
 const TimerConfig timers[12] = {
