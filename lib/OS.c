@@ -131,6 +131,7 @@ void OS_UnLockScheduler(unsigned long previous) {
 
 void OS_Init(void) {
     disable_interrupts();
+    os_running = false;
     ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
                        SYSCTL_OSC_MAIN);
     launchpad_init();
