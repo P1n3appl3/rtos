@@ -360,6 +360,7 @@ void static commandList(const uint8_t* addr) {
 void static commonInit(const uint8_t* cmdList) {
     ColStart = RowStart = 0; // May be overridden in init func
 
+    SSI0_Init(10);
     TFT_CS = TFT_CS_LOW;
     RESET = RESET_HIGH;
     busy_wait(3, 500);
@@ -367,8 +368,6 @@ void static commonInit(const uint8_t* cmdList) {
     busy_wait(3, 500);
     RESET = RESET_HIGH;
     busy_wait(3, 500);
-
-    SSI0_Init(10);
 
     if (cmdList)
         commandList(cmdList);
@@ -383,11 +382,6 @@ void ST7735_InitR(enum initRFlags option) {
     commandList(Rcmd2red);
     commandList(Rcmd3);
 
-    // if black, change MADCTL color filter
-    if (option == INITR_BLACKTAB) {
-        writecommand(ST7735_MADCTL);
-        writedata(0xC0);
-    }
     TabColor = option;
     ST7735_SetCursor(0, 0);
     StTextColor = ST7735_YELLOW;

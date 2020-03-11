@@ -1,5 +1,7 @@
 #include "tivaware/gpio.h"
 #include "tivaware/hw_memmap.h"
+#include "tivaware/hw_ssi.h"
+#include "tivaware/hw_types.h"
 #include "tivaware/pin_map.h"
 #include "tivaware/rom.h"
 #include "tivaware/ssi.h"
@@ -103,6 +105,7 @@ void SSI0_Init(unsigned long CPSDVSR) {
     ROM_GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, 1);
 
     ROM_SSIDisable(SSI0_BASE);
+    ROM_SSIClockSourceSet(SSI0_BASE, SSI_CLOCK_SYSTEM);
     ROM_SSIConfigSetExpClk(SSI0_BASE, ROM_SysCtlClockGet(), SSI_FRF_MOTO_MODE_0,
                            SSI_MODE_MASTER, ROM_SysCtlClockGet() / CPSDVSR, 8);
     ROM_SSIEnable(SSI0_BASE);
@@ -139,9 +142,16 @@ void SSI0_Init(unsigned long CPSDVSR) {
 // 200 for   400,000 bps slow mode, used during initialization
 // 8  for 10,000,000 bps fast mode, used during disk I/O
 #define FCLK_SLOW()                                                            \
-    { SSI0_CPSR_R = (SSI0_CPSR_R & ~SSI_CPSR_CPSDVSR_M) + 200; }
+    {                                                                          \
+        HWREG(SSI_O_CPSR) =                                                    \
+            (HWREG(SSI_O_CPSR) & ~HWREG(SSI_CPSR_CPSDVSR_M)) + 200;            \
+    }
+
 #define FCLK_FAST()                                                            \
-    { SSI0_CPSR_R = (SSI0_CPSR_R & ~SSI_CPSR_CPSDVSR_M) + 8; }
+    {                                                                          \
+        HWREG(SSI_O_CPSR) =                                                    \
+            (HWREG(SSI_O_CPSR) & ~HWREG(SSI_CPSR_CPSDVSR_M)) + 8;              \
+    }
 
 // de-asserts the CS pin to the card
 #define CS_HIGH() SDC_CS = SDC_CS_HIGH;
