@@ -7,10 +7,16 @@
 .extern current_thread
 .extern context_switch_hook
 .global pendsv_handler
+.extern start_critical
+.extern end_critical
 
 .thumb_func
 pendsv_handler:
-    CPSID I
+    // CPSID I
+    PUSH {LR}
+    BL start_critical
+    POP {LR}
+    MOV R2, R0
     PUSH {R4 - R11}
 
 // For debugging context switches in C
@@ -25,5 +31,9 @@ pendsv_handler:
     STR  R1, [R0]               // current_thread = current_thread->next_tcb;
     LDR  SP, [R1]               // SP = current_thread->sp
     POP  {R4 - R11}
-    CPSIE I
+    // CPSIE I
+    MOV R0, R2
+    PUSH {LR}
+    BL end_critical
+    POP {LR}
     BX LR

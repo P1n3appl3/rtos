@@ -59,6 +59,7 @@ void DAS(void) {
     }
 }
 
+extern volatile uint32_t time_disabled;
 void ButtonWork(void) {
     DEBUG_TOGGLE(1);
     ST7735_Message_Num(1, 0, "NumCreated =", NumCreated);
@@ -67,6 +68,9 @@ void ButtonWork(void) {
     ST7735_Message_Num(1, 1, "CPUUtil 0.01%=", CPUUtil);
     ST7735_Message_Num(1, 2, "DataLost   =", DataLost);
     ST7735_Message_Num(1, 3, "Jitter (us)=", MaxJitter);
+    ST7735_Message_Num(1, 4, "Disabled (ms)=", to_ms(time_disabled));
+    ST7735_Message_Num(1, 5,
+                       "Disabled (%)=", (100 * time_disabled) / OS_Time());
     DEBUG_TOGGLE(1);
 }
 

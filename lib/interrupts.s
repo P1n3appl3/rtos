@@ -4,16 +4,16 @@
 .thumb
 .text
 
-.global start_critical
-.global end_critical
+.global start_critical_orig
+.global end_critical_orig
 
 .thumb_func
-start_critical:
+start_critical_orig:
     MRS   R0, PRIMASK
     CPSID I
     BX    LR
 
 .thumb_func
-end_critical:
+end_critical_orig:
     MSR PRIMASK, R0
     BX  LR
