@@ -8,7 +8,7 @@
 #include "tivaware/timer.h"
 #include <stdint.h>
 
-bool ADC_init(uint8_t channel_num) {
+bool adc_init(uint8_t channel_num) {
     if (channel_num > 11) {
         return false;
     }
@@ -24,7 +24,7 @@ bool ADC_init(uint8_t channel_num) {
     return true;
 }
 
-uint16_t ADC_in(void) {
+uint16_t adc_in(void) {
     uint32_t temp;
     ROM_ADCProcessorTrigger(ADC0_BASE, 3);
     while (!ROM_ADCIntStatus(ADC0_BASE, 3, false)) {}
@@ -41,7 +41,7 @@ void adc1_sequence0_handler(void) {
     ROM_ADCSequenceDataGet(ADC1_BASE, 0, &temp);
     process_sample(temp);
 }
-bool ADC_timer_init(uint8_t channel_num, uint8_t timer_num, uint32_t period,
+bool adc_timer_init(uint8_t channel_num, uint8_t timer_num, uint32_t period,
                     uint8_t priority, void (*task)(uint16_t)) {
     period = max(period, hz(10000)); // max sample rate = 10kHz
     TimerConfig timer_config = timers[timer_num];

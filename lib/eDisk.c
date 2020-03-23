@@ -7,78 +7,29 @@
 #include "tivaware/ssi.h"
 #include "tivaware/sysctl.h"
 
-// there is a #define below to select SDC CS as PD7 or PB0
-
 // Backlight (pin 10) connected to +3.3 V
 // MISO (pin 9) connected to PA4 (SSI0Rx)
 // SCK (pin 8) connected to PA2 (SSI0Clk)
 // MOSI (pin 7) connected to PA5 (SSI0Tx)
 // TFT_CS (pin 6) connected to PA3 (SSI0Fss) <- GPIO high to disable TFT
-// CARD_CS (pin 5) connected to PD7/PB0 GPIO output
+// CARD_CS (pin 5) connected to PB0 GPIO output
 // Data/Command (pin 4) connected to PA6 (GPIO)<- GPIO low not using TFT
 // RESET (pin 3) connected to PA7 (GPIO)<- GPIO high to disable TFT
 // VCC (pin 2) connected to +3.3 V
 // Gnd (pin 1) connected to ground
 
-// **********wide.hk ST7735R*******************
-// Silkscreen Label (SDC side up; LCD side down) - Connection
-// VCC  - +3.3 V
-// GND  - Ground
-// !SCL - PA2 Sclk SPI clock from microcontroller to TFT or SDC
-// !SDA - PA5 MOSI SPI data from microcontroller to TFT or SDC
-// DC   - PA6 TFT data/command
-// RES  - PA7 TFT reset
-// CS   - PA3 TFT_CS, active low to enable TFT
-// *CS  - PD7/PB0 SDC_CS, active low to enable SDC
-// MISO - PA4 MISO SPI data from SDC to microcontroller
-// SDA  – (NC) I2C data for ADXL345 accelerometer
-// SCL  – (NC) I2C clock for ADXL345 accelerometer
-// SDO  – (NC) I2C alternate address for ADXL345 accelerometer
-// Backlight + - Light, backlight connected to +3.3 V
 #include "eDisk.h"
 #include <stdint.h>
 
-// these defines are in two places, here and in ST7735.c
-#define SDC_CS_PB0 1
-#define SDC_CS_PD7 0
-#define TFT_CS (*((volatile unsigned long*)0x40004020))
-#define TFT_CS_LOW 0 // CS normally controlled by hardware
-#define TFT_CS_HIGH 0x08
-
-#if SDC_CS_PD7
-// CS is PD7
-// to change CS to another GPIO, change SDC_CS and CS_Init
-#define SDC_CS (*((volatile unsigned long*)0x40007200))
-#define SDC_CS_LOW 0 // CS controlled by software
-#define SDC_CS_HIGH 0x80
-void CS_Init(void) {
-    SYSCTL_RCGCGPIO_R |= 0x08; // activate port D
-    while ((SYSCTL_PRGPIO_R & 0x08) == 0) {};
-    GPIO_PORTD_LOCK_R = 0x4C4F434B; // 2) unlock PortD PD7
-    GPIO_PORTD_CR_R |= 0xFF;        // allow changes to PD7-0
-    ROM_GPIOPadConfigSet(GPIO_PORTD_BASE, 0x80, GPIO_STRENGTH_4MA,
-                         GPIO_PIN_TYPE_STD_WPU);
-    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, 0x80);
-    SDC_CS = SDC_CS_HIGH;
+static void chip_select(void) {
+    ROM_GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_0, 0);
+    ROM_GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_3, GPIO_PIN_3);
 }
-#endif
-#if SDC_CS_PB0
-// CS is PB0
-// to change CS to another GPIO, change SDC_CS and CS_Init
-#define SDC_CS (*((volatile unsigned long*)0x40005004))
-#define SDC_CS_LOW 0 // CS controlled by software
-#define SDC_CS_HIGH 0x01
-void CS_Init(void) {
-    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
-    while (!ROM_SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOB)) {}
-    ROM_GPIOPadConfigSet(GPIO_PORTF_BASE, 0x1, GPIO_STRENGTH_4MA,
-                         GPIO_PIN_TYPE_STD_WPU);
-    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, 0x1);
-    SDC_CS = SDC_CS_HIGH;
-}
-#endif
 
-//********SSI0_Init*****************
+static void chip_deselect(void) {
+    ROM_GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_0, GPIO_PIN_0);
+}
+
 // Initialize SSI0 interface to SDC
 // inputs:  clock divider to set clock frequency
 // outputs: none
@@ -86,15 +37,13 @@ void CS_Init(void) {
 // SSIClk = SysClk / (CPSDVSR * (1 + SCR)) = 80 MHz/CPSDVSR
 // 200 for    400,000 bps slow mode, used during initialization
 // 8   for 10,000,000 bps fast mode, used during disk I/O
-// void Timer5_Init(void);
 void SSI0_Init(unsigned long CPSDVSR) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI0);
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
-    //  Timer5_Init(); // in this version the OS will schedule disk_timerproc
-    CS_Init(); // initialize whichever GPIO pin is CS for the SD card
-    // initialize Port A
-    while (!ROM_SysCtlPeripheralReady(SYSCTL_PERIPH_SSI0)) {}
-    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTA_BASE, 0xC8); // make A3,A6,A7 out
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
+    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_0);
+    chip_deselect();
+    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTA_BASE, 0xC8); // 3, 6, and 7
     ROM_GPIOPinConfigure(GPIO_PA2_SSI0CLK);
     ROM_GPIOPinConfigure(GPIO_PA4_SSI0RX);
     ROM_GPIOPinConfigure(GPIO_PA5_SSI0TX);
@@ -111,32 +60,9 @@ void SSI0_Init(unsigned long CPSDVSR) {
     ROM_SSIEnable(SSI0_BASE);
 
     // read any residual data from ssi port
-    uint32_t temp;
-    while (ROM_SSIDataGetNonBlocking(SSI0_BASE, &temp)) {}
+    uint32_t _temp;
+    while (ROM_SSIDataGetNonBlocking(SSI0_BASE, &_temp)) {}
 }
-
-// void Timer5_Init(void){volatile unsigned short delay;
-//  SYSCTL_RCGCTIMER_R |= 0x20;
-//  delay = SYSCTL_SCGCTIMER_R;
-//  delay = SYSCTL_SCGCTIMER_R;
-//  TIMER5_CTL_R = 0x00000000;       // 1) disable timer5A during setup
-//  TIMER5_CFG_R = 0x00000000;       // 2) configure for 32-bit mode
-//  TIMER5_TAMR_R = 0x00000002;      // 3) configure for periodic mode, default
-//  down-count settings TIMER5_TAILR_R = 799999;         // 4) reload value, 10
-//  ms, 80 MHz clock TIMER5_TAPR_R = 0;               // 5) bus clock resolution
-//  TIMER5_ICR_R = 0x00000001;       // 6) clear timer5A timeout flag
-//  TIMER5_IMR_R = 0x00000001;       // 7) arm timeout interrupt
-//  NVIC_PRI23_R = (NVIC_PRI23_R&0xFFFFFF00)|0x00000040; // 8) priority 2
-//// interrupts enabled in the main program after all devices initialized
-//// vector number 108, interrupt number 92
-//  NVIC_EN2_R = 0x10000000;         // 9) enable interrupt 92 in NVIC
-//  TIMER5_CTL_R = 0x00000001;       // 10) enable timer5A
-//}
-//// Executed every 10 ms
-// void Timer5A_Handler(void){
-//  TIMER5_ICR_R = 0x00000001;       // acknowledge timer5A timeout
-//  disk_timerproc();
-//}
 
 // SSIClk = PIOSC / (CPSDVSR * (1 + SCR)) = 80 MHz/CPSDVSR
 // 200 for   400,000 bps slow mode, used during initialization
@@ -153,12 +79,6 @@ void SSI0_Init(unsigned long CPSDVSR) {
             (HWREG(SSI_O_CPSR) & ~HWREG(SSI_CPSR_CPSDVSR_M)) + 8;              \
     }
 
-// de-asserts the CS pin to the card
-#define CS_HIGH() SDC_CS = SDC_CS_HIGH;
-// asserts the CS pin to the card
-#define CS_LOW() SDC_CS = SDC_CS_LOW;
-//#define  MMC_CD    !(GPIOC_IDR & _BV(4))  /* Card detect (yes:true, no:false,
-// default:true) */
 #define MMC_CD 1 /* Card detect (yes:true, no:false, default:true) */
 #define MMC_WP 0 /* Write protected (yes:true, no:false, default:false) */
 //#define  SPIx_CR1  SPI1_CR1
@@ -208,7 +128,7 @@ static uint8_t CardType; /* Card type flags */
 /* Initialize MMC interface */
 static void init_spi(void) {
     SPIxENABLE(); /* Enable SPI function */
-    CS_HIGH();    /* Set CS# high */
+    chip_select();
 
     for (Timer1 = 10; Timer1;)
         ; /* 10ms */
@@ -290,7 +210,7 @@ static int wait_ready(uint32_t wt) {
 /* Deselect card and release SPI                                         */
 /*-----------------------------------------------------------------------*/
 static void deselect(void) {
-    CS_HIGH();      /* CS = H */
+    chip_deselect();
     xchg_spi(0xFF); /* Dummy clock (force DO hi-z for multiple slave SPI) */
 }
 
@@ -300,12 +220,11 @@ static void deselect(void) {
 // Input:  none
 // Output: 1:OK, 0:Timeout in 500ms
 static int select(void) {
-    TFT_CS = TFT_CS_HIGH; // make sure TFT is off
-    CS_LOW();
+    chip_select();
     xchg_spi(0xFF); /* Dummy clock (force DO enabled) */
     if (wait_ready(500))
         return 1; /* OK */
-    deselect();
+    chip_deselect();
     return 0; /* Timeout */
 }
 

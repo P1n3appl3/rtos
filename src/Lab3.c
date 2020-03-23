@@ -51,7 +51,7 @@ void DAS(void) {
     uint32_t input;
     if (NumSamples < RUNLENGTH) { // finite time run
         DEBUG_TOGGLE(0);
-        input = ADC_in();
+        input = adc_in();
         DEBUG_TOGGLE(0);
         DASoutput = Filter(input);
         FilterWork++;
@@ -62,14 +62,14 @@ void DAS(void) {
 extern volatile uint32_t time_disabled;
 void ButtonWork(void) {
     DEBUG_TOGGLE(1);
-    ST7735_Message_Num(1, 0, "NumCreated =", NumCreated);
+    lcd_message_num(1, 0, "NumCreated =", NumCreated);
     DEBUG_TOGGLE(1);
     OS_Sleep(ms(50));
-    ST7735_Message_Num(1, 1, "CPUUtil 0.01%=", CPUUtil);
-    ST7735_Message_Num(1, 2, "DataLost   =", DataLost);
-    ST7735_Message_Num(1, 3, "Jitter (us)=", MaxJitter);
-    ST7735_Message_Num(1, 4, "Disabled (ms)=", to_ms(time_disabled));
-    ST7735_Message_Num(1, 5,
+    lcd_message_num(1, 1, "CPUUtil 0.01%=", CPUUtil);
+    lcd_message_num(1, 2, "DataLost   =", DataLost);
+    lcd_message_num(1, 3, "Jitter (us)=", MaxJitter);
+    lcd_message_num(1, 4, "Disabled (ms)=", to_ms(time_disabled));
+    lcd_message_num(1, 5,
                        "Disabled (%)=", (100 * time_disabled) / OS_Time());
     DEBUG_TOGGLE(1);
 }
@@ -102,15 +102,15 @@ void Producer(uint16_t data) {
 // displays calculated results on the LCD
 void Display(void) {
     uint32_t data, voltage, distance;
-    ST7735_Message_Num(0, 1, "Run length = ", RUNLENGTH / SAMPLE_FREQ);
+    lcd_message_num(0, 1, "Run length = ", RUNLENGTH / SAMPLE_FREQ);
     while (NumSamples < RUNLENGTH) {
         data = OS_MailBox_Recv();
         voltage =
             3000 * data / 4095; // calibrate your device so voltage is in mV
         distance =
             IRDistance_Convert(data, 1); // you will calibrate this in Lab 6
-        ST7735_Message_Num(0, 2, "v(mV) =", voltage);
-        ST7735_Message_Num(0, 3, "d(mm) =", distance);
+        lcd_message_num(0, 2, "v(mV) =", voltage);
+        lcd_message_num(0, 3, "d(mm) =", distance);
     }
     led_toggle(GREEN_LED);
 }
@@ -120,7 +120,7 @@ void Display(void) {
 void Consumer(void) {
     uint32_t data, DCcomponent; // 12-bit raw ADC sample, 0 to 4095
     uint32_t t;                 // time in 2.5 ms
-    ADC_timer_init(1, 0, hz(SAMPLE_FREQ), 3, &Producer);
+    adc_timer_init(1, 0, hz(SAMPLE_FREQ), 3, &Producer);
     NumCreated += OS_AddThread(Display, "Display", 128, 0);
     while (NumSamples < RUNLENGTH) {
         for (t = 0; t < 64; t++) { // collect 64 ADC samples
@@ -173,7 +173,7 @@ void realmain(void) { // realmain
 
     OS_MailBox_Init();
     OS_Fifo_Init(64);
-    ADC_init(0); // sequencer 3, channel 0, PE3, sampling in DAS()
+    adc_init(0); // sequencer 3, channel 0, PE3, sampling in DAS()
 
     OS_AddSW1Task(&SW1Push, 2);
     OS_AddSW2Task(&SW2Push, 2);

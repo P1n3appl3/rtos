@@ -136,8 +136,8 @@ void OS_Init(void) {
                        SYSCTL_OSC_MAIN);
     launchpad_init();
     uart_init();
+    lcd_init();
     MaxJitter = 0;
-    ST7735_InitR(INITR_REDTAB);
 }
 
 void OS_InitSemaphore(Sema4* sem, int32_t value) {
@@ -461,7 +461,7 @@ int OS_RedirectToUART(void) {
     return 1;
 }
 
-int OS_RedirectToST7735(void) {
+int OS_RedirectToLCD(void) {
     return 1;
 }
 

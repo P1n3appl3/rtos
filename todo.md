@@ -5,9 +5,10 @@
 -   printf rewrite
 -   more optimal sleep scheduling (like periodic with one-shot timers)
 -   check rom vs normal driverlib speed/space
--   port SPI driver from valvano's code to driverlib
 -   better UART blocking for TX
--   rewrite screen driver with our SPI driver
+-   mutual exclusion for all LCD display functions
+-   rewrite screen driver
+-   core temp with adc
 -   LTO
 -   simple allocator
 -   use ^ for dynamically sized stacks and OS fifo

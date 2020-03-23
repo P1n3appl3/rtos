@@ -35,14 +35,13 @@ static bool next_token() {
 
 static char* HELPSTRING =
     "Available commands:\n\r"
-    "\thelp\t\t\t\t\tprint this help string\n\n\r"
-    "\tled COLOR [ACTION]\t\t\tmanipulates the launchpad LEDs\n\r"
+    "\tled COLOR [ACTION]\n\r"
     "\t\tCOLOR: red, green, or blue\n\r"
-    "\t\tACTION: on, off, or toggle\n\n\r"
-    "\tadc\t\t\t\t\tread a value from the ADC\n\n\r"
-    "\ttime [get|reset]\t\t\tget or reset the OS time\n\n\r"
-    "\tdebug\t\t\tdisplay debug info\n\n\r"
-    "\tlcd 'STRING' [top|bottom] [row #]\tprint a string to the LCD\n\n\r";
+    "\t\tACTION: on, off, or toggle\n\r"
+    "\tadc\n\r\t\tread a single sample from the ADC\n\r"
+    "\ttime [get|reset]\n\r\t\tget or reset the OS time\n\r"
+    "\tdebug\n\r\t\tdisplay jitter info\n\r"
+    "\tlcd 'STRING' [top|bottom] [row #]\n\r\t\tprint a string to the LCD\n\r";
 
 void interpret_command(void) {
     printf("\n\r> ");
@@ -83,7 +82,7 @@ void interpret_command(void) {
             return;
         }
     } else if (streq(token, "adc")) {
-        printf("ADC reading: %d\n\r", ADC_in());
+        printf("ADC reading: %d\n\r", adc_in());
     } else if (streq(token, "lcd")) {
         uint8_t line = 0;
         char quote_type = '\0';
@@ -127,7 +126,7 @@ void interpret_command(void) {
                 return;
             }
         }
-        ST7735_Message(bottom, line, str);
+        lcd_message(bottom, line, str);
     } else if (streq(token, "time")) {
         if (!next_token() || streq(token, "get")) {
             printf("Current time: %dms\n\r", (uint32_t)to_ms(OS_Time()));

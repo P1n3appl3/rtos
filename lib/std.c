@@ -28,6 +28,12 @@ bool streq(const char* a, const char* b) {
     return *a == *b;
 }
 
+uint16_t strlen(const char* s) {
+    uint16_t n = 0;
+    while (*s++) { n++; }
+    return n;
+}
+
 int16_t find(const char* s, char c) {
     for (int i = 0; *s; ++i) {
         if (c == *s++) {
@@ -77,4 +83,38 @@ int32_t atoi(char* s) {
         result += s[i] - '0';
     }
     return neg ? -result : result;
+}
+
+char* reverse(char* s) {
+    uint16_t len = strlen(s);
+    for (int i = 0; i < len / 2; ++i) {
+        char temp = s[i];
+        s[i] = s[len - 1 - i];
+        s[len - 1 - i] = temp;
+    }
+    return s;
+}
+
+char* itoa(int32_t value, char* s, uint8_t radix) {
+    uint8_t i = 0;
+    bool neg = false;
+    if (value < 0) {
+        neg = true;
+        value = -value;
+    }
+    do {
+        char current = value % radix;
+        if (current < 10) {
+            current += '0';
+        } else {
+            current += 'a' - 10; // TODO: case
+        }
+        s[i++] = current;
+        value /= radix;
+    } while (value);
+    if (neg) {
+        s[i++] = '-';
+    }
+    s[i] = '\0';
+    return reverse(s);
 }
