@@ -133,7 +133,7 @@ void OS_Launch(uint32_t time_slice);
 // If the file doesn't exist, it will create a new file with the name
 // input: an ASCII string up to seven characters
 // returns: 0 if successful and 1 on failure (e.g., can't open)
-int OS_RedirectToFile(char* name);
+int OS_RedirectToFile(const char* name);
 
 // close the file for writing, redirect stream I/O (printf) back to the UART
 // returns: 0 if successful and 1 on failure (e.g., trouble writing)
@@ -143,7 +143,7 @@ int OS_EndRedirectToFile(void);
 // returns: 0 if successful and 1 on failure
 int OS_RedirectToUART(void);
 
-// redirect stream I/O (printf) to the LCD
+// redirect stream I/O (printf) to the ST7735 LCD
 // returns: 0 if successful and 1 on failure
 int OS_RedirectToLCD(void);
 

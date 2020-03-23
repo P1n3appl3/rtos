@@ -1,6 +1,7 @@
 #include "OS.h"
 #include "FIFO.h"
 #include "ST7735.h"
+#include "filesystem.h"
 #include "interrupts.h"
 #include "io.h"
 #include "launchpad.h"
@@ -213,6 +214,23 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stackSize,
     insert_thread(adding);
     end_critical(crit);
     return true;
+}
+
+//******** OS_AddProcess ***************
+// add a process with foregound thread to the scheduler
+// Inputs: pointer to a void/void entry point
+//         pointer to process text (code) segment
+//         pointer to process data segment
+//         number of bytes allocated for its stack
+//         priority (0 is highest)
+// Outputs: 1 if successful, 0 if this process can not be added
+// This function will be needed for Lab 5
+// In Labs 2-4, this function can be ignored
+int OS_AddProcess(void (*entry)(void), void* text, void* data,
+                  unsigned long stackSize, unsigned long priority) {
+    // put Lab 5 solution here
+
+    return 0; // replace this line with Lab 5 solution
 }
 
 uint32_t OS_Id(void) {
@@ -453,18 +471,51 @@ void OS_ReportJitter(void) {
     printf("Average Jitter: %d microseconds\n\r", sum / total_num);
 }
 
-int OS_RedirectToFile(char* name) {
-    return 1;
+//************** I/O Redirection ***************
+// redirect terminal I/O to UART or file (Lab 4)
+
+int StreamToDevice = 0; // 0=UART, 1=stream to file (Lab 4)
+
+int fputc(uint8_t ch, FILE* f) {
+    if (StreamToDevice == 1) {      // Lab 4
+        if (fs_write(ch)) {         // close file on error
+            OS_EndRedirectToFile(); // cannot write to file
+            return 1;               // failure
+        }
+        return 0; // success writing
+    }
+
+    // default UART output
+    printf("%u", ch);
+    return ch;
+}
+
+int fgetc(FILE* f) {
+    char ch = getchar();
+    puts(&ch);
+    return ch;
+}
+
+int OS_RedirectToFile(const char* name) { // Lab 4
+    fs_create_file(name);                 // ignore error if file already exists
+    if (fs_wopen(name))
+        return 1; // cannot open file
+    StreamToDevice = 1;
+    return 0;
+}
+
+int OS_EndRedirectToFile(void) { // Lab 4
+    StreamToDevice = 0;
+    if (fs_close_wfile())
+        return 1; // cannot close file
+    return 0;
 }
 
 int OS_RedirectToUART(void) {
-    return 1;
+    StreamToDevice = 0;
+    return 0;
 }
 
 int OS_RedirectToLCD(void) {
-    return 1;
-}
-
-int OS_EndRedirectToFile(void) {
     return 1;
 }

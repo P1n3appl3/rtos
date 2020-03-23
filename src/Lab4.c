@@ -4,6 +4,7 @@
 #include "OS.h"
 #include "ST7735.h"
 #include "eDisk.h"
+#include "filesystem.h"
 #include "interpreter.h"
 #include "io.h"
 #include "launchpad.h"
@@ -228,7 +229,7 @@ void Producer(uint16_t data) {
 // outputs: none
 void Init(void) {
     // initialize file system
-    eFile_Init(); // needs to execute after periodic interrupts have started
+    fs_init(); // needs to execute after periodic interrupts have started
 
     // launch user-level tasks
     NumCreated += OS_AddThread(&DSP, "DSP", 128, 1);
@@ -402,7 +403,7 @@ noreturn void Testmain1(void) { // Testmain1
     Running = 1;
 
     // attach background tasks
-    OS_AddPeriodicThread(&disk_timerproc, ms(10),
+    OS_AddPeriodicThread(&disk_timerproc, ms(1),
                          0); // time out routines for disk
     OS_AddSW1Task(&SW1Push1, 2);
 
@@ -412,58 +413,90 @@ noreturn void Testmain1(void) { // Testmain1
     NumCreated += OS_AddThread(&Idle, "Idle", 128, 3);
 
     OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
+
+    while (1) {}
 }
 
 //*****************Test project 2*************************
 // Filesystem test.
 // Warning: this reformats the disk, all existing data will be lost
+char const string1[] = "Filename = %s";
+char const string2[] = "File size = %lu bytes";
+char const string3[] = "Number of Files = %u";
+char const string4[] = "Number of Bytes = %lu";
+void TestDirectory(void) {
+    char* name;
+    unsigned long size;
+    unsigned int num;
+    unsigned long total;
+    num = 0;
+    total = 0;
+    printf("\n\r");
+    if (fs_dopen(""))
+        diskError("eFile_DOpen", 0);
+    while (!fs_dnext(&name, &size)) {
+        printf(string1, name);
+        printf("  ");
+        printf(string2, size);
+        printf("\n\r");
+        total = total + size;
+        num++;
+    }
+    printf(string3, num);
+    printf("\n\r");
+    printf(string4, total);
+    printf("\n\r");
+    if (fs_dclose())
+        diskError("eFile_DClose", 0);
+}
+
 void TestFile(void) {
     int i;
     char data;
     printf("\n\rEE445M/EE380L, Lab 4 eFile test\n\r");
     lcd_string(0, 1, "eFile test      ", WHITE);
     // simple test of eFile
-    if (eFile_Init())
+    if (fs_init())
         diskError("eFile_Init", 0);
-    if (eFile_Format())
+    if (fs_format())
         diskError("eFile_Format", 0);
-    eFile_Directory(putchar);
-    if (eFile_Create("file1"))
+    TestDirectory();
+    if (fs_create_file("file1"))
         diskError("eFile_Create", 0);
-    if (eFile_WOpen("file1"))
+    if (fs_wopen("file1"))
         diskError("eFile_WOpen", 0);
     for (i = 0; i < 1000; i++) {
-        if (eFile_Write('a' + i % 26))
+        if (fs_write('a' + i % 26))
             diskError("eFile_Write", i);
         if (i % 52 == 51) {
-            if (eFile_Write('\n'))
+            if (fs_write('\n'))
                 diskError("eFile_Write", i);
-            if (eFile_Write('\r'))
+            if (fs_write('\r'))
                 diskError("eFile_Write", i);
         }
     }
-    if (eFile_WClose())
+    if (fs_close_wfile())
         diskError("eFile_WClose", 0);
-    eFile_Directory(putchar);
-    if (eFile_ROpen("file1"))
+    TestDirectory();
+    if (fs_ropen("file1"))
         diskError("eFile_ROpen", 0);
     for (i = 0; i < 1000; i++) {
-        if (eFile_ReadNext(&data))
+        if (fs_read(&data))
             diskError("eFile_ReadNext", i);
-        putchar(data);
+        puts(&data);
     }
-    if (eFile_Delete("file1"))
+    if (fs_delete_file("file1"))
         diskError("eFile_Delete", 0);
-    eFile_Directory(putchar);
-    if (eFile_Close())
+    TestDirectory();
+    if (fs_close())
         diskError("eFile_Close", 0);
-    printf("Successful test of creating a file\n\r");
+    printf("Successful test\n\r");
     lcd_string(0, 1, "eFile successful", YELLOW);
     Running = 0; // launch again
     OS_Kill();
 }
 
-void SW1Push2(void) {
+void SW2Push2(void) {
     if (Running == 0) {
         Running = 1; // prevents you from starting two test threads
         NumCreated +=
@@ -477,10 +510,10 @@ int Testmain2(void) { // Testmain2
     Running = 1;
 
     // attach background tasks
-    OS_AddPeriodicThread(&disk_timerproc, ms(10),
+    OS_AddPeriodicThread(&disk_timerproc, ms(1),
                          0);     // time out routines for disk
     OS_AddSW1Task(&SW1Push1, 2); // PF4, SW1
-    OS_AddSW2Task(&SW1Push2, 2); // PF0, SW2
+    OS_AddSW2Task(&SW2Push2, 2); // PF0, SW2
 
     // create initial foreground threads
     NumCreated = 0;
@@ -494,4 +527,5 @@ int Testmain2(void) { // Testmain2
 //*******************Trampoline for selecting main to execute**********
 int main(void) { // main
     realmain();
+    return 0;
 }

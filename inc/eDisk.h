@@ -1,5 +1,6 @@
 #ifndef _DISKIO
 #define _USE_WRITE 1
+#define _USE_IOCTL 1
 
 #include <stdint.h>
 
