@@ -1,6 +1,4 @@
-#ifndef _DISKIO
-#define _USE_WRITE 1
-#define _USE_IOCTL 1
+#include <stdint.h>
 
 // Backlight (pin 10) connected to +3.3 V
 // MISO (pin 9) connected to PA4 (SSI0Rx)
@@ -12,8 +10,6 @@
 // RESET (pin 3) connected to PA7 (GPIO)<- GPIO high to disable TFT
 // VCC (pin 2) connected to +3.3 V
 // Gnd (pin 1) connected to ground
-
-#include <stdint.h>
 
 typedef enum {
     STA_OK = 0,
@@ -61,7 +57,7 @@ void disk_timerproc(void);
 // General purpose function for all disk I/O
 DRESULT disk_ioctl(uint8_t cmd, void* buff);
 
-// Command code for disk_ioctrl fucntion
+// Command codes for disk_ioctrl fucntion:
 
 // Generic command (Used by FatFs)
 #define CTRL_SYNC                                                              \
@@ -70,8 +66,7 @@ DRESULT disk_ioctl(uint8_t cmd, void* buff);
 #define GET_SECTOR_SIZE 2  // Get sector size (needed at _MAX_SS != _MIN_SS)
 #define GET_BLOCK_SIZE 3   // Get erase block size (needed at _USE_MKFS == 1)
 #define CTRL_TRIM                                                              \
-    4 /* Inform device that the data on the block of sectors is no longer used \
-         (needed at _USE_TRIM == 1) */
+    4 // Inform device that the data on the block of sectors is no longer used
 
 // Generic command (Not used by FatFs)
 #define CTRL_FORMAT 5     // Create physical format on the media
@@ -99,5 +94,3 @@ DRESULT disk_ioctl(uint8_t cmd, void* buff);
 #define CT_SD2 0x04              // SD ver 2
 #define CT_SDC (CT_SD1 | CT_SD2) // SD
 #define CT_BLOCK 0x08            // Block addressing
-
-#define _DISKIO

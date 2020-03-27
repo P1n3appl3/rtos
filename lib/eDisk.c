@@ -56,31 +56,14 @@ void SSI0_Init(unsigned long CPSDVSR) {
 // SSIClk = PIOSC / (CPSDVSR * (1 + SCR)) = 80 MHz/CPSDVSR
 // 200 for   400,000 bps slow mode, used during initialization
 // 8  for 10,000,000 bps fast mode, used during disk I/O
-#define FCLK_SLOW()                                                            \
-    {                                                                          \
-        HWREG(SSI_O_CPSR) =                                                    \
-            (HWREG(SSI_O_CPSR) & ~HWREG(SSI_CPSR_CPSDVSR_M)) + 200;            \
-    }
+static inline void spi_clock_slow() {
+    HWREG(SSI_O_CPSR) = (HWREG(SSI_O_CPSR) & ~HWREG(SSI_CPSR_CPSDVSR_M)) + 200;
+}
 
-#define FCLK_FAST()                                                            \
-    {                                                                          \
-        HWREG(SSI_O_CPSR) =                                                    \
-            (HWREG(SSI_O_CPSR) & ~HWREG(SSI_CPSR_CPSDVSR_M)) + 8;              \
-    }
+static void spi_clock_fast() {
+    HWREG(SSI_O_CPSR) = (HWREG(SSI_O_CPSR) & ~HWREG(SSI_CPSR_CPSDVSR_M)) + 8;
+}
 
-#define MMC_CD 1 // Card detect (yes:true, no:false, default:true)
-#define MMC_WP 0 // Write protected (yes:true, no:false, default:false)
-//#define  SPIx_CR1  SPI1_CR1
-//#define  SPIx_SR    SPI1_SR
-//#define  SPIx_DR    SPI1_DR
-#define SPIxENABLE()                                                           \
-    { SSI0_Init(200); }
-
-/*--------------------------------------------------------------------------
-
-   Module Private Functions
-
----------------------------------------------------------------------------*/
 // MMC/SD command
 #define CMD0 (0)           // GO_IDLE_STATE
 #define CMD1 (1)           // SEND_OP_COND (MMC)
@@ -105,28 +88,20 @@ void SSI0_Init(unsigned long CPSDVSR) {
 
 static volatile DSTATUS Stat = STA_NOINIT; // Physical drive status
 
-static volatile uint32_t Timer1,
-    Timer2; // 1kHz decrement timer stopped at zero (disk_timerproc())
+// 1kHz decrement timer stopped at zero (disk_timerproc())
+static volatile uint32_t Timer1, Timer2;
 
 static uint8_t CardType; // Card type flags
 
-//-----------------------------------------------------------------------
-// SPI controls (Platform dependent)
-//-----------------------------------------------------------------------
-
 // Initialize MMC interface
 static void init_spi(void) {
-    SPIxENABLE(); // Enable SPI function
+    SSI0_Init(200);
     chip_select();
 
-    for (Timer1 = 10; Timer1;)
-        ; // 10ms
+    for (Timer1 = 10; Timer1;) {} // 10ms
 }
 
 // Exchange a byte
-// Inputs:  byte to be sent to SPI
-// Outputs: byte received from SPI
-// assumes it has been selected with CS low
 static uint8_t xchg_spi(uint8_t dat) {
     uint32_t rcvdat;
     // wait until SSI0 not busy/transmit FIFO empty
@@ -136,12 +111,7 @@ static uint8_t xchg_spi(uint8_t dat) {
     return rcvdat & 0xFF;
 }
 
-//-----------------------------------------------------------------------
-// Receive a byte from MMC via SPI  (Platform dependent)
-//-----------------------------------------------------------------------
-// Inputs:  none
-// Outputs: byte received from SPI
-// assumes it has been selected with CS low
+// Receive a byte
 static uint8_t rcvr_spi(void) {
     // wait until SSI0 not busy/transmit FIFO empty
     while (ROM_SSIBusy(SSI0_BASE)) {}
@@ -152,22 +122,17 @@ static uint8_t rcvr_spi(void) {
 }
 
 // Receive multiple byte
-// Input:  buff Pointer to empty buffer into which data will be received
-//         btr  Number of bytes to receive (even number)
-// Output: none
-static void rcvr_spi_multi(uint8_t* buff, uint32_t btr) {
-    while (btr) {
+// count: Number of bytes to receive (must be even)
+static void rcvr_spi_multi(uint8_t* buff, uint32_t count) {
+    while (count) {
         *buff = rcvr_spi(); // return by reference
-        btr--;
+        count--;
         buff++;
     }
 }
 
-#if _USE_WRITE
-// Send multiple byte
-// Input:  buff Pointer to the data which will be sent
-//         btx  Number of bytes to send (even number)
-// Output: none
+// Send multiple bytes
+// btx: Number of bytes to send (even number)
 static void xmit_spi_multi(const uint8_t* buff, uint32_t btx) {
     uint32_t rcvdat;
     while (btx) {
@@ -177,38 +142,30 @@ static void xmit_spi_multi(const uint8_t* buff, uint32_t btx) {
         buff++;
     }
 }
-#endif
 
-//-----------------------------------------------------------------------
 // Wait for card ready
-//-----------------------------------------------------------------------
-// Input:  time to wait in ms
-// Output: 1:Ready, 0:Timeout
-static int wait_ready(uint32_t wt) {
+// Input: time to wait in ms
+// returns false on timeout
+static bool wait_ready(uint32_t wt) {
     uint8_t d;
     Timer2 = wt;
     do {
         d = xchg_spi(0xFF);
-        /* This loop takes a time. Insert rot_rdq() here for multitask
-         * environment. */
+        // This loop takes a time. Insert rot_rdq() here for multitask
+        // environment.
     } while (d != 0xFF && Timer2); // Wait for card goes ready or timeout
     return (d == 0xFF) ? 1 : 0;
 }
 
-//-----------------------------------------------------------------------
 // Deselect card and release SPI
-//-----------------------------------------------------------------------
 static void deselect(void) {
     chip_deselect();
     xchg_spi(0xFF); // Dummy clock (force DO hi-z for multiple slave SPI)
 }
 
-//-----------------------------------------------------------------------
 // Select card and wait for ready
-//-----------------------------------------------------------------------
-// Input:  none
-// Output: 1:OK, 0:Timeout in 500ms
-static int select(void) {
+// returns false on 500ms timeout
+static bool select(void) {
     chip_select();
     xchg_spi(0xFF); // Dummy clock (force DO enabled)
     if (wait_ready(500))
@@ -217,13 +174,10 @@ static int select(void) {
     return 0; // Timeout
 }
 
-//-----------------------------------------------------------------------
 // Receive a data packet from the MMC
-//-----------------------------------------------------------------------
-// Input:  buff Pointer to empty buffer into which data will be received
-//         btr  Number of bytes to receive (even number)
-// Output: 1:OK, 0:Error on timeout
-static int rcvr_datablock(uint8_t* buff, uint32_t btr) {
+// btr: Number of bytes to receive (even number)
+// returns false on timeout
+static bool rcvr_datablock(uint8_t* buff, uint32_t btr) {
     uint8_t token;
     Timer1 = 200;
     do { // Wait for DataStart token in timeout of 200ms
@@ -240,15 +194,10 @@ static int rcvr_datablock(uint8_t* buff, uint32_t btr) {
     return 1;       // Function succeeded
 }
 
-//-----------------------------------------------------------------------
 // Send a data packet to the MMC
-//-----------------------------------------------------------------------
-
-#if _USE_WRITE
-// Input:  buff Pointer to 512 byte data which will be sent
-//         token  Token
-// Output: 1:OK, 0:Failed on timeout
-static int xmit_datablock(const uint8_t* buff, uint8_t token) {
+// Input:  buff: 512 byte packet which will be sent
+// returns false on timeout
+static bool xmit_datablock(const uint8_t* buff, uint8_t token) {
     uint8_t resp;
     if (!wait_ready(500))
         return 0; // Wait for card ready
@@ -266,14 +215,10 @@ static int xmit_datablock(const uint8_t* buff, uint8_t token) {
     }
     return 1;
 }
-#endif
 
-//-----------------------------------------------------------------------
 // Send a command packet to the MMC
-//-----------------------------------------------------------------------
-// Inputs:  cmd Command index
-//          arg    /* Argument
-// Outputs: R1 resp (bit7==1:Failed to send)
+// Inputs:  Command index
+// Outputs: response (bit7==1: Failed to send)
 static uint8_t send_cmd(uint8_t cmd, uint32_t arg) {
     uint8_t n, res;
     if (cmd & 0x80) { // Send a CMD55 prior to ACMD<n>
@@ -314,19 +259,15 @@ static uint8_t send_cmd(uint8_t cmd, uint32_t arg) {
     return res; // Return received response
 }
 
-// Inputs:  Physical drive number, which must be 0
-// Outputs: status (see DSTATUS)
-DSTATUS eDisk_Init(uint8_t drv) {
+DSTATUS eDisk_Init() {
     uint8_t n, cmd, ty, ocr[4];
 
-    if (drv)
-        return STA_NOINIT; // Supports only drive 0
-    init_spi();            // Initialize SPI
+    init_spi(); // Initialize SPI
 
     if (Stat & STA_NODISK)
         return Stat; // Is card existing in the soket?
 
-    FCLK_SLOW();
+    spi_clock_slow();
     for (n = 10; n; n--) xchg_spi(0xFF); // Send 80 dummy clocks
 
     ty = 0;
@@ -364,7 +305,7 @@ DSTATUS eDisk_Init(uint8_t drv) {
     deselect();
 
     if (ty) {                // OK
-        FCLK_FAST();         // Set fast clock
+        spi_clock_fast();    // Set fast clock
         Stat &= ~STA_NOINIT; // Clear STA_NOINIT flag
     } else {                 // Failed
         Stat = STA_NOINIT;
@@ -373,27 +314,12 @@ DSTATUS eDisk_Init(uint8_t drv) {
     return Stat;
 }
 
-//-----------------------------------------------------------------------
-// Get disk status
-//-----------------------------------------------------------------------
-// Inputs:  Physical drive number, which must be 0
-// Outputs: status (see DSTATUS)
-DSTATUS eDisk_Status(uint8_t drv) {
-    if (drv)
-        return STA_NOINIT; // Supports only drive 0
-    return Stat;           // Return disk status
+DSTATUS eDisk_Status() {
+    return Stat; // Return disk status
 }
 
-//-----------------------------------------------------------------------
-// Read sector(s)
-//-----------------------------------------------------------------------
-// Inputs:  drv    Physical drive number (0)
-//         buff   Pointer to the data buffer to store read data
-//         sector Start sector number (LBA)
-//         count  Number of sectors to read (1..128)
-// Outputs: status (see DRESULT)
-DRESULT eDisk_Read(uint8_t drv, uint8_t* buff, uint16_t sector, uint8_t count) {
-    if (drv || !count)
+DRESULT eDisk_Read(uint8_t* buff, uint16_t sector, uint8_t count) {
+    if (!count)
         return RES_PARERR; // Check parameter
     if (Stat & STA_NOINIT)
         return RES_NOTRDY; // Check if drive is ready
@@ -420,36 +346,11 @@ DRESULT eDisk_Read(uint8_t drv, uint8_t* buff, uint16_t sector, uint8_t count) {
     return count ? RES_ERROR : RES_OK; // Return result
 }
 
-//*************** eDisk_ReadBlock ***********
-// Read 1 block of 512 bytes from the SD card  (write to RAM)
-// Inputs: pointer to an empty RAM buffer
-//         sector number of SD card to read: 0,1,2,...
-// Outputs: result
-//  RES_OK        0: Successful
-//  RES_ERROR     1: R/W Error
-//  RES_WRPRT     2: Write Protected
-//  RES_NOTRDY    3: Not Ready
-//  RES_PARERR    4: Invalid Parameter
-DRESULT
-eDisk_ReadBlock(uint8_t* buff, // Pointer to the data buffer to store read data
-                uint16_t sector) { // Start sector number (LBA)
-    return eDisk_Read(0, buff, sector, 1);
+DRESULT eDisk_ReadBlock(uint8_t* buff, uint16_t sector) {
+    return eDisk_Read(buff, sector, 1);
 }
 
-//-----------------------------------------------------------------------
-// Write sector(s)
-//-----------------------------------------------------------------------
-
-#if _USE_WRITE
-// Inputs:  drv    Physical drive number (0)
-//         buff   Pointer to the data buffer to write to disk
-//         sector Start sector number (LBA)
-//         count  Number of sectors to write (1..128)
-// Outputs: status (see DRESULT)
-DRESULT eDisk_Write(uint8_t drv, const uint8_t* buff, uint16_t sector,
-                    uint8_t count) {
-    if (drv || !count)
-        return RES_PARERR; // Check parameter
+DRESULT eDisk_Write(const uint8_t* buff, uint16_t sector, uint8_t count) {
     if (Stat & STA_NOINIT)
         return RES_NOTRDY; // Check drive status
     if (Stat & STA_PROTECT)
@@ -479,39 +380,17 @@ DRESULT eDisk_Write(uint8_t drv, const uint8_t* buff, uint16_t sector,
 
     return count ? RES_ERROR : RES_OK; // Return result
 }
-//*************** eDisk_WriteBlock ***********
-// Write 1 block of 512 bytes of data to the SD card
-// Inputs: pointer to RAM buffer with information
-//         sector number of SD card to write: 0,1,2,...
-// Outputs: result
-//  RES_OK        0: Successful
-//  RES_ERROR     1: R/W Error
-//  RES_WRPRT     2: Write Protected
-//  RES_NOTRDY    3: Not Ready
-//  RES_PARERR    4: Invalid Parameter
-DRESULT
-eDisk_WriteBlock(const uint8_t* buff,       // Pointer to the data to be written
-                 uint16_t sector) {         // Start sector number (LBA)
-    return eDisk_Write(0, buff, sector, 1); // 1 block
+
+DRESULT eDisk_WriteBlock(const uint8_t* buff, uint16_t sector) {
+    return eDisk_Write(buff, sector, 1); // 1 block
 }
 
-#endif
-
-//-----------------------------------------------------------------------
 // Miscellaneous drive controls other than data read/write
-//-----------------------------------------------------------------------
-// Inputs:  drv,   Physical drive number (0)
-//          cmd,   Control command code
-//          buff   Pointer to the control data
-// Outputs: status (see DRESULT)
-#if _USE_IOCTL
-DRESULT disk_ioctl(uint8_t drv, uint8_t cmd, void* buff) {
+DRESULT disk_ioctl(uint8_t cmd, void* buff) {
     DRESULT res;
     uint8_t n, csd[16];
     uint16_t *dp, st, ed, csize;
 
-    if (drv)
-        return RES_PARERR; // Check parameter
     if (Stat & STA_NOINIT)
         return RES_NOTRDY; // Check if drive is ready
 
@@ -571,7 +450,7 @@ DRESULT disk_ioctl(uint8_t drv, uint8_t cmd, void* buff) {
     case CTRL_TRIM: // Erase a block of sectors (used when _USE_ERASE == 1)
         if (!(CardType & CT_SDC))
             break; // Check if the card is SDC
-        if (disk_ioctl(drv, MMC_GET_CSD, csd))
+        if (disk_ioctl(MMC_GET_CSD, csd))
             break; // Get CSD
         if (!(csd[0] >> 6) && !(csd[10] & 0x40))
             break; // Check if sector erase can be applied to the card
@@ -594,7 +473,6 @@ DRESULT disk_ioctl(uint8_t drv, uint8_t cmd, void* buff) {
 
     return res;
 }
-#endif
 
 // This function must be called from timer interrupt routine in period
 // of 1 ms to generate card control timing.
@@ -611,13 +489,11 @@ void disk_timerproc(void) {
         Timer2 = --n;
 
     s = Stat;
-    if (MMC_WP) // Write protected
-        s |= STA_PROTECT;
-    else // Write enabled
-        s &= ~STA_PROTECT;
-    if (MMC_CD) // Card is in socket
-        s &= ~STA_NODISK;
-    else // Socket empty
-        s |= (STA_NODISK | STA_NOINIT);
+    // TODO: check write protection
+    // if (MMC_WP) s |= STA_PROTECT;
+    // else s &= ~STA_PROTECT;
+    // TODO: check if card is in socket
+    // if (MMC_CD) s &= ~STA_NODISK;
+    // else s |= (STA_NODISK | STA_NOINIT);
     Stat = s;
 }
