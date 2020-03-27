@@ -72,7 +72,9 @@ bool putchar(char x) {
         return true;
     }
     while (txfifo_full()) { OS_Suspend(); }
+    uint32_t crit = start_critical();
     txfifo_put(x);
+    end_critical_orig(crit);
     sw_to_hw_fifo();
     return true;
 }

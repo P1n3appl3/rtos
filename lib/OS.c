@@ -333,6 +333,7 @@ bool OS_AddSW2Task(void (*task)(void), uint32_t priority) {
     return true;
 }
 
+// TODO: structure this the same as periodic tasks to incur minimum overhead
 static void sleep_task(void) {
     uint32_t reload = get_timer_reload(1);
     for (int i = 0; i < MAX_THREADS; i++) {
