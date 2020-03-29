@@ -11,11 +11,12 @@
 #include <stdint.h>
 
 static void chip_select(void) {
-    ROM_GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_0, 0);
     ROM_GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_3, GPIO_PIN_3);
+    ROM_GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_0, 0);
 }
 
 static void chip_deselect(void) {
+    while (ROM_SSIBusy(SSI0_BASE)) {}
     ROM_GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_0, GPIO_PIN_0);
 }
 
@@ -265,7 +266,7 @@ DSTATUS eDisk_Init() {
     init_spi(); // Initialize SPI
 
     if (Stat & STA_NODISK)
-        return Stat; // Is card existing in the soket?
+        return Stat; // Is card existing in the socket?
 
     spi_clock_slow();
     for (n = 10; n; n--) xchg_spi(0xFF); // Send 80 dummy clocks

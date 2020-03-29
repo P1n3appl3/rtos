@@ -35,21 +35,6 @@ bool os_running;
 uint32_t criticaltime;
 volatile uint32_t time_disabled = 0;
 
-uint32_t start_critical(void) {
-    uint32_t primask = start_critical_orig();
-    if (os_running && primask) {
-        criticaltime = OS_Time();
-    }
-    return primask;
-}
-
-void end_critical(uint32_t primask) {
-    if (os_running && primask) {
-        time_disabled += OS_Time() - criticaltime;
-    }
-    end_critical_orig(primask);
-}
-
 static TCB idle = {
     .next_tcb = &idle,
     .prev_tcb = &idle,

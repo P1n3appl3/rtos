@@ -526,6 +526,7 @@ int Testmain2(void) { // Testmain2
 
 //*******************Trampoline for selecting main to execute**********
 int main(void) { // main
-    realmain();
+    // realmain();
+    Testmain1();
     return 0;
 }

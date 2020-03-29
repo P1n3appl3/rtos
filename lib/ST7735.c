@@ -69,6 +69,7 @@ static void select(void) {
 }
 
 static void deselect(void) {
+    while (ROM_SSIBusy(SSI0_BASE)) {}
     ROM_GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_3, GPIO_PIN_3);
 }
 
