@@ -46,7 +46,7 @@ bool fs_init(void) {
 bool fs_format(void) {
     free_block = DIR_SIZE;
     root.num_entries = 0;
-    return false;
+    return true;
 }
 
 bool fs_mount(void) {
@@ -60,15 +60,12 @@ bool fs_create_file(const char name[]) {
     uint32_t dir_ptr = root.num_entries * sizeof(FILE);
     uint32_t sector = dir_ptr / 512;
     eDisk_ReadBlock(sd_buf, sector);
-    FILE new_file;
-    mem_cpy(new_file.name, &name, FILENAME_SIZE);
-    new_file.size = 0;
-    new_file.valid = true;
-    new_file.sector = free_block;
+    FILE* new_file = (FILE*)sd_buf + (dir_ptr % 512);
+    new_file->size = 0;
+    new_file->valid = true;
+    new_file->sector = free_block;
     free_block += INITIAL_ALLOCATION;
-    new_file.capacity = INITIAL_ALLOCATION;
-    buf_ptr = dir_ptr % 512;
-    buf_ptr = mem_cpy(sd_buf, &new_file, sizeof(new_file));
+    new_file->capacity = INITIAL_ALLOCATION;
     eDisk_WriteBlock(sd_buf, sector);
     return true;
 }
@@ -76,12 +73,10 @@ bool fs_create_file(const char name[]) {
 bool fs_delete_file(const char* name) {
     buf_ptr = -1;
     uint32_t sector = 0;
-    char filename[FILENAME_SIZE];
     for (uint32_t i = 0; i < DIR_SIZE; i += 2) {
         eDisk_Read(sd_buf, i, 2);
         for (uint16_t j = 0; j < BUFFER_SIZE; j += sizeof(FILE)) {
-            mem_cpy(filename, sd_buf + j, FILENAME_SIZE);
-            if (strcmp(name, filename)) {
+            if (strcmp(name, (char*)sd_buf + j)) {
                 sector = i;
                 buf_ptr = j;
                 break;
@@ -90,10 +85,8 @@ bool fs_delete_file(const char* name) {
     }
 
     if (buf_ptr > 0) {
-        FILE to_del;
-        mem_cpy(&to_del, sd_buf + buf_ptr, FILENAME_SIZE);
-        to_del.valid = false;
-        mem_cpy(sd_buf, &to_del, FILENAME_SIZE);
+        FILE* to_del = (FILE*)sd_buf + buf_ptr;
+        to_del->valid = false;
         eDisk_WriteBlock(sd_buf + buf_ptr % 512, sector + buf_ptr / 512);
         return true;
     }

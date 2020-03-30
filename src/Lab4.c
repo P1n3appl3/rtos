@@ -551,6 +551,43 @@ void TestFile(void) {
     OS_Kill();
 }
 
+void TestFSInit(void) {
+    printf("\n\rEE445M/EE380L, Lab 4 eFile errors test\n\r");
+    lcd_string(0, 1, "eFile test      ", WHITE);
+    // simple test of eFile
+    if (fs_init())
+        diskError("eFile_Init", 0);
+    if (fs_format())
+        diskError("eFile_Format", 0);
+    TestDirectory();
+    if (fs_create_file("file1"))
+        diskError("eFile_Create", 0);
+    if (fs_create_file("file2"))
+        diskError("eFile_Create", 0);
+}
+
+void TestFSErrors(void) {
+    TestFSInit();
+    // open file that doesn't exist
+    if (fs_ropen("file3"))
+        diskError("eFile_notfound", 0);
+
+    TestFSInit();
+    // open multiple files
+    if (fs_ropen("file1"))
+        diskError("eFile_Ropen", 0);
+    if (fs_ropen("file2"))
+        diskError("eFile open multiple", 0);
+
+    TestFSInit();
+    // write to read file
+    if (fs_ropen("file1"))
+        diskError("eFile_Ropen", 0);
+    if (fs_write(0)) {
+        diskError("eFile write to read only", 0);
+    }
+}
+
 void SW2Push2(void) {
     if (Running == 0) {
         Running = 1; // prevents you from starting two test threads
