@@ -37,17 +37,17 @@ DSTATUS eDisk_Status();
 
 // Read data from the SD card
 // count: number of sectors to read (1..255)
-DRESULT eDisk_Read(uint8_t* buff, uint16_t sector, uint8_t count);
+DRESULT eDisk_Read(uint8_t* buff, uint32_t sector, uint8_t count);
 
 // Read 512-byte block from SD card
-DRESULT eDisk_ReadBlock(uint8_t* buff, uint16_t sector);
+DRESULT eDisk_ReadBlock(uint8_t* buff, uint32_t sector);
 
 // Write bytes to SD card.
 // count: number of sectors to write (1..255)
-DRESULT eDisk_Write(const uint8_t* buff, uint16_t sector, uint8_t count);
+DRESULT eDisk_Write(const uint8_t* buff, uint32_t sector, uint8_t count);
 
 // Write one block to the SD card  (read to RAM)
-DRESULT eDisk_WriteBlock(const uint8_t* buff, uint16_t sector);
+DRESULT eDisk_WriteBlock(const uint8_t* buff, uint32_t sector);
 
 void SSI0_Init(unsigned long CPSDVSR);
 

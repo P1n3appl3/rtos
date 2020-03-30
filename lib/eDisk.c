@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 static void chip_select(void) {
+    while (ROM_SSIBusy(SSI0_BASE)) {}
     ROM_GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_3, GPIO_PIN_3);
     ROM_GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_0, 0);
 }
@@ -62,7 +63,7 @@ static inline void spi_clock_slow() {
 }
 
 static void spi_clock_fast() {
-    HWREG(SSI_O_CPSR) = (HWREG(SSI_O_CPSR) & ~HWREG(SSI_CPSR_CPSDVSR_M)) + 8;
+    HWREG(SSI_O_CPSR) = (HWREG(SSI_O_CPSR) & ~HWREG(SSI_CPSR_CPSDVSR_M)) + 2;
 }
 
 // MMC/SD command
@@ -95,7 +96,7 @@ static volatile uint32_t Timer1, Timer2;
 static uint8_t CardType; // Card type flags
 
 // Initialize MMC interface
-static void init_spi(void) {
+static void init_spi() {
     SSI0_Init(200);
     chip_select();
 
@@ -319,7 +320,7 @@ DSTATUS eDisk_Status() {
     return Stat; // Return disk status
 }
 
-DRESULT eDisk_Read(uint8_t* buff, uint16_t sector, uint8_t count) {
+DRESULT eDisk_Read(uint8_t* buff, uint32_t sector, uint8_t count) {
     if (!count)
         return RES_PARERR; // Check parameter
     if (Stat & STA_NOINIT)
@@ -347,11 +348,11 @@ DRESULT eDisk_Read(uint8_t* buff, uint16_t sector, uint8_t count) {
     return count ? RES_ERROR : RES_OK; // Return result
 }
 
-DRESULT eDisk_ReadBlock(uint8_t* buff, uint16_t sector) {
+DRESULT eDisk_ReadBlock(uint8_t* buff, uint32_t sector) {
     return eDisk_Read(buff, sector, 1);
 }
 
-DRESULT eDisk_Write(const uint8_t* buff, uint16_t sector, uint8_t count) {
+DRESULT eDisk_Write(const uint8_t* buff, uint32_t sector, uint8_t count) {
     if (Stat & STA_NOINIT)
         return RES_NOTRDY; // Check drive status
     if (Stat & STA_PROTECT)
@@ -382,7 +383,7 @@ DRESULT eDisk_Write(const uint8_t* buff, uint16_t sector, uint8_t count) {
     return count ? RES_ERROR : RES_OK; // Return result
 }
 
-DRESULT eDisk_WriteBlock(const uint8_t* buff, uint16_t sector) {
+DRESULT eDisk_WriteBlock(const uint8_t* buff, uint32_t sector) {
     return eDisk_Write(buff, sector, 1); // 1 block
 }
 

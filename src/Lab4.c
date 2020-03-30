@@ -10,6 +10,8 @@
 #include "launchpad.h"
 #include "printf.h"
 #include "tivaware/gpio.h"
+#include "tivaware/hw_ssi.h"
+#include "tivaware/hw_types.h"
 #include "tivaware/rom.h"
 #include <stdint.h>
 #include <stdnoreturn.h>
@@ -387,6 +389,59 @@ void TestDisk(void) {
     printf("Successful test of %u blocks\n\r", MAXBLOCKS);
     lcd_string(0, 1, "eDisk successful", YELLOW);
     Running = 0; // launch again
+    OS_Kill();
+}
+
+void TestMaxIO(void) {
+    DSTATUS result;
+    uint32_t block;
+    int i;
+    uint32_t n;
+    // simple test of eDisk
+    lcd_string(0, 1, "eDisk test      ", WHITE);
+    printf("\n\rEE445M/EE380L, Lab 4 eDisk test\n\r");
+    result = eDisk_Init(0); // initialize disk
+    if (result)
+        diskError("eDisk_Init", result);
+
+    uint8_t CPSDVSR = 16;
+    for (uint8_t j = 0; j < 3; j++) {
+        CPSDVSR = CPSDVSR / 2;
+        HWREG(SSI_O_CPSR) =
+            (HWREG(SSI_O_CPSR) & ~HWREG(SSI_CPSR_CPSDVSR_M)) + CPSDVSR;
+        printf("Testing CPSDVSR: %d\n\r", CPSDVSR);
+        printf("Writing blocks\n\r");
+        n = 1; // seed
+        for (block = 0; block < MAXBLOCKS; block++) {
+            for (i = 0; i < 512; i++) {
+                n = (16807 * n) % 2147483647; // pseudo random sequence
+                buffer[i] = 0xFF & n;
+            }
+            PD3 = 0x08; // PD3 high for 100 block writes
+            if (eDisk_WriteBlock(buffer, block))
+                diskError("eDisk_WriteBlock", block); // save to disk
+            PD3 = 0x00;
+        }
+        printf("Reading blocks\n\r");
+        n = 1; // reseed, start over to get the same sequence
+        for (block = 0; block < MAXBLOCKS; block++) {
+            PD2 = 0x04; // PF2 high for one block read
+            if (eDisk_ReadBlock(buffer, block))
+                diskError("eDisk_ReadBlock", block); // read from disk
+            PD2 = 0x00;
+            for (i = 0; i < 512; i++) {
+                n = (16807 * n) % 2147483647; // pseudo random sequence
+                if (buffer[i] != (0xFF & n)) {
+                    printf(
+                        "Read data not correct, block=%u, i=%u, expected %u, "
+                        "read %u\n\r",
+                        block, i, (0xFF & n), buffer[i]);
+                    OS_Kill();
+                }
+            }
+        }
+        printf("Successful test of %u blocks\n\r", MAXBLOCKS);
+    }
     OS_Kill();
 }
 

@@ -2,24 +2,28 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct _iobuf {
-    char* _ptr;
-    int _cnt;
-    char* _base;
-    int _flag;
-    int _file;
-    int _charbuf;
-    int _bufsiz;
-    char* _tmpfname;
+#define DIR_SIZE 2 * 1024          // 1 MB
+#define INITIAL_ALLOCATION 2 * 100 // 100 kb
+#define BUFFER_SIZE 1024
+#define FILENAME_SIZE 51
+
+// keep every file entry at 64 bytes to align to 512 byte block
+typedef struct file_t {
+    char name[FILENAME_SIZE];
+    uint32_t sector;
+    uint32_t size;
+    uint32_t capacity;
+    bool valid;
 } FILE;
+
+typedef struct dir {
+    uint32_t num_entries;
+    uint32_t num_files;
+} DIR;
 
 // Activate the file system, without formating
 // returns false on failure (already initialized)
 bool fs_init(void);
-
-// Deactivate the file system
-// returns false on failure (not currently open)
-bool fs_free(void);
 
 // Erase all files, create blank directory, initialize free space manager
 // returns false on failure (e.g., trouble writing to flash)
@@ -28,14 +32,10 @@ bool fs_format(void);
 // Mount the file system, without formating
 bool fs_mount(void);
 
-// Display the directory with filenames and sizes
-// returns false on failure (e.g., trouble reading from flash)
-bool fs_list_files(void);
-
 // Create a new, empty file with one allocated block
 // name is an ASCII string up to seven characters
 // returns false on failure (e.g., trouble writing to flash)
-bool fs_create_file(const char* name);
+bool fs_create_file(const char name[32]);
 
 // input: file name is a single ASCII letter
 // returns false on failure (e.g., trouble writing to flash)
