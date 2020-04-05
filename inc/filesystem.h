@@ -2,12 +2,16 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define DIR_SIZE (1024 * 1024 / 512)          // 1 MB
-#define INITIAL_ALLOCATION (100 * 1024 / 512) // 100 kB
-#define BUFFER_SIZE 1024
-#define FILENAME_SIZE 51
+#define BLOCK_SIZE 512
+#define DIR_SIZE (1024 * 1024 / BLOCK_SIZE)          // 1 MB
+#define INITIAL_ALLOCATION (100 * 1024 / BLOCK_SIZE) // 100 kB
 
-// keep every file entry at 64 bytes to align to 512 byte block
+// Block 0's first 8 bytes contain the number of files and the next
+// free block as uint32_t's.
+// Blocks 1 and up contain unordered packed FILE structs
+
+// keep every file entry at 32 bytes to align to 512 byte block
+#define FILENAME_SIZE 19
 typedef struct file_t {
     char name[FILENAME_SIZE];
     uint32_t sector;
@@ -16,60 +20,45 @@ typedef struct file_t {
     bool valid;
 } FILE;
 
-typedef struct dir {
-    uint32_t num_entries;
-    uint32_t num_files;
-} DIR;
+// All functions return false on any type of failure (which can include failed
+// write to sd card)
 
 // Activate the file system, without formating
-// returns false on failure (already initialized)
 bool fs_init(void);
 
 // Erase all files, create blank directory, initialize free space manager
-// returns false on failure (e.g., trouble writing to flash)
 bool fs_format(void);
 
 // Mount the file system, without formating
 bool fs_mount(void);
 
 // Create a new, empty file with one allocated block
-// name is an ASCII string up to seven characters
-// returns false on failure (e.g., trouble writing to flash)
 bool fs_create_file(const char* name);
 
-// input: file name is a single ASCII letter
-// returns false on failure (e.g., trouble writing to flash)
 bool fs_delete_file(const char* name);
 
-// Open the file, read into RAM last block
-// name is a single ASCII letter
-// returns false on failure (e.g., trouble writing to flash)
+bool fs_rename_file(const char* name, const char* new_name);
+
+// Open a file, read last block into RAM
 bool fs_wopen(const char* name);
 
-// Open the file, read first block into RAM
-// input: file name is a single ASCII letter
-// returns false on failure (e.g., trouble read to flash)
+// Open a file, read first block into RAM
 bool fs_ropen(const char* name);
 
-// Save at end of the open file
-// input: data to be saved
-// returns false on failure (e.g., trouble writing to flash)
-bool fs_write(const uint8_t data);
+// Append data to the open file
+bool fs_append(const uint8_t data);
 
-// retreive data from open file
+// Retreive data from open file
 // returns output by reference
 bool fs_read(char* output);
 
 // Close the file, leaving disk in a state power can be removed
-// returns false on failure (e.g., trouble writing to flash)
 bool fs_close_wfile(void);
 
-// close the reading file
-// returns false on failure (e.g., wasn't open)
+// Close the reading file
 bool fs_close_rfile(void);
 
 // Open a (sub)directory, read into RAM
-// directory name is an ASCII string up to seven characters
 // if subdirectories are supported (optional, empty string for root directory)
 bool fs_dopen(const char* name);
 

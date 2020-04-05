@@ -348,8 +348,8 @@ DRESULT eDisk_Read(uint8_t* buff, uint32_t sector, uint8_t count) {
     return count ? RES_ERROR : RES_OK; // Return result
 }
 
-DRESULT eDisk_ReadBlock(uint8_t* buff, uint32_t sector) {
-    return eDisk_Read(buff, sector, 1);
+DRESULT eDisk_ReadBlock(void* buff, uint32_t sector) {
+    return eDisk_Read((uint8_t*)buff, sector, 1);
 }
 
 DRESULT eDisk_Write(const uint8_t* buff, uint32_t sector, uint8_t count) {
@@ -383,8 +383,8 @@ DRESULT eDisk_Write(const uint8_t* buff, uint32_t sector, uint8_t count) {
     return count ? RES_ERROR : RES_OK; // Return result
 }
 
-DRESULT eDisk_WriteBlock(const uint8_t* buff, uint32_t sector) {
-    return eDisk_Write(buff, sector, 1); // 1 block
+DRESULT eDisk_WriteBlock(const void* buff, uint32_t sector) {
+    return eDisk_Write((uint8_t*)buff, sector, 1); // 1 block
 }
 
 // Miscellaneous drive controls other than data read/write
@@ -481,7 +481,6 @@ DRESULT disk_ioctl(uint8_t cmd, void* buff) {
 // OS will schedule this periodic task
 void disk_timerproc(void) {
     uint16_t n;
-    uint8_t s;
 
     n = Timer1; // 1kHz decrement timer stopped at 0
     if (n)
@@ -490,12 +489,12 @@ void disk_timerproc(void) {
     if (n)
         Timer2 = --n;
 
-    s = Stat;
+    // uint8_t s = Stat;
     // TODO: check write protection
     // if (MMC_WP) s |= STA_PROTECT;
     // else s &= ~STA_PROTECT;
     // TODO: check if card is in socket
     // if (MMC_CD) s &= ~STA_NODISK;
     // else s |= (STA_NODISK | STA_NOINIT);
-    Stat = s;
+    // Stat = s;
 }

@@ -13,8 +13,8 @@
 
 typedef enum {
     STA_OK = 0,
-    STA_NOINIT,      // Drive not initialized
-    STA_NODISK,      // No medium in the drive
+    STA_NOINIT = 1,  // Drive not initialized
+    STA_NODISK = 2,  // No medium in the drive
     STA_PROTECT = 4, // Write protected
 } DSTATUS;
 
@@ -40,18 +40,18 @@ DSTATUS eDisk_Status();
 DRESULT eDisk_Read(uint8_t* buff, uint32_t sector, uint8_t count);
 
 // Read 512-byte block from SD card
-DRESULT eDisk_ReadBlock(uint8_t* buff, uint32_t sector);
+DRESULT eDisk_ReadBlock(void* buff, uint32_t sector);
 
 // Write bytes to SD card.
 // count: number of sectors to write (1..255)
 DRESULT eDisk_Write(const uint8_t* buff, uint32_t sector, uint8_t count);
 
 // Write one block to the SD card  (read to RAM)
-DRESULT eDisk_WriteBlock(const uint8_t* buff, uint32_t sector);
+DRESULT eDisk_WriteBlock(const void* buff, uint32_t sector);
 
 void SSI0_Init(unsigned long CPSDVSR);
 
-// This implements timeout functions (should be called every 10 ms)
+// This implements timeout functions (should be called every ms)
 void disk_timerproc(void);
 
 // General purpose function for all disk I/O
