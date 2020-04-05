@@ -223,7 +223,7 @@ static bool xmit_datablock(const uint8_t* buff, uint8_t token) {
 // Outputs: response (bit7==1: Failed to send)
 static uint8_t send_cmd(uint8_t cmd, uint32_t arg) {
     uint8_t n, res;
-    if (cmd & 0x80) { // Send a CMD55 prior to ACMD<n>
+    if (cmd & 0x80) { // Send a CMD55 prior to ACMD
         cmd &= 0x7F;
         res = send_cmd(CMD55, 0);
         if (res > 1)

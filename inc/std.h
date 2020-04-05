@@ -17,3 +17,5 @@ bool is_numeric_str(const char* c);
 int32_t atoi(char* s);
 char* reverse(char* s);
 char* itoa(int32_t value, char* buf, uint8_t radix);
+void memcpy(void* dest, const void* src, uint32_t n);
+void memset(void* dest, uint8_t value, uint32_t n);

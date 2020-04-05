@@ -2,8 +2,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define DIR_SIZE 2 * 1024          // 1 MB
-#define INITIAL_ALLOCATION 2 * 100 // 100 kb
+#define DIR_SIZE (1024 * 1024 / 512)          // 1 MB
+#define INITIAL_ALLOCATION (100 * 1024 / 512) // 100 kB
 #define BUFFER_SIZE 1024
 #define FILENAME_SIZE 51
 
@@ -35,7 +35,7 @@ bool fs_mount(void);
 // Create a new, empty file with one allocated block
 // name is an ASCII string up to seven characters
 // returns false on failure (e.g., trouble writing to flash)
-bool fs_create_file(const char name[32]);
+bool fs_create_file(const char* name);
 
 // input: file name is a single ASCII letter
 // returns false on failure (e.g., trouble writing to flash)
@@ -71,11 +71,11 @@ bool fs_close_rfile(void);
 // Open a (sub)directory, read into RAM
 // directory name is an ASCII string up to seven characters
 // if subdirectories are supported (optional, empty string for root directory)
-bool fs_dopen(const char name[]);
+bool fs_dopen(const char* name);
 
 // Retreive directory entry from open directory
 // pointers to return file name and size by reference
-bool fs_dnext(char* name[], unsigned long* size);
+bool fs_dnext(char** name, uint32_t* size);
 
 // Close the directory
 bool fs_dclose(void);

@@ -28,6 +28,17 @@ bool streq(const char* a, const char* b) {
     return *a == *b;
 }
 
+void memcpy(void* dest, const void* src, uint32_t n) {
+    uint8_t* a = (uint8_t*)src;
+    const uint8_t* b = (uint8_t*)dest;
+    while (n--) { *a++ = *b++; }
+}
+
+void memset(void* dest, uint8_t value, uint32_t n) {
+    uint8_t* temp = (uint8_t*)dest;
+    while (n--) { *temp++ = value; }
+}
+
 uint16_t strlen(const char* s) {
     uint16_t n = 0;
     while (*s++) { n++; }

@@ -41,7 +41,15 @@ static char* HELPSTRING =
     "\tadc\n\r\t\tread a single sample from the ADC\n\r"
     "\ttime [get|reset]\n\r\t\tget or reset the OS time\n\r"
     "\tdebug\n\r\t\tdisplay jitter info\n\r"
-    "\tlcd 'STRING' [top|bottom] [row #]\n\r\t\tprint a string to the LCD\n\r";
+    "\tlcd 'STRING' [top|bottom] [row #]\n\r\t\tprint a string to the LCD\n\r"
+    "\tmount\n\r\t\tmount the sd card"
+    "\tunmount\n\r\t\tunmount the sd card"
+    "\tls\n\r\t\tlist the files in the directory\n\r"
+    "\tcat FILENAME\n\r\t\tdisplay the contents of a file\n\r"
+    "\tappend FILENAME 'STRING'\n\r\t\tappend a quoted string to a file\n\r"
+    "\tmv FILENAME NEWNAME\n\r\t\tmove a file\n\r"
+    "\tcp FILENAME NEWNAME\n\r\t\tcopy a file\n\r"
+    "\trm FILENAME\n\r\t\tdelete a file\n\r";
 
 void interpret_command(void) {
     printf("\n\r> ");
