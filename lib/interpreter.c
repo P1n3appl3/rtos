@@ -1,6 +1,7 @@
 #include "ADC.h"
 #include "OS.h"
 #include "ST7735.h"
+#include "filesystem.h"
 #include "io.h"
 #include "launchpad.h"
 #include "printf.h"
@@ -44,7 +45,9 @@ static char* HELPSTRING =
     "\tlcd 'STRING' [top|bottom] [row #]\n\r\t\tprint a string to the LCD\n\r"
     "\tmount\n\r\t\tmount the sd card"
     "\tunmount\n\r\t\tunmount the sd card"
+    "\tformat yes really\n\r\t\tformat the sd card"
     "\tls\n\r\t\tlist the files in the directory\n\r"
+    "\ttouch FILENAME\n\r\t\tcreates a new file\n\r"
     "\tcat FILENAME\n\r\t\tdisplay the contents of a file\n\r"
     "\tappend FILENAME 'STRING'\n\r\t\tappend a quoted string to a file\n\r"
     "\tmv FILENAME NEWNAME\n\r\t\tmove a file\n\r"
@@ -144,6 +147,70 @@ void interpret_command(void) {
         } else {
             printf("ERROR: expected 'get' or 'reset', got '%s'\n\r", token);
         }
+    } else if (streq(token, "mount")) {
+        fs_mount();
+    } else if (streq(token, "unmount")) {
+        fs_close();
+    } else if (streq(token, "format")) {
+        if (next_token() && streq(token, "yes") && next_token() &&
+            streq(token, "really")) {
+            if (!fs_format()) {
+                printf("ERROR: foramtting failed\n\r");
+            }
+        } else {
+            printf("ERROR: you need to show that you're sure by entering "
+                   "'format yes realy'\n\r");
+        }
+    } else if (streq(token, "ls")) {
+        // TODO: add fs_list()
+    } else if (streq(token, "touch")) {
+        if (!next_token()) {
+            printf("ERROR: must pass a filename\n\r");
+            return;
+        }
+        if (!fs_create_file(token)) {
+            printf("ERROR: couldn't create file, maybe it already exists?\n\r");
+        }
+    } else if (streq(token, "cat")) {
+        if (!next_token()) {
+            printf("ERROR: must pass a filename\n\r");
+            return;
+        }
+        if (!fs_ropen(token)) {
+            printf("ERROR: couldn't open file '%s'\n\r", token);
+        }
+        char* temp = 0;
+        printf("Contents of '%s':\n\r", token);
+        while (fs_read(temp)) { putchar(*temp); }
+        printf("\n\r");
+    } else if (streq(token, "append")) {
+        if (!next_token()) {
+            printf("ERROR: must pass a filename\n\r");
+            return;
+        }
+        if (!fs_wopen(token)) {
+            printf("ERROR: couldn't open file", token);
+        }
+    } else if (streq(token, "rm")) {
+        if (!next_token()) {
+            printf("ERROR: must pass a filename\n\r");
+            return;
+        }
+        if (!fs_delete_file(token)) {
+            printf("ERROR: couldn't remove file '%s'\n\r", token);
+        }
+    } else if (streq(token, "mv")) {
+        if (!next_token()) {
+            printf("ERROR: must pass a filename\n\r");
+            return;
+        }
+        // TODO: edit filename, check for overwrite
+    } else if (streq(token, "cp")) {
+        if (!next_token()) {
+            printf("ERROR: must pass a filename\n\r");
+            return;
+        }
+        // TODO: copy file
     }
 }
 
