@@ -26,6 +26,9 @@ bool fs_init(void) {
 }
 
 bool fs_close(void) {
+    if (!mounted) {
+        return false;
+    }
     OS_Wait(&metadata_mutex);
     fs_close_wfile();
     fs_close_rfile();
@@ -42,6 +45,9 @@ static bool write_global_metadata() {
 }
 
 bool fs_format(void) {
+    if (!mounted) {
+        return false;
+    }
     OS_Wait(&metadata_mutex);
     free_block = DIR_SIZE;
     num_files = 0;
@@ -93,6 +99,9 @@ static FILE* lookup_file(const char* name) {
 }
 
 bool fs_create_file(const char* name) {
+    if (!mounted) {
+        return false;
+    }
     OS_Wait(&metadata_mutex);
     if (lookup_file(name)) {
         OS_Signal(&metadata_mutex);
@@ -132,6 +141,9 @@ bool fs_create_file(const char* name) {
 }
 
 bool fs_delete_file(const char* name) {
+    if (!mounted) {
+        return false;
+    }
     if ((wfile.valid && streq(wfile.name, name)) ||
         (rfile.valid && streq(rfile.name, name))) {
         return false; // can't delete open files
@@ -150,6 +162,9 @@ bool fs_delete_file(const char* name) {
 }
 
 bool fs_rename_file(const char* name, const char* new_name) {
+    if (!mounted) {
+        return false;
+    }
     if (wfile.valid && streq(wfile.name, name)) {
         memcpy(wfile.name, new_name, FILENAME_SIZE);
         return true;
@@ -195,6 +210,9 @@ bool fs_close_rfile(void) {
 }
 
 bool fs_dopen(const char name[]) {
+    if (!mounted) {
+        return false;
+    }
     if (name[0]) {
         return false; // subdirectories not supported
     }

@@ -204,7 +204,13 @@ void interpret_command(void) {
             printf("ERROR: must pass a filename\n\r");
             return;
         }
-        // TODO: edit filename, check for overwrite
+        char filename[FILENAME_SIZE];
+        memcpy(filename, token, FILENAME_SIZE);
+        if (!next_token()) {
+            printf("ERROR: must pass another filename\n\r");
+            return;
+        }
+        fs_rename_file(filename, token);
     } else if (streq(token, "cp")) {
         if (!next_token()) {
             printf("ERROR: must pass a filename\n\r");
