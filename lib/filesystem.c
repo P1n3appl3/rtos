@@ -12,6 +12,7 @@ static bool mounted = false;
 
 static FILE metadata_buf[16];
 static uint32_t metadata_sector;
+static Sema4 metadata_mutex;
 
 static uint8_t read_buf[2 * BLOCK_SIZE];
 static FILE wfile;
@@ -20,7 +21,17 @@ static uint8_t write_buf[2 * BLOCK_SIZE];
 static FILE rfile;
 
 bool fs_init(void) {
+    OS_InitSemaphore(&metadata_mutex, 0);
     return !eDisk_Init();
+}
+
+bool fs_close(void) {
+    OS_Wait(&metadata_mutex);
+    fs_close_wfile();
+    fs_close_rfile();
+    mounted = false;
+    OS_Signal(&metadata_mutex);
+    return true;
 }
 
 static bool write_global_metadata() {
@@ -31,21 +42,29 @@ static bool write_global_metadata() {
 }
 
 bool fs_format(void) {
+    OS_Wait(&metadata_mutex);
     free_block = DIR_SIZE;
     num_files = 0;
     if (!write_global_metadata()) {
+        OS_Signal(&metadata_mutex);
         return false;
     }
     // clear out all metadata (necessary for file space re-use optimization)
     memset(metadata_buf, 0, BLOCK_SIZE);
     for (int i = 0; i < DIR_SIZE; ++i) {
-        if (eDisk_WriteBlock(metadata_buf, i))
+        if (eDisk_WriteBlock(metadata_buf, i)) {
+            OS_Signal(&metadata_mutex);
             return false;
+        }
     }
+    OS_Signal(&metadata_mutex);
     return true;
 }
 
 bool fs_mount(void) {
+    if (mounted) {
+        return false;
+    }
     if (eDisk_ReadBlock(metadata_buf, 0)) {
         return false;
     }
@@ -74,7 +93,9 @@ static FILE* lookup_file(const char* name) {
 }
 
 bool fs_create_file(const char* name) {
+    OS_Wait(&metadata_mutex);
     if (lookup_file(name)) {
+        OS_Signal(&metadata_mutex);
         return false; // already exists
     }
     // walk the metadata again to fill in the first empty slot rather than
@@ -96,13 +117,17 @@ bool fs_create_file(const char* name) {
                 }
                 new_file->valid = true;
                 if (eDisk_WriteBlock(metadata_buf, sector)) {
+                    OS_Signal(&metadata_mutex);
                     return false;
                 }
                 ++num_files;
-                return write_global_metadata();
+                bool temp = write_global_metadata();
+                OS_Signal(&metadata_mutex);
+                return temp;
             }
         }
     }
+    OS_Signal(&metadata_mutex);
     return false; // full or corrupted
 }
 
@@ -111,13 +136,17 @@ bool fs_delete_file(const char* name) {
         (rfile.valid && streq(rfile.name, name))) {
         return false; // can't delete open files
     }
+    OS_Wait(&metadata_mutex);
     FILE* to_delete = lookup_file(name);
     if (!to_delete) {
+        OS_Signal(&metadata_mutex);
         return false; // file doesn't exist
     }
     to_delete->valid = false;
     --num_files;
-    return !eDisk_WriteBlock(metadata_buf, metadata_sector);
+    bool temp = !eDisk_WriteBlock(metadata_buf, metadata_sector);
+    OS_Signal(&metadata_mutex);
+    return temp;
 }
 
 bool fs_rename_file(const char* name, const char* new_name) {
@@ -129,12 +158,16 @@ bool fs_rename_file(const char* name, const char* new_name) {
         memcpy(rfile.name, new_name, FILENAME_SIZE);
         return true;
     }
+    OS_Wait(&metadata_mutex);
     FILE* to_rename = lookup_file(name);
     if (!to_rename) {
+        OS_Signal(&metadata_mutex);
         return false; // file doesn't exist
     }
     memcpy(to_rename->name, new_name, FILENAME_SIZE);
-    return !eDisk_WriteBlock(metadata_buf, metadata_sector);
+    bool temp = !eDisk_WriteBlock(metadata_buf, metadata_sector);
+    OS_Signal(&metadata_mutex);
+    return temp;
 }
 
 bool fs_wopen(const char* name) {
@@ -173,12 +206,5 @@ bool fs_dnext(char** name, uint32_t* size) {
 }
 
 bool fs_dclose(void) {
-    return true;
-}
-
-bool fs_close(void) {
-    fs_close_wfile();
-    fs_close_rfile();
-    mounted = false;
     return true;
 }
