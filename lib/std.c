@@ -29,8 +29,8 @@ bool streq(const char* a, const char* b) {
 }
 
 void memcpy(void* dest, const void* src, uint32_t n) {
-    uint8_t* a = (uint8_t*)src;
-    const uint8_t* b = (uint8_t*)dest;
+    uint8_t* a = (uint8_t*)dest;
+    const uint8_t* b = (const uint8_t*)src;
     while (n--) { *a++ = *b++; }
 }
 

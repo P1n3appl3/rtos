@@ -1,6 +1,7 @@
 #include "filesystem.h"
 #include "OS.h"
 #include "eDisk.h"
+#include "io.h"
 #include "printf.h"
 #include "std.h"
 #include <stdbool.h>
@@ -57,12 +58,18 @@ bool fs_format(void) {
     }
     // clear out all metadata (necessary for file space re-use optimization)
     memset(metadata_buf, 0, BLOCK_SIZE);
+    puts("");
     for (int i = 0; i < DIR_SIZE; ++i) {
+        if (!(i % 10)) {
+            printf("\x1b[2K\r%d/%d blocks cleared", i, DIR_SIZE);
+        }
         if (eDisk_WriteBlock(metadata_buf, i)) {
+            printf("WRITE FAILURE ON BLOCK %d\n\r", i);
             OS_Signal(&metadata_mutex);
             return false;
         }
     }
+    printf("\x1b[2K\rFormatted successfully.\n\r");
     OS_Signal(&metadata_mutex);
     return true;
 }
@@ -87,11 +94,15 @@ static FILE* lookup_file(const char* name) {
         eDisk_ReadBlock(metadata_buf, sector);
         metadata_sector = sector;
         for (int i = 0; i < 16; ++i) {
-            if (found += metadata_buf[i].valid == num_files) {
-                return 0;
+            FILE* current = &metadata_buf[i];
+            if (!current->valid) {
+                continue;
             }
-            if (streq(metadata_buf[i].name, name)) {
-                return &metadata_buf[i];
+            if (streq(current->name, name)) {
+                return current;
+            }
+            if (++found >= num_files) {
+                return 0;
             }
         }
     }
@@ -109,31 +120,32 @@ bool fs_create_file(const char* name) {
     }
     // walk the metadata again to fill in the first empty slot rather than
     // appending to the last metadata block which would fragment it
-    for (uint32_t found = 0, sector = 1; sector < DIR_SIZE; ++sector) {
+    for (uint32_t sector = 1; sector < DIR_SIZE; ++sector) {
         eDisk_ReadBlock(metadata_buf, sector);
         for (int i = 0; i < 16; ++i) {
-            if (found += metadata_buf[i].valid == num_files) {
-                FILE* new_file = &metadata_buf[i];
-                memcpy(new_file->name, name, FILENAME_SIZE);
-                new_file->size = 0;
-                // if a file had previously used this slot and been deleted,
-                // then we know it has a valid data area on the disk, so we can
-                // re-use it instead of allocating more space
-                if (!new_file->sector) {
-                    new_file->sector = free_block;
-                    new_file->capacity = INITIAL_ALLOCATION;
-                    free_block += INITIAL_ALLOCATION;
-                }
-                new_file->valid = true;
-                if (eDisk_WriteBlock(metadata_buf, sector)) {
-                    OS_Signal(&metadata_mutex);
-                    return false;
-                }
-                ++num_files;
-                bool temp = write_global_metadata();
-                OS_Signal(&metadata_mutex);
-                return temp;
+            FILE* new_file = &metadata_buf[i];
+            if (new_file->valid) {
+                continue;
             }
+            memcpy(new_file->name, name, FILENAME_SIZE);
+            new_file->size = 0;
+            // if a file had previously used this slot and been deleted,
+            // then we know it has a valid data area on the disk, so we can
+            // re-use it instead of allocating more space
+            if (!new_file->sector) {
+                new_file->sector = free_block;
+                new_file->capacity = INITIAL_ALLOCATION;
+                free_block += INITIAL_ALLOCATION;
+            }
+            new_file->valid = true;
+            if (eDisk_WriteBlock(metadata_buf, sector)) {
+                OS_Signal(&metadata_mutex);
+                return false;
+            }
+            ++num_files;
+            bool temp = write_global_metadata();
+            OS_Signal(&metadata_mutex);
+            return temp;
         }
     }
     OS_Signal(&metadata_mutex);
@@ -185,6 +197,39 @@ bool fs_rename_file(const char* name, const char* new_name) {
     return temp;
 }
 
+bool fs_list_files(void) {
+    if (!mounted) {
+        return false;
+    }
+    if (!num_files) {
+        puts("Disk contains no files");
+        return true;
+    }
+    OS_Wait(&metadata_mutex);
+    puts("-----------------------------------------------------------------");
+    puts("| NAME              | SIZE (bytes) | CAPACITY (blocks) | SECTOR |");
+    puts("|-------------------|--------------|-------------------|--------|");
+    for (uint32_t found = 0, sector = 1; sector < DIR_SIZE; ++sector) {
+        eDisk_ReadBlock(metadata_buf, sector);
+        for (int i = 0; i < 16; ++i) {
+            FILE* current = &metadata_buf[i];
+            if (!current->valid) {
+                continue;
+            }
+            printf("| %-17s | %-12d | %-17d | %-6d |\n\r", current->name,
+                   current->size, current->capacity, current->sector);
+            if (++found == num_files) {
+                puts("---------------------------------------------------------"
+                     "--------");
+                OS_Signal(&metadata_mutex);
+                return true;
+            }
+        }
+    }
+    OS_Signal(&metadata_mutex);
+    return false;
+}
+
 bool fs_wopen(const char* name) {
     return false;
 }
@@ -193,7 +238,7 @@ bool fs_ropen(const char* name) {
     return false;
 }
 
-bool fs_write(uint8_t data) {
+bool fs_append(const uint8_t data) {
     return false;
 }
 

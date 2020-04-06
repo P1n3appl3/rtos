@@ -3,8 +3,6 @@
 #include <stdint.h>
 
 #define BLOCK_SIZE 512
-#define DIR_SIZE (1024 * 1024 / BLOCK_SIZE)          // 1 MB
-#define INITIAL_ALLOCATION (100 * 1024 / BLOCK_SIZE) // 100 kB
 
 // Block 0's first 8 bytes contain the number of files and the next
 // free block as uint32_t's.
@@ -19,6 +17,9 @@ typedef struct file_t {
     uint32_t capacity;
     bool valid;
 } FILE;
+
+#define DIR_SIZE (1000 * sizeof(FILE) / BLOCK_SIZE)  // 1000 files
+#define INITIAL_ALLOCATION (100 * 1024 / BLOCK_SIZE) // 100 kB
 
 // All functions return false on any type of failure (which can include failed
 // write to sd card)
@@ -38,6 +39,8 @@ bool fs_create_file(const char* name);
 bool fs_delete_file(const char* name);
 
 bool fs_rename_file(const char* name, const char* new_name);
+
+bool fs_list_files(void);
 
 // Open a file, read last block into RAM
 bool fs_wopen(const char* name);

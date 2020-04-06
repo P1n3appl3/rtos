@@ -1,6 +1,7 @@
 #include "OS.h"
 #include "FIFO.h"
 #include "ST7735.h"
+#include "eDisk.h"
 #include "filesystem.h"
 #include "interrupts.h"
 #include "io.h"
@@ -122,7 +123,7 @@ void OS_Init(void) {
                        SYSCTL_OSC_MAIN);
     launchpad_init();
     uart_init();
-    lcd_init();
+    SSI0_Init(10); // lcd_init();
     MaxJitter = 0;
 }
 
@@ -464,7 +465,7 @@ int StreamToDevice = 0; // 0=UART, 1=stream to file (Lab 4)
 
 int fputc(uint8_t ch, FILE* f) {
     if (StreamToDevice == 1) {      // Lab 4
-        if (fs_write(ch)) {         // close file on error
+        if (fs_append(ch)) {        // close file on error
             OS_EndRedirectToFile(); // cannot write to file
             return 1;               // failure
         }

@@ -342,6 +342,7 @@ int Testmain0(void) { // Testmain0
 void diskError(char* errtype, uint32_t n) {
     printf(errtype);
     printf(" disk error %u", n);
+    Running = 0;
     OS_Kill();
 }
 unsigned char buffer[512]; // don't put on stack
@@ -458,8 +459,7 @@ noreturn void Testmain1(void) { // Testmain1
     Running = 1;
 
     // attach background tasks
-    OS_AddPeriodicThread(&disk_timerproc, ms(1),
-                         0); // time out routines for disk
+    OS_AddPeriodicThread(&disk_timerproc, ms(1), 0); // sd card timeout
     OS_AddSW1Task(&SW1Push1, 2);
 
     // create initial foreground threads
@@ -481,9 +481,9 @@ char const string3[] = "Number of Files = %u";
 char const string4[] = "Number of Bytes = %lu";
 void TestDirectory(void) {
     char* name;
-    unsigned long size;
-    unsigned int num;
-    unsigned long total;
+    uint32_t size;
+    uint32_t num;
+    uint32_t total;
     num = 0;
     total = 0;
     printf("\n\r");
@@ -521,12 +521,12 @@ void TestFile(void) {
     if (fs_wopen("file1"))
         diskError("eFile_WOpen", 0);
     for (i = 0; i < 1000; i++) {
-        if (fs_write('a' + i % 26))
+        if (fs_append('a' + i % 26))
             diskError("eFile_Write", i);
         if (i % 52 == 51) {
-            if (fs_write('\n'))
+            if (fs_append('\n'))
                 diskError("eFile_Write", i);
-            if (fs_write('\r'))
+            if (fs_append('\r'))
                 diskError("eFile_Write", i);
         }
     }
@@ -583,7 +583,7 @@ void TestFSErrors(void) {
     // write to read file
     if (fs_ropen("file1"))
         diskError("eFile_Ropen", 0);
-    if (fs_write(0)) {
+    if (fs_append(0)) {
         diskError("eFile write to read only", 0);
     }
 }
@@ -616,9 +616,22 @@ int Testmain2(void) { // Testmain2
     return 0;          // this never executes
 }
 
+void debug_init(void){
+    fs_init();
+}
+
+void debug_main(void) {
+    OS_Init();
+    OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
+    OS_AddThread(&debug_init, "debug_init", 256, 0);
+    OS_AddThread(&interpreter, "interpreter", 256, 1);
+    OS_Launch(ms(10));
+}
+
 //*******************Trampoline for selecting main to execute**********
 int main(void) { // main
     // realmain();
+    debug_main();
     Testmain1();
     return 0;
 }

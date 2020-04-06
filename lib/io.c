@@ -112,9 +112,9 @@ uint16_t readline(char* str, uint16_t len) {
         case '\r':
             putchar('\n');
             putchar('\r');
-            if (recieved == 0) {
-                break;
-            }
+            // if (recieved == 0) {
+            //     break; // don't return empty strings
+            // }
             *str = '\0';
             return recieved + 1;
         case 127:

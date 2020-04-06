@@ -9,14 +9,6 @@
 #include "timer.h"
 #include <stdint.h>
 
-// Print jitter histogram
-void Jitter(int32_t MaxJitter, uint32_t const JitterSize,
-            uint32_t JitterHistogram[]) {
-    // write this for Lab 3 (the latest)
-}
-extern uint32_t MaxJitter;
-extern uint32_t JitterHistogram[128];
-
 char raw_command[128];
 char* current;
 char token[32];
@@ -35,24 +27,22 @@ static bool next_token() {
 }
 
 static char* HELPSTRING =
-    "Available commands:\n\r"
-    "\tled COLOR [ACTION]\n\r"
-    "\t\tCOLOR: red, green, or blue\n\r"
-    "\t\tACTION: on, off, or toggle\n\r"
-    "\tadc\n\r\t\tread a single sample from the ADC\n\r"
-    "\ttime [get|reset]\n\r\t\tget or reset the OS time\n\r"
-    "\tdebug\n\r\t\tdisplay jitter info\n\r"
-    "\tlcd 'STRING' [top|bottom] [row #]\n\r\t\tprint a string to the LCD\n\r"
-    "\tmount\n\r\t\tmount the sd card"
-    "\tunmount\n\r\t\tunmount the sd card"
-    "\tformat yes really\n\r\t\tformat the sd card"
-    "\tls\n\r\t\tlist the files in the directory\n\r"
-    "\ttouch FILENAME\n\r\t\tcreates a new file\n\r"
-    "\tcat FILENAME\n\r\t\tdisplay the contents of a file\n\r"
-    "\tappend FILENAME 'STRING'\n\r\t\tappend a quoted string to a file\n\r"
-    "\tmv FILENAME NEWNAME\n\r\t\tmove a file\n\r"
-    "\tcp FILENAME NEWNAME\n\r\t\tcopy a file\n\r"
-    "\trm FILENAME\n\r\t\tdelete a file\n\r";
+    "Available commands:\n\n\r"
+    "led COLOR [on, off, or toggle]\t\n\r"
+    "\t\t\t\tCOLOR: red, green, or blue\n\r"
+    "\t\t\t\tACTION: on, off, or toggle\n\r"
+    "adc\t\t\t\tread a single sample from the ADC\n\r"
+    "time [get or reset]\t\tOS time helpers\n\r"
+    "mount\t\t\t\tmount the sd card\n\r"
+    "unmount\t\t\t\tunmount the sd card\n\r"
+    "format yes really\t\tformat the sd card\n\r"
+    "touch FILENAME\t\t\tcreates a new file\n\r"
+    "cat FILENAME\t\t\tdisplay the contents of a file\n\r"
+    "append FILENAME 'STRING'\tappend a quoted string to a file\n\r"
+    "ls\t\t\t\tlist the files in the directory\n\r"
+    "mv FILENAME NEWNAME\t\tmove a file\n\r"
+    "cp FILENAME NEWNAME\t\tcopy a file\n\r"
+    "rm FILENAME\t\t\tdelete a file\n\r";
 
 void interpret_command(void) {
     printf("\n\r> ");
@@ -94,50 +84,6 @@ void interpret_command(void) {
         }
     } else if (streq(token, "adc")) {
         printf("ADC reading: %d\n\r", adc_in());
-    } else if (streq(token, "lcd")) {
-        uint8_t line = 0;
-        char quote_type = '\0';
-        char* str;
-        bool bottom;
-        while (*current) {
-            if (*current == '\'')
-                quote_type = '\'';
-            else if (*current == '"')
-                quote_type = '"';
-            if (quote_type) {
-                break;
-            }
-            ++current;
-        }
-        if (!quote_type) {
-            printf("ERROR: expected quoted string\n\r");
-            return;
-        }
-        str = ++current;
-        while (*current && *current != quote_type) { ++current; }
-        if (!*current) {
-            printf("ERROR: missing closing quote\n\r");
-            return;
-        }
-        *current++ = '\0';
-        if (!next_token() || streq(token, "top")) {
-            bottom = false;
-        } else if (streq(token, "bottom")) {
-            bottom = true;
-        } else {
-            printf("ERROR: expected 'top' or 'bottom', got '%s'\n\r", token);
-        }
-        if (next_token()) {
-            int32_t temp = atoi(token);
-            if (temp < 8 && temp >= 0 && is_numeric(token)) {
-                line = temp;
-            } else {
-                printf("ERROR: expected a number in [0, 7], got '%s'\n\r",
-                       token);
-                return;
-            }
-        }
-        lcd_message(bottom, line, str);
     } else if (streq(token, "time")) {
         if (!next_token() || streq(token, "get")) {
             printf("Current time: %dms\n\r", (uint32_t)to_ms(OS_Time()));
@@ -152,24 +98,27 @@ void interpret_command(void) {
     } else if (streq(token, "unmount")) {
         fs_close();
     } else if (streq(token, "format")) {
-        if (next_token() && streq(token, "yes") && next_token() &&
-            streq(token, "really")) {
-            if (!fs_format()) {
-                printf("ERROR: foramtting failed\n\r");
+        if (next_token() && streq(token, "yes")) {
+            if (next_token() && streq(token, "really")) {
+                if (!fs_format()) {
+                    printf("ERROR: foramtting failed\n\r");
+                }
+                return;
             }
-        } else {
-            printf("ERROR: you need to show that you're sure by entering "
-                   "'format yes realy'\n\r");
         }
+        printf("ERROR: you need to show that you're sure by entering "
+               "'format yes really'\n\r");
     } else if (streq(token, "ls")) {
-        // TODO: add fs_list()
+        if (!fs_list_files()) {
+            printf("ERROR: failed to list files\n\r");
+        }
     } else if (streq(token, "touch")) {
         if (!next_token()) {
             printf("ERROR: must pass a filename\n\r");
             return;
         }
         if (!fs_create_file(token)) {
-            printf("ERROR: couldn't create file, maybe it already exists?\n\r");
+            printf("ERROR: couldn't create file\n\r");
         }
     } else if (streq(token, "cat")) {
         if (!next_token()) {
@@ -189,7 +138,7 @@ void interpret_command(void) {
             return;
         }
         if (!fs_wopen(token)) {
-            printf("ERROR: couldn't open file", token);
+            printf("ERROR: couldn't open file\n\r", token);
         }
     } else if (streq(token, "rm")) {
         if (!next_token()) {
@@ -210,16 +159,23 @@ void interpret_command(void) {
             printf("ERROR: must pass another filename\n\r");
             return;
         }
-        fs_rename_file(filename, token);
+        if (!fs_rename_file(filename, token)) {
+            printf("Error: failed to rename file\n\r");
+        }
     } else if (streq(token, "cp")) {
         if (!next_token()) {
             printf("ERROR: must pass a filename\n\r");
             return;
         }
         // TODO: copy file
+    } else {
+        printf("Error: unrecognized command '%s', try 'help'\n\r", token);
     }
 }
 
 void interpreter(void) {
+    printf("\x1b[1;1H\x1b[2JPress Enter to begin...");
+    readline(raw_command, sizeof(raw_command));
+    puts(HELPSTRING);
     while (true) { interpret_command(); }
 }
