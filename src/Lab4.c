@@ -616,7 +616,7 @@ int Testmain2(void) { // Testmain2
     return 0;          // this never executes
 }
 
-void debug_init(void){
+void debug_init(void) {
     fs_init();
 }
 

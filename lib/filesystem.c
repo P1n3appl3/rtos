@@ -11,18 +11,23 @@ static uint32_t num_files;
 static uint32_t free_block;
 static bool mounted = false;
 
-static FILE metadata_buf[16];
+static FILE metadata_buf[BLOCK_SIZE / sizeof(FILE)];
 static uint32_t metadata_sector;
 static Sema4 metadata_mutex;
 
-static uint8_t read_buf[2 * BLOCK_SIZE];
-static FILE wfile;
-
-static uint8_t write_buf[2 * BLOCK_SIZE];
+static uint8_t read_buf[BLOCK_SIZE];
 static FILE rfile;
+static Sema4 read_mutex;
+static uint32_t read_pos;
+
+static uint8_t write_buf[BLOCK_SIZE];
+static FILE wfile;
+static Sema4 write_mutex;
 
 bool fs_init(void) {
     OS_InitSemaphore(&metadata_mutex, 0);
+    OS_InitSemaphore(&write_mutex, 0);
+    OS_InitSemaphore(&read_mutex, 0);
     return !eDisk_Init();
 }
 
@@ -30,11 +35,9 @@ bool fs_close(void) {
     if (!mounted) {
         return false;
     }
-    OS_Wait(&metadata_mutex);
     fs_close_wfile();
     fs_close_rfile();
     mounted = false;
-    OS_Signal(&metadata_mutex);
     return true;
 }
 
@@ -75,10 +78,7 @@ bool fs_format(void) {
 }
 
 bool fs_mount(void) {
-    if (mounted) {
-        return false;
-    }
-    if (eDisk_ReadBlock(metadata_buf, 0)) {
+    if (mounted || eDisk_ReadBlock(metadata_buf, 0)) {
         return false;
     }
     mounted = true;
@@ -182,12 +182,12 @@ bool fs_rename_file(const char* name, const char* new_name) {
         return false;
     }
     if (wfile.valid && streq(wfile.name, name)) {
-        memcpy(wfile.name, new_name, FILENAME_SIZE);
-        return true;
+        // TODO: update both the in memory file and the copy on disk
+        return false;
     }
     if (rfile.valid && streq(rfile.name, name)) {
-        memcpy(rfile.name, new_name, FILENAME_SIZE);
-        return true;
+        // TODO: update both the in memory file and the copy on disk
+        return false;
     }
     OS_Wait(&metadata_mutex);
     FILE* to_rename = lookup_file(name);
@@ -235,27 +235,122 @@ bool fs_list_files(void) {
 }
 
 bool fs_wopen(const char* name) {
-    return false;
+    if (!mounted || wfile.valid) {
+        return false; // can only open 1 file at a time
+    }
+    OS_Wait(&metadata_mutex);
+    FILE* temp = lookup_file(name);
+    if (!temp) {
+        OS_Signal(&metadata_mutex);
+        return false;
+    }
+    wfile = *temp;
+    OS_Signal(&metadata_mutex);
+    return !eDisk_ReadBlock(write_buf, wfile.sector + wfile.size / BLOCK_SIZE);
 }
 
 bool fs_ropen(const char* name) {
-    return false;
+    if (!mounted || rfile.valid) {
+        return false; // can only open 1 file at a time
+    }
+    OS_Wait(&metadata_mutex);
+    FILE* temp = lookup_file(name);
+    if (!temp) {
+        OS_Signal(&metadata_mutex);
+        return false;
+    }
+    rfile = *temp;
+    OS_Signal(&metadata_mutex);
+    read_pos = 0;
+    return !eDisk_ReadBlock(read_buf, rfile.sector);
 }
 
 bool fs_append(const uint8_t data) {
-    return false;
+    if (!(mounted && wfile.valid)) {
+        return false;
+    }
+    OS_Wait(&write_mutex);
+    write_buf[wfile.size++ % BLOCK_SIZE] = data;
+    if (!(wfile.size % BLOCK_SIZE)) {
+        if (eDisk_WriteBlock(write_buf,
+                             wfile.sector + wfile.size / BLOCK_SIZE - 1)) {
+            --wfile.size;
+            OS_Signal(&write_mutex);
+            return false;
+        }
+        // move file and increase capacity on overflow
+        if (wfile.size / BLOCK_SIZE == wfile.capacity) {
+            OS_Wait(&metadata_mutex);
+            uint32_t new_spot = free_block;
+            for (uint32_t i = 0; i < wfile.capacity; ++i) {
+                eDisk_ReadBlock(write_buf, wfile.sector + i);
+                eDisk_WriteBlock(write_buf, new_spot + i);
+            }
+            free_block += wfile.capacity *= 4;
+            write_global_metadata();
+            OS_Signal(&metadata_mutex);
+        }
+    }
+    OS_Signal(&write_mutex);
+    return true;
 }
 
 bool fs_read(char* output) {
-    return false;
+    if (!(mounted && rfile.valid)) {
+        return false;
+    }
+    if (read_pos == rfile.size) {
+        return false;
+    }
+    OS_Wait(&read_mutex);
+    *output = read_buf[read_pos++ % BLOCK_SIZE];
+    if (!(read_pos % BLOCK_SIZE)) {
+        if (eDisk_ReadBlock(read_buf, rfile.sector + read_pos / BLOCK_SIZE)) {
+            --read_pos;
+            OS_Signal(&read_mutex);
+            return false;
+        }
+    }
+    OS_Signal(&read_mutex);
+    return true;
 }
 
 bool fs_close_wfile(void) {
-    return false;
+    OS_Wait(&write_mutex);
+    if (eDisk_WriteBlock(write_buf, wfile.sector + wfile.size / BLOCK_SIZE)) {
+        OS_Signal(&write_mutex);
+        return false;
+    }
+    OS_Wait(&metadata_mutex);
+    FILE* temp = lookup_file(wfile.name);
+    if (!temp) {
+        OS_Signal(&metadata_mutex);
+        OS_Signal(&write_mutex);
+        return false;
+    }
+    *temp = wfile;
+    wfile.valid = false;
+    bool ret = !eDisk_WriteBlock(metadata_buf, metadata_sector);
+    OS_Signal(&metadata_mutex);
+    OS_Signal(&write_mutex);
+    return ret;
 }
 
 bool fs_close_rfile(void) {
-    return false;
+    OS_Wait(&read_mutex);
+    OS_Wait(&metadata_mutex);
+    FILE* temp = lookup_file(rfile.name);
+    if (!temp) {
+        OS_Signal(&metadata_mutex);
+        OS_Signal(&read_mutex);
+        return false;
+    }
+    *temp = rfile;
+    rfile.valid = false;
+    bool ret = !eDisk_WriteBlock(metadata_buf, metadata_sector);
+    OS_Signal(&metadata_mutex);
+    OS_Signal(&read_mutex);
+    return ret;
 }
 
 bool fs_dopen(const char name[]) {

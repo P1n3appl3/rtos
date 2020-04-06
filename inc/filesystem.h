@@ -11,10 +11,10 @@
 // keep every file entry at 32 bytes to align to 512 byte block
 #define FILENAME_SIZE 19
 typedef struct file_t {
-    char name[FILENAME_SIZE];
     uint32_t sector;
     uint32_t size;
     uint32_t capacity;
+    char name[FILENAME_SIZE];
     bool valid;
 } FILE;
 

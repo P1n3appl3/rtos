@@ -26,23 +26,22 @@ static bool next_token() {
     return true;
 }
 
-static char* HELPSTRING =
-    "Available commands:\n\n\r"
-    "led COLOR [on, off, or toggle]\t\n\r"
-    "\t\t\t\tCOLOR: red, green, or blue\n\r"
-    "\t\t\t\tACTION: on, off, or toggle\n\r"
-    "adc\t\t\t\tread a single sample from the ADC\n\r"
-    "time [get or reset]\t\tOS time helpers\n\r"
-    "mount\t\t\t\tmount the sd card\n\r"
-    "unmount\t\t\t\tunmount the sd card\n\r"
-    "format yes really\t\tformat the sd card\n\r"
-    "touch FILENAME\t\t\tcreates a new file\n\r"
-    "cat FILENAME\t\t\tdisplay the contents of a file\n\r"
-    "append FILENAME 'STRING'\tappend a quoted string to a file\n\r"
-    "ls\t\t\t\tlist the files in the directory\n\r"
-    "mv FILENAME NEWNAME\t\tmove a file\n\r"
-    "cp FILENAME NEWNAME\t\tcopy a file\n\r"
-    "rm FILENAME\t\t\tdelete a file\n\r";
+static char* HELPSTRING = "Available commands:\n\n\r"
+                          "led COLOR [on, off, or toggle]\t\n\r"
+                          "\t\t\t\tCOLOR: red, green, or blue\n\r"
+                          "\t\t\t\tACTION: on, off, or toggle\n\r"
+                          "adc\t\t\t\tread a single sample from the ADC\n\r"
+                          "time [get or reset]\t\tOS time helpers\n\r"
+                          "mount\t\t\t\tmount the sd card\n\r"
+                          "unmount\t\t\t\tunmount the sd card\n\r"
+                          "format yes really\t\tformat the sd card\n\r"
+                          "touch FILENAME\t\t\tcreates a new file\n\r"
+                          "cat FILENAME\t\t\tdisplay the contents of a file\n\r"
+                          "append FILENAME WORD\tappend a word to a file\n\r"
+                          "ls\t\t\t\tlist the files in the directory\n\r"
+                          "mv FILENAME NEWNAME\t\tmove a file\n\r"
+                          "cp FILENAME NEWNAME\t\tcopy a file\n\r"
+                          "rm FILENAME\t\t\tdelete a file\n\r";
 
 void interpret_command(void) {
     printf("\n\r> ");
@@ -127,11 +126,13 @@ void interpret_command(void) {
         }
         if (!fs_ropen(token)) {
             printf("ERROR: couldn't open file '%s'\n\r", token);
+            return;
         }
-        char* temp = 0;
+        char temp;
         printf("Contents of '%s':\n\r", token);
-        while (fs_read(temp)) { putchar(*temp); }
+        while (fs_read(&temp)) { putchar(temp); }
         printf("\n\r");
+        fs_close_rfile();
     } else if (streq(token, "append")) {
         if (!next_token()) {
             printf("ERROR: must pass a filename\n\r");
@@ -139,6 +140,20 @@ void interpret_command(void) {
         }
         if (!fs_wopen(token)) {
             printf("ERROR: couldn't open file\n\r", token);
+            return;
+        }
+        if (!next_token()) {
+            printf("ERROR: must pass some characters to append\n\r");
+            fs_close_wfile();
+            return;
+        }
+        for (int i = 0; token[i]; ++i) {
+            if (!fs_append(token[i])) {
+                printf("ERROR: failed to write to the file\n\r");
+            }
+        }
+        if (!fs_close_wfile()) {
+            printf("ERROR: failed to close the file, try remounting\n\r");
         }
     } else if (streq(token, "rm")) {
         if (!next_token()) {
