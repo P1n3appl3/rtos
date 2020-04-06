@@ -84,6 +84,7 @@ bool fs_mount(void) {
     mounted = true;
     uint32_t* temp = (uint32_t*)metadata_buf;
     num_files = temp[0];
+    printf("Disk appears to contain %d files\n\r", num_files);
     free_block = temp[1];
     return true;
 }
@@ -167,8 +168,11 @@ bool fs_delete_file(const char* name) {
         return false; // file doesn't exist
     }
     to_delete->valid = false;
-    --num_files;
     bool temp = !eDisk_WriteBlock(metadata_buf, metadata_sector);
+    if (temp) {
+        --num_files;
+        temp = write_global_metadata();
+    }
     OS_Signal(&metadata_mutex);
     return temp;
 }
