@@ -66,7 +66,12 @@ void uart_init(void) {
     OS_InitSemaphore(&chars_avail, 0);
 }
 
+extern uint8_t StreamToDevice;
 bool putchar(char x) {
+    if (StreamToDevice == 1) {
+        fputc(x);
+        return true;
+    }
     // Skip the buffer and go straight to the hardware fifo if possible
     if (txfifo_empty() && ROM_UARTCharPutNonBlocking(UART0_BASE, x)) {
         return true;

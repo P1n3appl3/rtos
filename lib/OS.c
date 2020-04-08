@@ -25,7 +25,7 @@ int32_t MaxJitter;
 static uint32_t JitterHistogram[128] = {0};
 
 #define MAX_THREADS 8
-#define STACK_SIZE 256
+#define STACK_SIZE 512
 
 static TCB threads[MAX_THREADS];
 static uint32_t stacks[MAX_THREADS][STACK_SIZE];
@@ -123,7 +123,8 @@ void OS_Init(void) {
                        SYSCTL_OSC_MAIN);
     launchpad_init();
     uart_init();
-    SSI0_Init(10); // lcd_init();
+    // SSI0_Init(10);
+    lcd_init();
     MaxJitter = 0;
 }
 
@@ -357,11 +358,11 @@ void OS_Suspend(void) {
 }
 
 static Sema4 fifo_data_available;
-#define MAX_OS_FIFO 64
+#define MAX_OS_FIFO 256
 static uint32_t os_fifo_buf[MAX_OS_FIFO];
-static uint8_t os_fifo_head;
-static uint8_t os_fifo_tail;
-static uint8_t os_fifo_size;
+static uint16_t os_fifo_head;
+static uint16_t os_fifo_tail;
+static uint16_t os_fifo_size;
 void OS_Fifo_Init(uint32_t size) {
     os_fifo_head = os_fifo_tail = 0;
     os_fifo_size = size + 1;
@@ -461,20 +462,14 @@ void OS_ReportJitter(void) {
 //************** I/O Redirection ***************
 // redirect terminal I/O to UART or file (Lab 4)
 
-int StreamToDevice = 0; // 0=UART, 1=stream to file (Lab 4)
+volatile uint8_t StreamToDevice = 0; // 0=UART, 1=stream to file (Lab 4)
 
-int fputc(uint8_t ch, FILE* f) {
-    if (StreamToDevice == 1) {      // Lab 4
-        if (fs_append(ch)) {        // close file on error
-            OS_EndRedirectToFile(); // cannot write to file
-            return 1;               // failure
-        }
-        return 0; // success writing
+int fputc(char ch) {
+    if (!fs_append(ch)) {       // close file on error
+        OS_EndRedirectToFile(); // cannot write to file
+        return 1;               // failure
     }
-
-    // default UART output
-    printf("%u", ch);
-    return ch;
+    return 0; // success writing
 }
 
 int fgetc(FILE* f) {

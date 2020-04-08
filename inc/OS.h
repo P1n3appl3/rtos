@@ -149,3 +149,5 @@ int OS_RedirectToLCD(void);
 
 // print jitter stats
 void OS_ReportJitter(void);
+
+int fputc(char ch);

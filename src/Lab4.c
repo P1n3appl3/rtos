@@ -3,6 +3,7 @@
 #include "LPF.h"
 #include "OS.h"
 #include "ST7735.h"
+#include "dma.h"
 #include "eDisk.h"
 #include "filesystem.h"
 #include "interpreter.h"
@@ -94,6 +95,7 @@ uint32_t NumSamples; // incremented every sample
 uint32_t DataLost;   // data sent by Producer, but not received by Consumer
 uint32_t PIDWork;    // current number of PID calculations finished
 uint32_t FilterWork; // number of digital filter calculations finished
+uint32_t debug_count;
 
 #define TIMESLICE ms(2)
 
@@ -160,11 +162,14 @@ void Robot(void) {
     uint32_t distance; // in mm,      100 to 800
     uint32_t time;     // in 10msec,  0 to 1000
 
+    lcd_message_num(0, 1, "IR0 (mm) =", 0);
     DataLost = 0; // new run with no lost data
     OS_ClearTime();
     OS_Fifo_Init(256);
+    fs_mount();
+    fs_format();
 
-    printf("Robot running...");
+    printf("\n\rRobot running...\n\r");
     if (OS_RedirectToFile(FileName)) { // robot0, robot1,...,robot7
         printf(" Error redirecting to file.\n\r");
         Running = 0;
@@ -172,15 +177,17 @@ void Robot(void) {
         return;
     }
     printf("time(s)\tdata(V)\tdistance(mm)\n\r");
+    debug_count = 0;
     do {
+        debug_count++;
         PIDWork++;                     // performance measurement
-        time = to_ms(OS_Time()) * 10;  // 10ms resolution in this OS
+        time = to_ms(OS_Time());       // 10ms resolution in this OS
         data = OS_Fifo_Get();          // 1000 Hz sampling get from producer
         voltage = (300 * data) / 1024; // in mV
         distance = IRDistance_Convert(data, 1);
         printf("%0u.%02u\t%0u.%03u \t%5u\n\r", time / 100, time % 100,
                voltage / 1000, voltage % 1000, distance);
-    } while (time < 200); // change this to mean 2 seconds
+    } while (time < 2000); // change this to mean 2 seconds
     OS_EndRedirectToFile();
     lcd_message_num(0, 1, "IR0 (mm) =", distance);
     printf("done.\n\r");
@@ -456,6 +463,7 @@ void SW1Push1(void) {
 noreturn void Testmain1(void) { // Testmain1
     OS_Init();                  // initialize, disable interrupts
     PortD_Init();
+    initDMA();
     Running = 1;
 
     // attach background tasks
@@ -489,7 +497,7 @@ void TestDirectory(void) {
     printf("\n\r");
     if (fs_dopen(""))
         diskError("eFile_DOpen", 0);
-    while (!fs_dnext(&name, &size)) {
+    while (fs_dnext(&name, &size)) {
         printf(string1, name);
         printf("  ");
         printf(string2, size);
@@ -501,7 +509,7 @@ void TestDirectory(void) {
     printf("\n\r");
     printf(string4, total);
     printf("\n\r");
-    if (fs_dclose())
+    if (!fs_dclose())
         diskError("eFile_DClose", 0);
 }
 
@@ -630,8 +638,9 @@ void debug_main(void) {
 
 //*******************Trampoline for selecting main to execute**********
 int main(void) { // main
-    // realmain();
-    debug_main();
+    realmain();
+    // debug_main();
     // Testmain1();
+    // Testmain2();
     return 0;
 }

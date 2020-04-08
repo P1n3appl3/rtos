@@ -28,7 +28,7 @@ bool fs_init(void) {
     OS_InitSemaphore(&metadata_mutex, 0);
     OS_InitSemaphore(&write_mutex, 0);
     OS_InitSemaphore(&read_mutex, 0);
-    return !eDisk_Init();
+    return eDisk_Init();
 }
 
 bool fs_close(void) {
@@ -168,7 +168,7 @@ bool fs_delete_file(const char* name) {
         return false; // file doesn't exist
     }
     to_delete->valid = false;
-    bool temp = !eDisk_WriteBlock(metadata_buf, metadata_sector);
+    bool temp = eDisk_WriteBlock(metadata_buf, metadata_sector);
     if (temp) {
         --num_files;
         temp = write_global_metadata();
@@ -196,7 +196,7 @@ bool fs_rename_file(const char* name, const char* new_name) {
         return false; // file doesn't exist
     }
     memcpy(to_rename->name, new_name, FILENAME_SIZE);
-    bool temp = !eDisk_WriteBlock(metadata_buf, metadata_sector);
+    bool temp = eDisk_WriteBlock(metadata_buf, metadata_sector);
     OS_Signal(&metadata_mutex);
     return temp;
 }
@@ -246,10 +246,15 @@ bool fs_wopen(const char* name) {
     }
     wfile = *temp;
     OS_Signal(&metadata_mutex);
-    return !eDisk_ReadBlock(write_buf, wfile.sector + wfile.size / BLOCK_SIZE);
+    return eDisk_ReadBlock(write_buf, wfile.sector + wfile.size / BLOCK_SIZE);
 }
 
 bool fs_ropen(const char* name) {
+    if (streq(rfile.name, name) && rfile.valid) {
+        // already open
+        return true;
+    }
+
     if (!mounted || rfile.valid) {
         return false; // can only open 1 file at a time
     }
@@ -330,7 +335,7 @@ bool fs_close_wfile(void) {
     }
     *temp = wfile;
     wfile.valid = false;
-    bool ret = !eDisk_WriteBlock(metadata_buf, metadata_sector);
+    bool ret = eDisk_WriteBlock(metadata_buf, metadata_sector);
     OS_Signal(&metadata_mutex);
     OS_Signal(&write_mutex);
     return ret;
@@ -347,12 +352,13 @@ bool fs_close_rfile(void) {
     }
     *temp = rfile;
     rfile.valid = false;
-    bool ret = !eDisk_WriteBlock(metadata_buf, metadata_sector);
+    bool ret = eDisk_WriteBlock(metadata_buf, metadata_sector);
     OS_Signal(&metadata_mutex);
     OS_Signal(&read_mutex);
     return ret;
 }
 
+uint32_t dfound;
 bool fs_dopen(const char name[]) {
     if (!mounted) {
         return false;
@@ -360,10 +366,34 @@ bool fs_dopen(const char name[]) {
     if (name[0]) {
         return false; // subdirectories not supported
     }
+    dfound = 0;
     return true;
 }
 
 bool fs_dnext(char** name, uint32_t* size) {
+    if (!mounted) {
+        return false;
+    }
+    if (!num_files) {
+        puts("Disk contains no files");
+        return true;
+    }
+    OS_Wait(&metadata_mutex);
+    for (uint32_t sector = 1; sector < DIR_SIZE; ++sector) {
+        eDisk_ReadBlock(metadata_buf, sector);
+        for (; dfound < 16; ++dfound) {
+            FILE* current = &metadata_buf[dfound];
+            if (!current->valid) {
+                continue;
+            }
+            *name = current->name;
+            *size = current->size;
+            OS_Signal(&metadata_mutex);
+            return true;
+        }
+    }
+    dfound = 0;
+
     return false;
 }
 
