@@ -39,9 +39,64 @@ void memset(void* dest, uint8_t value, uint32_t n) {
     while (n--) { *temp++ = value; }
 }
 
+int memcmp(const void* s1, const void* s2, uint32_t n) {
+    uint8_t* a = (uint8_t*)s1;
+    uint8_t* b = (uint8_t*)s2;
+
+    for (int32_t i = 0; i < n; i++) {
+        if (a[i] < b[i]) {
+            return -1;
+        } else if (a[i] > b[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 uint16_t strlen(const char* s) {
     uint16_t n = 0;
     while (*s++) { n++; }
+    return n;
+}
+
+char* strcpy(char* dest, const char* src) {
+    char* a = dest;
+    const char* b = src;
+    while (*a && *b) {
+        *a = *b;
+        a++;
+        b++;
+    }
+    return dest;
+}
+
+char* strchr(const char* str, int c) {
+    int16_t ret = find(str, c);
+    if (ret > -1) {
+        return (char*)(str + ret);
+    }
+    return 0;
+}
+
+size_t strspn(const char* str1, const char* str2) {
+    size_t n = 0;
+    while (*str1++) {
+        if (find(str2, *str1) == -1) {
+            return n;
+        }
+        n++;
+    }
+    return n;
+}
+
+size_t strcspn(const char* str1, const char* str2) {
+    size_t n = 0;
+    while (*str1++) {
+        if (find(str2, *str1) != -1) {
+            return n;
+        }
+        n++;
+    }
     return n;
 }
 

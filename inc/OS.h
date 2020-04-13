@@ -22,6 +22,14 @@ typedef struct tcb {
     uint32_t* stack;
 } TCB;
 
+typedef struct pcb {
+    uint16_t pid;
+    uint32_t* entry;
+    uint32_t* text;
+    uint32_t* data;
+    uint16_t priority;
+} PCB;
+
 typedef struct {
     int32_t value; // >=0 means free, negative means busy
     TCB* blocked_head;

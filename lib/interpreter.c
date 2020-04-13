@@ -1,9 +1,9 @@
 #include "ADC.h"
 #include "OS.h"
 #include "ST7735.h"
-#include "filesystem.h"
 #include "io.h"
 #include "launchpad.h"
+#include "littlefs.h"
 #include "printf.h"
 #include "std.h"
 #include "timer.h"
@@ -93,13 +93,13 @@ void interpret_command(void) {
             printf("ERROR: expected 'get' or 'reset', got '%s'\n\r", token);
         }
     } else if (streq(token, "mount")) {
-        fs_mount();
+        littlefs_mount();
     } else if (streq(token, "unmount")) {
-        fs_close();
+        littlefs_close();
     } else if (streq(token, "format")) {
         if (next_token() && streq(token, "yes")) {
             if (next_token() && streq(token, "really")) {
-                if (!fs_format()) {
+                if (!littlefs_format()) {
                     printf("ERROR: foramtting failed\n\r");
                 }
                 return;
@@ -108,51 +108,58 @@ void interpret_command(void) {
         printf("ERROR: you need to show that you're sure by entering "
                "'format yes really'\n\r");
     } else if (streq(token, "ls")) {
+        /*
         if (!fs_list_files()) {
             printf("ERROR: failed to list files\n\r");
         }
+        */
+        littlefs_init();
     } else if (streq(token, "touch")) {
         if (!next_token()) {
             printf("ERROR: must pass a filename\n\r");
             return;
         }
+        /*
         if (!fs_create_file(token)) {
             printf("ERROR: couldn't create file\n\r");
         }
+        */
     } else if (streq(token, "cat")) {
         if (!next_token()) {
             printf("ERROR: must pass a filename\n\r");
             return;
         }
-        if (!fs_ropen(token)) {
+        if (!littlefs_open_file(token)) {
             printf("ERROR: couldn't open file '%s'\n\r", token);
             return;
         }
         char temp;
         printf("Contents of '%s':\n\r", token);
-        while (fs_read(&temp)) { putchar(temp); }
+        while (littlefs_read_file(&temp)) { putchar(temp); }
         printf("\n\r");
-        fs_close_rfile();
+        littlefs_close_file();
     } else if (streq(token, "append")) {
         if (!next_token()) {
             printf("ERROR: must pass a filename\n\r");
             return;
         }
-        if (!fs_wopen(token)) {
+        if (!littlefs_open_file(token)) {
             printf("ERROR: couldn't open file\n\r", token);
             return;
         }
         if (!next_token()) {
             printf("ERROR: must pass some characters to append\n\r");
-            fs_close_wfile();
+            littlefs_close_file();
             return;
         }
         for (int i = 0; token[i]; ++i) {
+            /*
             if (!fs_append(token[i])) {
                 printf("ERROR: failed to write to the file\n\r");
             }
+            */
         }
-        if (!fs_close_wfile()) {
+        if (!littlefs_close_file()) {
             printf("ERROR: failed to close the file, try remounting\n\r");
         }
     } else if (streq(token, "rm")) {
@@ -160,23 +167,27 @@ void interpret_command(void) {
             printf("ERROR: must pass a filename\n\r");
             return;
         }
+        /*
         if (!fs_delete_file(token)) {
             printf("ERROR: couldn't remove file '%s'\n\r", token);
         }
+        */
     } else if (streq(token, "mv")) {
         if (!next_token()) {
             printf("ERROR: must pass a filename\n\r");
             return;
         }
-        char filename[FILENAME_SIZE];
-        memcpy(filename, token, FILENAME_SIZE);
+        // char filename[FILENAME_SIZE];
+        // memcpy(filename, token, FILENAME_SIZE);
         if (!next_token()) {
             printf("ERROR: must pass another filename\n\r");
             return;
         }
+        /*
         if (!fs_rename_file(filename, token)) {
             printf("Error: failed to rename file\n\r");
         }
+        */
     } else if (streq(token, "cp")) {
         if (!next_token()) {
             printf("ERROR: must pass a filename\n\r");

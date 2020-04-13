@@ -123,8 +123,8 @@ void OS_Init(void) {
                        SYSCTL_OSC_MAIN);
     launchpad_init();
     uart_init();
-    // SSI0_Init(10);
-    lcd_init();
+    SSI0_Init(10);
+    // lcd_init();
     MaxJitter = 0;
 }
 
@@ -203,6 +203,7 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stackSize,
     return true;
 }
 
+PCB sd_process;
 //******** OS_AddProcess ***************
 // add a process with foregound thread to the scheduler
 // Inputs: pointer to a void/void entry point
@@ -501,3 +502,5 @@ int OS_RedirectToUART(void) {
 int OS_RedirectToLCD(void) {
     return 1;
 }
+
+void OS_SVC_handler(unsigned number, unsigned* reg) {}

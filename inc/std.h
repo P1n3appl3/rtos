@@ -2,6 +2,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef uint32_t size_t;
+
 int32_t abs(int32_t n);
 uint32_t difference(uint32_t a, uint32_t b);
 int32_t min(int32_t a, int32_t b);
@@ -19,3 +21,8 @@ char* reverse(char* s);
 char* itoa(int32_t value, char* buf, uint8_t radix);
 void memcpy(void* dest, const void* src, uint32_t n);
 void memset(void* dest, uint8_t value, uint32_t n);
+int memcmp(const void* s1, const void* s2, uint32_t n);
+char* strcpy(char* dest, const char* src);
+char* strchr(const char* str, int c);
+size_t strspn(const char* str1, const char* str2);
+size_t strcspn(const char* str1, const char* str2);
