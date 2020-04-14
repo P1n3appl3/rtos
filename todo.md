@@ -10,6 +10,4 @@
 -   rewrite screen driver
 -   core temp with adc
 -   LTO
--   simple allocator
--   use ^ for dynamically sized stacks and OS fifo
--   file system
+-   use allocator for dynamically sized stacks and OS fifo
