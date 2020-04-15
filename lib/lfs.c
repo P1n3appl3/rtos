@@ -10,8 +10,6 @@
 #define LFS_BLOCK_NULL ((lfs_block_t)-1)
 #define LFS_BLOCK_INLINE ((lfs_block_t)-2)
 
-uint8_t file_cache[512];
-
 /// Caching block device operations ///
 static inline void lfs_cache_drop(lfs_t* lfs, lfs_cache_t* rcache) {
     // do not zero, cheaper if cache is readonly or only going to be
@@ -2494,7 +2492,7 @@ cleanup:
 int lfs_file_open(lfs_t* lfs, lfs_file_t* file, const char* path, int flags) {
     LFS_TRACE("lfs_file_open(%p, %p, \"%s\", %x)", (void*)lfs, (void*)file,
               path, flags);
-    static const struct lfs_file_config defaults = {.buffer = file_cache};
+    static const struct lfs_file_config defaults = {.buffer = 0};
     int err = lfs_file_opencfg(lfs, file, path, flags, &defaults);
     LFS_TRACE("lfs_file_open -> %d", err);
     return err;

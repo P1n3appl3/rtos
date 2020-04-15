@@ -8,6 +8,7 @@
 #include "interrupts.h"
 #include "io.h"
 #include "launchpad.h"
+#include "littlefs.h"
 #include "printf.h"
 #include "std.h"
 #include "tivaware/rom.h"
@@ -15,9 +16,6 @@
 
 uint32_t NumCreated; // number of foreground threads created
 uint32_t IdleCount;  // CPU idle counter
-
-//---------------------User debugging-----------------------
-extern int32_t MaxJitter; // largest time jitter between interrupts in usec
 
 #define PD0 (*((volatile uint32_t*)0x40007004))
 #define PD1 (*((volatile uint32_t*)0x40007008))
@@ -42,13 +40,13 @@ void ButtonWork(void) {
 }
 
 void SW1Push(void) {
-    if (OS_AddThread(&ButtonWork, "Button work", 100, 2)) {
+    if (OS_AddThread(&ButtonWork, "Button work", 200, 2)) {
         NumCreated++;
     }
 }
 
 void SW2Push(void) {
-    if (OS_AddThread(&ButtonWork, "Button work", 100, 2)) {
+    if (OS_AddThread(&ButtonWork, "Button work", 200, 2)) {
         NumCreated++;
     }
 }
@@ -66,9 +64,8 @@ void Idle(void) {
 }
 
 void realmain(void) {
-    OS_Init();     // initialize, disable interrupts
-    PortD_Init();  // debugging profile
-    MaxJitter = 0; // in 1us units
+    OS_Init();    // initialize, disable interrupts
+    PortD_Init(); // debugging profile
 
     adc_init(0); // sequencer 3, channel 0, PE3, sampling in Interpreter
     heap_init();
@@ -78,8 +75,8 @@ void realmain(void) {
     OS_AddSW2Task(&SW2Push, 2);
 
     NumCreated = 0;
-    NumCreated += OS_AddThread(&interpreter, "interpreter", 128, 2);
-    NumCreated += OS_AddThread(&Idle, "Idle", 128, 5);
+    NumCreated += OS_AddThread(&interpreter, "interpreter", 256, 2);
+    NumCreated += OS_AddThread(&Idle, "Idle", 256, 5);
 
     OS_Launch(ms(2));
 }
@@ -124,11 +121,13 @@ void Testmain0(void) { // Testmain0
     OS_Init();         // initialize, disable interrupts
     PortD_Init();      // profile user threads
     NumCreated = 0;
-    NumCreated += OS_AddThread(&Thread1, "Thread 1", 128, 1);
-    NumCreated += OS_AddThread(&Thread2, "Thread 2", 128, 2);
-    NumCreated += OS_AddThread(&Thread3, "Thread 3", 128, 3);
+    NumCreated += OS_AddThread(&Thread1, "Thread 1", 256, 1);
+    NumCreated += OS_AddThread(&Thread2, "Thread 2", 256, 2);
+    NumCreated += OS_AddThread(&Thread3, "Thread 3", 256, 3);
+    OS_AddThread(debug_test, "filesystem", 512, 0);
+    OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
     // Count1 Count2 Count3 should be equal or off by one at all times
-    OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
+    OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
 }
 
 //*****************Test project 1*************************
@@ -252,7 +251,7 @@ void TestHeap(void) {
 }
 
 void SW1Push1(void) {
-    if (OS_AddThread(&TestHeap, "Test Heap", 128, 1)) {
+    if (OS_AddThread(&TestHeap, "Test Heap", 512, 1)) {
         NumCreated++;
     }
 }
@@ -264,8 +263,8 @@ void Testmain1(void) {
     OS_AddSW1Task(&SW1Push1, 2);
 
     NumCreated = 0;
-    NumCreated += OS_AddThread(&TestHeap, "Test Heap", 128, 1);
-    NumCreated += OS_AddThread(&Idle, "Idle", 28, 3);
+    NumCreated += OS_AddThread(&TestHeap, "Test Heap", 256, 1);
+    NumCreated += OS_AddThread(&Idle, "Idle", 128, 3);
 
     OS_Launch(ms(10));
 }
@@ -321,7 +320,7 @@ void TestProcess(void) {
 }
 
 void SW2Push2(void) {
-    if (OS_AddThread(&TestProcess, "Test Process", 128, 1)) {
+    if (OS_AddThread(&TestProcess, "Test Process", 256, 1)) {
         NumCreated++;
     }
 }
@@ -334,8 +333,8 @@ void Testmain2(void) {
     OS_AddSW2Task(&SW2Push2, 2); // PF0, SW2
 
     NumCreated = 0;
-    NumCreated += OS_AddThread(&TestProcess, "Test Process", 128, 1);
-    NumCreated += OS_AddThread(&Idle, "Test Process", 128, 3);
+    NumCreated += OS_AddThread(&TestProcess, "Test Process", 256, 1);
+    NumCreated += OS_AddThread(&Idle, "Test Process", 256, 3);
 
     OS_Launch(ms(10));
 }
@@ -422,6 +421,7 @@ int Testmain3(void) { // Testmain3
 */
 
 void main(void) {
+    // Testmain0();
     Testmain1();
     // realmain();
 }

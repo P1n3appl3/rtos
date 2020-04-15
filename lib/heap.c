@@ -21,7 +21,7 @@ static uint16_t free_space;
 static uint16_t used_space;
 
 void heap_init(void) {
-    total_heap_size = &_eheap - &_heap;
+    total_heap_size = (uint32_t)&_eheap - (uint32_t)&_heap;
     free_space = total_heap_size - sizeof(HeapNode);
     used_space = 0;
     head = (HeapNode*)&_heap;

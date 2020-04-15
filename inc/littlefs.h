@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 bool littlefs_init(void);
 
 bool littlefs_format(void);

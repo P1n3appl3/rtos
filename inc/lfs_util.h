@@ -8,12 +8,10 @@
 #define LFS_UTIL_H
 
 #define LFS_NO_ASSERT
-#define LFS_NO_MALLOC
-/*
-#define LFS_NO_ERROR
-#define LFS_NO_DEBUG
-#define LFS_NO_WARN
-*/
+// #define LFS_NO_MALLOC
+// #define LFS_NO_ERROR
+// #define LFS_NO_DEBUG
+// #define LFS_NO_WARN
 
 #define NULL 0
 
@@ -30,15 +28,13 @@
 #else
 
 // System includes
-// #include <inttypes.h>
 #include "inttypes.h"
 #include "std.h"
 #include <stdbool.h>
 #include <stdint.h>
-// #include <string.h>
 
 #ifndef LFS_NO_MALLOC
-#include <stdlib.h>
+#include "heap.h"
 #endif
 #ifndef LFS_NO_ASSERT
 #include <assert.h>
