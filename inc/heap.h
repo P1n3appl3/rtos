@@ -1,13 +1,4 @@
-#pragma once
-
 #include <stdint.h>
-
-// struct for holding statistics on the state of the heap
-typedef struct {
-    uint32_t size; // heap size
-    uint32_t used; // number of bytes used/allocated
-    uint32_t free; // number of bytes available to allocate
-} heap_stats_t;
 
 void heap_init(void);
 
@@ -24,4 +15,10 @@ void* realloc(void* allocation, uint32_t size);
 void free(void* allocation);
 
 // Print usage statistics about the heap
-void heap_stats(heap_stats_t* stats);
+void heap_stats(void);
+
+// Get total size of heap in bytes
+uint32_t heap_get_size(void);
+
+// Get number of bytes available for allocation in heap
+uint32_t heap_get_space(void);

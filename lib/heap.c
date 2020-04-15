@@ -1,4 +1,5 @@
 #include "heap.h"
+#include "io.h"
 #include "printf.h"
 #include "std.h"
 #include <stdint.h>
@@ -17,11 +18,13 @@ static HeapNode* head;
 
 static uint16_t total_heap_size;
 static uint16_t free_space;
-static uint16_t used_space = 0;
+static uint16_t used_space;
 
 void heap_init(void) {
-    total_heap_size = _eheap - _heap;
+    total_heap_size = &_eheap - &_heap;
     free_space = total_heap_size - sizeof(HeapNode);
+    used_space = 0;
+    head = (HeapNode*)&_heap;
     *head = (HeapNode){0, free_space};
 }
 
@@ -102,9 +105,18 @@ void free(void* allocation) {
     }
 }
 
-void heap_stats() {
+void heap_stats(void) {
+    puts("Heap stats:");
     printf("Heap size  = %d\n\r", total_heap_size);
-    printf("Heap used  = %d\n\r", total_heap_size);
-    printf("Heap free  = %d\n\r", total_heap_size);
+    printf("Heap used  = %d\n\r", used_space);
+    printf("Heap free  = %d\n\r", free_space);
     printf("Heap waste = %d\n\r", total_heap_size - used_space - free_space);
+}
+
+uint32_t heap_get_size(void) {
+    return total_heap_size;
+}
+
+uint32_t heap_get_space(void) {
+    return free_space;
 }

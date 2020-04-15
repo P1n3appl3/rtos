@@ -52,7 +52,7 @@ void switch2_init(void (*task)(void), uint8_t priority) {
     sw2task = task;
 }
 
-const uint32_t debounce_ms = 50;
+const uint32_t debounce_ms = 20;
 static uint32_t last_sw1;
 static uint32_t last_sw2;
 
