@@ -41,10 +41,11 @@ void OS_Init(void);
 
 // add a foregound thread to the scheduler
 // inputs: pointer to a foreground task
+//         string with a label for debugging
 //         number of bytes allocated for its stack
 //         priority, 0 is highest, 5 is the lowest
 // returns: true if successful, false if this thread can not be added
-// stack size must be divisable by 8 (aligned to double word boundary)
+// stack size must be a multiple of 4 for alignment reasons
 bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
                   uint32_t priority);
 

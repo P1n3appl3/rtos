@@ -1,4 +1,5 @@
 #include "heap.h"
+#include "OS.h"
 #include "io.h"
 #include "printf.h"
 #include "std.h"
@@ -15,6 +16,7 @@ extern uint32_t _heap;
 extern uint32_t _eheap;
 
 static HeapNode* head;
+static Sema4 heap_mutex;
 
 static uint16_t total_heap_size;
 static uint16_t free_space;
@@ -26,18 +28,20 @@ void heap_init(void) {
     used_space = 0;
     head = (HeapNode*)&_heap;
     *head = (HeapNode){0, free_space};
+    OS_InitSemaphore(&heap_mutex, 0);
 }
 
 void* malloc(uint32_t size) {
     if (size % 4) {
         size += 4 - size % 4; // 4 byte alignment
     }
+    OS_Wait(&heap_mutex);
     HeapNode* prev;
     HeapNode* current = head;
     while (current) {
-        if (current->size > size) {
+        if (current->size >= size) {
             // split node if large enough
-            if (current->size - size > sizeof(HeapNode) + MIN_ALLOCATION) {
+            if (current->size - size >= sizeof(HeapNode) + MIN_ALLOCATION) {
                 HeapNode* new =
                     (HeapNode*)(((uint8_t*)current) + sizeof(HeapNode) +
                                 max(size, MIN_ALLOCATION));
@@ -54,11 +58,13 @@ void* malloc(uint32_t size) {
             }
             used_space += current->size;
             free_space -= current->size;
+            OS_Signal(&heap_mutex);
             return ((uint8_t*)current) + sizeof(HeapNode);
         }
         prev = current;
         current = current->next;
     }
+    OS_Signal(&heap_mutex);
     return 0;
 }
 
@@ -86,7 +92,11 @@ void* realloc(void* allocation, uint32_t size) {
 }
 
 void free(void* allocation) {
+    if (!allocation) {
+        __asm("BKPT"); // you've fucked up
+    }
     HeapNode* this = (HeapNode*)((uint8_t*)allocation - sizeof(HeapNode));
+    OS_Wait(&heap_mutex);
     HeapNode* current = head;
     HeapNode* prev;
     while (current && this > current) {
@@ -103,6 +113,7 @@ void free(void* allocation) {
         prev->next = this;
         this->next = current;
     }
+    OS_Signal(&heap_mutex);
 }
 
 void heap_stats(void) {
@@ -119,4 +130,16 @@ uint32_t heap_get_size(void) {
 
 uint32_t heap_get_space(void) {
     return free_space;
+}
+
+uint32_t heap_get_max(void) {
+    uint16_t largest = 0;
+    OS_Wait(&heap_mutex);
+    HeapNode* current = head;
+    while (current) {
+        largest = max(largest, current->size);
+        current = current->next;
+    }
+    OS_Signal(&heap_mutex);
+    return largest;
 }

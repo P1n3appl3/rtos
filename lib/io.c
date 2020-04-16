@@ -12,7 +12,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 
-// #define USE_OUTPUT_BUFFER
+#define USE_OUTPUT_BUFFER
 
 ADDFIFO(tx, 128, uint8_t)
 ADDFIFO(rx, 128, uint8_t)

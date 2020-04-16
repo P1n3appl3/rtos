@@ -68,7 +68,6 @@ void realmain(void) {
     PortD_Init(); // debugging profile
 
     adc_init(0); // sequencer 3, channel 0, PE3, sampling in Interpreter
-    heap_init();
 
     OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
     OS_AddSW1Task(&SW1Push, 2);
@@ -151,8 +150,7 @@ int16_t maxBlockSize;
 uint8_t* bigBlock;
 void TestHeap(void) {
     int16_t i;
-    printf("\n\rEE445M/EE380L, Lab 5 Heap Test\n\r");
-    heap_init();
+    printf("\n\n\n\rEE445M/EE380L, Lab 5 Heap Test\n\r");
 
     ptr = malloc(sizeof(int16_t));
     if (!ptr)
@@ -189,19 +187,7 @@ void TestHeap(void) {
     free(p2);
     heap_stats();
 
-    uint32_t max_allocs = heap_get_space() / sizeof(int32_t);
-    printf("should be able to allocate %d int32_t's\n\r", max_allocs);
-    for (i = 0; i <= max_allocs; i++) {
-        ptr = malloc(sizeof(int16_t));
-        if (!ptr)
-            break;
-    }
-    if (ptr)
-        heapError("malloc", "i", i);
-    heap_stats();
-
     printf("\nRealloc test\n\r");
-    heap_init();
     q1 = malloc(1);
     if (!q1)
         heapError("malloc", "q", 1);
@@ -227,10 +213,10 @@ void TestHeap(void) {
     heap_stats();
 
     printf("\nLarge block test\n\r");
-    heap_init();
     heap_stats();
-    maxBlockSize = heap_get_space();
+    maxBlockSize = heap_get_max();
     maxBlockSize -= maxBlockSize % 4;
+    printf("Largest block that can be allocated is %d bytes\n\r", maxBlockSize);
     bigBlock = malloc(maxBlockSize);
     memset(bigBlock, 0xFF, maxBlockSize);
     heap_stats();
@@ -246,12 +232,23 @@ void TestHeap(void) {
     free(bigBlock);
     heap_stats();
 
+    uint32_t max_allocs = heap_get_space() / sizeof(int32_t);
+    printf("should be able to allocate %d int32_t's\n\r", max_allocs);
+    for (i = 0; i <= max_allocs; i++) {
+        ptr = malloc(sizeof(int16_t));
+        if (!ptr)
+            break;
+    }
+    if (ptr)
+        heapError("malloc", "i", i);
+    heap_stats();
+
     printf("\nSuccessful heap test\n\r");
     OS_Kill();
 }
 
 void SW1Push1(void) {
-    if (OS_AddThread(&TestHeap, "Test Heap", 512, 1)) {
+    if (OS_AddThread(&TestHeap, "Test Heap", 2048, 1)) {
         NumCreated++;
     }
 }
@@ -263,8 +260,8 @@ void Testmain1(void) {
     OS_AddSW1Task(&SW1Push1, 2);
 
     NumCreated = 0;
-    NumCreated += OS_AddThread(&TestHeap, "Test Heap", 256, 1);
-    NumCreated += OS_AddThread(&Idle, "Idle", 128, 3);
+    NumCreated += OS_AddThread(&TestHeap, "Test Heap", 2048, 1);
+    NumCreated += OS_AddThread(&Idle, "Idle", 512, 3);
 
     OS_Launch(ms(10));
 }
