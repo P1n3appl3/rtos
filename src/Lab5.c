@@ -74,8 +74,8 @@ void realmain(void) {
     OS_AddSW2Task(&SW2Push, 2);
 
     NumCreated = 0;
-    NumCreated += OS_AddThread(&interpreter, "interpreter", 256, 2);
-    NumCreated += OS_AddThread(&Idle, "Idle", 256, 5);
+    NumCreated += OS_AddThread(&interpreter, "interpreter", 2048, 2);
+    NumCreated += OS_AddThread(&Idle, "Idle", 1024, 5);
 
     OS_Launch(ms(2));
 }
@@ -310,9 +310,9 @@ void TestProcess(void) {
     if (original_free != now_free) {
         printf("Had %d free bytes but now only have %d\n\r", original_free,
                now_free);
-        OS_Kill();
+    } else {
+        printf("Successful process test\n\r");
     }
-    printf("Successful process test\n\r");
     OS_Kill();
 }
 
@@ -419,6 +419,7 @@ int Testmain3(void) { // Testmain3
 
 void main(void) {
     // Testmain0();
-    Testmain1();
-    // realmain();
+    // Testmain1();
+    // Testmain2();
+    realmain();
 }
