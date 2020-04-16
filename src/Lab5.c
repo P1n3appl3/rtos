@@ -344,28 +344,39 @@ void Testmain2(void) {
 // Test supervisor calls (SVC exceptions)
 // Using inline assembly, syntax is dependent on the compiler
 // The following code compiles in Keil 5.x (even though the UI complains)
-/*
-__asm uint32_t SVC_OS_Id(void) {
-    SVC #0 BX LR
+
+__attribute__((naked)) uint32_t SVC_OS_Id(void) {
+    __asm("SVC #0\n"
+          "BX LR");
 }
-__asm void SVC_OS_Kill(void) {
-    SVC #1 BX LR
+__attribute__((naked)) void SVC_OS_Kill(void) {
+    __asm("SVC #1\n"
+          "BX LR");
 }
-__asm void SVC_OS_Sleep(uint32_t t) {
-    SVC #2 BX LR
+__attribute__((naked)) void SVC_OS_Sleep(uint32_t t) {
+    __asm("SVC #2\n"
+          "BX LR");
 }
-__asm uint32_t SVC_OS_Time(void) {
-    SVC #3 BX LR
+__attribute__((naked)) uint32_t SVC_OS_Time(void) {
+    __asm("SVC #3\n"
+          "BX LR");
 }
-__asm int SVC_OS_AddThread(void (*t)(void), uint32_t s,
-                           uint32_t p){SVC #4 BX LR} uint32_t line = 0;
+__attribute__((naked)) bool SVC_OS_AddThread(void (*t)(void), const char* name,
+                                             uint32_t s, uint32_t p) {
+    __asm("SVC #4\n"
+          "BX LR");
+}
+
+uint32_t line = 0;
 void TestSVCThread(void) {
     uint32_t id;
     id = SVC_OS_Id();
     PD3 ^= 0x08;
-    ST7735_Message(0, line++, "Thread: ", id);
+    line++;
+    printf("Thread: %d", id);
     SVC_OS_Sleep(500);
-    ST7735_Message(0, line++, "Thread dying: ", id);
+    line++;
+    printf("Thread dying: %d", id);
     PD3 ^= 0x08;
     SVC_OS_Kill();
 }
@@ -373,31 +384,30 @@ void TestSVC(void) {
     uint32_t id;
     uint32_t time;
     // simple SVC test, mimicking real user program
-    ST7735_DrawString(0, 0, "SVC test         ", ST7735_WHITE);
     printf("\n\rEE445M/EE380L, Lab 5 SCV Test\n\r");
     id = SVC_OS_Id();
     PD2 ^= 0x04;
-    ST7735_Message(0, line++, "SVC test: ", id);
-    SVC_OS_AddThread(TestSVCThread, 128, 1);
+    printf("SVC test: %d", id);
+    line++;
+    SVC_OS_AddThread(TestSVCThread, "TestSVCThread", 128, 1);
     time = SVC_OS_Time();
     SVC_OS_Sleep(1000);
-    time =
-        (((OS_TimeDifference(time, SVC_OS_Time())) / 1000ul) * 125ul) / 10000ul;
-    ST7735_Message(0, line++, "Sleep time: ", time);
+    time = to_us(SVC_OS_Time() - time);
+    printf("Sleep time: %d", time);
+    line++;
     PD2 ^= 0x04;
     if (line != 4) {
         printf("SVC test error");
         OS_Kill();
     }
     printf("Successful SVC test\n\r");
-    ST7735_Message(0, 0, "SVC test done ", id);
     SVC_OS_Kill();
 }
 
 void SWPush3(void) {
     if (line >= 4) {
         line = 0;
-        if (OS_AddThread(&TestSVC, 128, 1)) {
+        if (OS_AddThread(&TestSVC, "TestSVC", 128, 1)) {
             NumCreated++;
         }
     }
@@ -413,15 +423,15 @@ int Testmain3(void) { // Testmain3
 
     // create initial foreground threads
     NumCreated = 0;
-    NumCreated += OS_AddThread(&TestSVC, 128, 1);
-    NumCreated += OS_AddThread(&Idle, 128, 3);
+    NumCreated += OS_AddThread(&TestSVC, "TestSVC", 128, 1);
+    NumCreated += OS_AddThread(&Idle, "Idle", 128, 3);
 
-    OS_Launch(10 * TIME_1MS); // doesn't return, interrupts enabled in here
-    return 0;                 // this never executes
+    OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
+    return 0;          // this never executes
 }
-*/
 
 void main(void) {
-    Testmain1();
+    // Testmain1();
+    Testmain3();
     // realmain();
 }

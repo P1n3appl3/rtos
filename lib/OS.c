@@ -26,10 +26,14 @@ static uint32_t JitterHistogram[128] = {0};
 
 #define MAX_THREADS 8
 #define STACK_SIZE 512
+#define MAX_PROCESSES 2
 
 static TCB threads[MAX_THREADS];
 static uint32_t stacks[MAX_THREADS][STACK_SIZE];
 static uint8_t thread_count = 0;
+
+static PCB processes[MAX_PROCESSES];
+static uint8_t process_count = 0;
 
 bool os_running;
 
@@ -203,7 +207,6 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stackSize,
     return true;
 }
 
-PCB sd_process;
 //******** OS_AddProcess ***************
 // add a process with foregound thread to the scheduler
 // Inputs: pointer to a void/void entry point
@@ -214,11 +217,14 @@ PCB sd_process;
 // Outputs: 1 if successful, 0 if this process can not be added
 // This function will be needed for Lab 5
 // In Labs 2-4, this function can be ignored
-int OS_AddProcess(void (*entry)(void), void* text, void* data,
-                  unsigned long stackSize, unsigned long priority) {
-    // put Lab 5 solution here
-
-    return 0; // replace this line with Lab 5 solution
+bool OS_AddProcess(void (*entry)(void), void* text, void* data,
+                   unsigned long stackSize, unsigned long priority) {
+    process_count++;
+    processes[process_count].text = text;
+    processes[process_count].data = data;
+    processes[process_count].priority = priority;
+    entry();
+    return true;
 }
 
 uint32_t OS_Id(void) {
@@ -503,4 +509,16 @@ int OS_RedirectToLCD(void) {
     return 1;
 }
 
-void OS_SVC_handler(unsigned number, unsigned* reg) {}
+void OS_SVC_handler(uint8_t number, uint32_t* reg) {
+    // reg is ptr to parameters on stack
+    switch (number) {
+    case 0: *reg = OS_Id(); break;
+    case 1: OS_Kill(); break;
+    case 2: OS_Sleep(*reg); break;
+    case 3: *reg = OS_Time(); break;
+    case 4:
+        OS_AddThread(*(void (*)(void))reg, (char*)(*(reg + 1)), *(reg + 2),
+                     *(reg + 3));
+        break;
+    }
+}

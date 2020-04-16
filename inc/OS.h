@@ -2,10 +2,18 @@
 #include "timer.h"
 #include <stdint.h>
 
+typedef struct pcb {
+    uint16_t pid;
+    uint32_t* text;
+    uint32_t* data;
+    uint16_t priority;
+} PCB;
+
 typedef struct tcb {
     uint32_t* sp;
     struct tcb* next_tcb;
     struct tcb* prev_tcb;
+    PCB* process;
 
     uint32_t id;
     const char* name;
@@ -21,14 +29,6 @@ typedef struct tcb {
 
     uint32_t* stack;
 } TCB;
-
-typedef struct pcb {
-    uint16_t pid;
-    uint32_t* entry;
-    uint32_t* text;
-    uint32_t* data;
-    uint16_t priority;
-} PCB;
 
 typedef struct {
     int32_t value; // >=0 means free, negative means busy

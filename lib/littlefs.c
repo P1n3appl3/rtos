@@ -81,7 +81,6 @@ bool littlefs_open_file(const char* name) {
 
 bool littlefs_read_file(char* output) {
     uint32_t ret = lfs_file_read(&lfs, &file, output, sizeof(char));
-    // lfs_file_seek(&lfs, &file, 1, LFS_SEEK_CUR);
     if (ret < 1) {
         return false;
     }
