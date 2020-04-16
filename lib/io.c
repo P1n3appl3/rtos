@@ -12,6 +12,8 @@
 #include <stdarg.h>
 #include <stdint.h>
 
+// #define USE_OUTPUT_BUFFER
+
 ADDFIFO(tx, 128, uint8_t)
 ADDFIFO(rx, 128, uint8_t)
 
@@ -58,7 +60,12 @@ void uart_init(void) {
     ROM_UARTFIFOEnable(UART0_BASE);
     ROM_IntPrioritySet(INT_UART0, 0x20); // priority is high 3 bits
     ROM_UARTFIFOLevelSet(UART0_BASE, UART_FIFO_TX1_8, UART_FIFO_RX1_8);
+#ifdef USE_OUTPUT_BUFFER
     ROM_UARTIntEnable(UART0_BASE, UART_INT_TX | UART_INT_RX | UART_INT_RT);
+#else
+    ROM_UARTIntEnable(UART0_BASE, UART_INT_RX | UART_INT_RT);
+#endif
+
     ROM_IntEnable(INT_UART0);
     ROM_UARTEnable(UART0_BASE);
     txfifo_init();
@@ -67,6 +74,7 @@ void uart_init(void) {
 }
 
 bool putchar(char x) {
+#ifdef USE_IO_BUFFERING
     // Skip the buffer and go straight to the hardware fifo if possible
     if (txfifo_empty() && ROM_UARTCharPutNonBlocking(UART0_BASE, x)) {
         return true;
@@ -77,6 +85,12 @@ bool putchar(char x) {
     end_critical(crit);
     sw_to_hw_fifo();
     return true;
+#else
+    uint32_t blocking_crit = start_critical();
+    while (!ROM_UARTCharPutNonBlocking(UART0_BASE, x)) {}
+    end_critical(blocking_crit);
+    return true;
+#endif
 }
 
 char getchar(void) {
@@ -87,7 +101,7 @@ char getchar(void) {
 }
 
 bool puts(const char* str) {
-    for (; *str;) { putchar(*str++); }
+    while (*str) { putchar(*str++); }
     putchar('\n');
     putchar('\r');
     return true;
