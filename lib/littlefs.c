@@ -9,24 +9,24 @@ static uint8_t prog_buffer[512];
 static uint8_t erase_buffer[512] = {0};
 static uint8_t lookahead_buffer[32] __attribute__((aligned(4)));
 
-int littlefs_prog(const struct lfs_config* c, lfs_block_t block, lfs_off_t off,
-                  const void* buffer, lfs_size_t size) {
+static int littlefs_prog(const struct lfs_config* c, lfs_block_t block,
+                         lfs_off_t off, const void* buffer, lfs_size_t size) {
     eDisk_Write(buffer, block, size / 512);
     return 0;
 }
 
-int littlefs_read(const struct lfs_config* c, lfs_block_t block, lfs_off_t off,
-                  void* buffer, lfs_size_t size) {
+static int littlefs_read(const struct lfs_config* c, lfs_block_t block,
+                         lfs_off_t off, void* buffer, lfs_size_t size) {
     eDisk_Read(buffer, block, size / 512);
     return 0;
 }
 
-int littlefs_erase(const struct lfs_config* c, lfs_block_t block) {
+static int littlefs_erase(const struct lfs_config* c, lfs_block_t block) {
     eDisk_Write(erase_buffer, block, 1);
     return 0;
 }
 
-int littlefs_sync(const struct lfs_config* c) {
+static int littlefs_sync(const struct lfs_config* c) {
     return 0;
 }
 
@@ -57,26 +57,19 @@ const struct lfs_config cfg = {
 };
 
 bool littlefs_init(void) {
-    if (eDisk_Init()) {
-        printf("error: edisk init\n\r");
-        OS_Kill();
-    }
-    return true;
+    return !eDisk_Init();
 }
 
 bool littlefs_format(void) {
-    lfs_format(&lfs, &cfg);
-    return true;
+    return lfs_format(&lfs, &cfg) >= 0;
 }
 
 bool littlefs_mount(void) {
-    lfs_mount(&lfs, &cfg);
-    return true;
+    return lfs_mount(&lfs, &cfg) >= 0;
 }
 
 bool littlefs_open_file(const char* name) {
-    lfs_file_open(&lfs, &file, name, LFS_O_RDWR | LFS_O_CREAT);
-    return true;
+    return lfs_file_open(&lfs, &file, name, LFS_O_RDWR | LFS_O_CREAT) >= 0;
 }
 
 bool littlefs_read_file(char* output) {
@@ -88,13 +81,19 @@ bool littlefs_read_file(char* output) {
 }
 
 bool littlefs_close_file(void) {
-    lfs_file_close(&lfs, &file);
-    return true;
+    return lfs_file_close(&lfs, &file) >= 0;
 }
 
 bool littlefs_close(void) {
-    lfs_unmount(&lfs);
-    return true;
+    return lfs_unmount(&lfs) >= 0;
+}
+
+bool littlefs_remove(const char* name) {
+    return lfs_remove(&lfs, name) >= 0;
+}
+
+bool littlefs_append(char c) {
+    return lfs_file_write(&lfs, &file, &c, 1) >= 0;
 }
 
 void debug_test(void) {

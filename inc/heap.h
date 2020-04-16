@@ -22,3 +22,6 @@ uint32_t heap_get_size(void);
 
 // Get number of bytes available for allocation in heap
 uint32_t heap_get_space(void);
+
+// Get the size of the largest possible allocation that can currently be made
+uint32_t heap_get_max(void);

@@ -1,11 +1,10 @@
 #include "OS.h"
-#include "FIFO.h"
-#include "ST7735.h"
 #include "eDisk.h"
-#include "filesystem.h"
+#include "heap.h"
 #include "interrupts.h"
 #include "io.h"
 #include "launchpad.h"
+#include "littlefs.h"
 #include "printf.h"
 #include "std.h"
 #include "timer.h"
@@ -25,11 +24,9 @@ int32_t MaxJitter;
 static uint32_t JitterHistogram[128] = {0};
 
 #define MAX_THREADS 8
-#define STACK_SIZE 512
 #define MAX_PROCESSES 2
 
 static TCB threads[MAX_THREADS];
-static uint32_t stacks[MAX_THREADS][STACK_SIZE];
 static uint8_t thread_count = 0;
 
 static PCB processes[MAX_PROCESSES];
@@ -125,6 +122,7 @@ void OS_Init(void) {
     os_running = false;
     ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
                        SYSCTL_OSC_MAIN);
+    heap_init();
     launchpad_init();
     uart_init();
     SSI0_Init(10);
@@ -173,7 +171,7 @@ void OS_Signal(Sema4* sem) {
 }
 
 static uint32_t thread_uuid = 1;
-bool OS_AddThread(void (*task)(void), const char* name, uint32_t stackSize,
+bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
                   uint32_t priority) {
     uint32_t crit = start_critical();
     if (thread_count >= MAX_THREADS - 1) {
@@ -194,8 +192,11 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stackSize,
     adding->next_tcb = adding->prev_tcb = &idle;
 
     // initialize stack
-    adding->stack = stacks[thread_index];
-    adding->sp = &adding->stack[STACK_SIZE - 1];
+    adding->stack = malloc(stack_size);
+    if (!adding->stack) {
+        return false;
+    }
+    adding->sp = &adding->stack[stack_size / 4 - 1];
     adding->sp -= 18;                    // Space for floating point registers
     *(--adding->sp) = 0x21000000;        // PSR
     *(--adding->sp) = (uint32_t)task;    // PC
@@ -356,6 +357,7 @@ void OS_Kill(void) {
     uint32_t crit = start_critical();
     --thread_count;
     current_thread->alive = false;
+    free(current_thread->stack);
     remove_current_thread();
     end_critical(crit);
 }
@@ -365,15 +367,20 @@ void OS_Suspend(void) {
 }
 
 static Sema4 fifo_data_available;
-#define MAX_OS_FIFO 256
-static uint32_t os_fifo_buf[MAX_OS_FIFO];
+static uint32_t* os_fifo_buf = 0;
 static uint16_t os_fifo_head;
 static uint16_t os_fifo_tail;
 static uint16_t os_fifo_size;
-void OS_Fifo_Init(uint32_t size) {
+bool OS_Fifo_Init(uint32_t size) {
+    if (os_fifo_buf) {
+        free(os_fifo_buf);
+    }
+    ++size; // need an extra space to tell empty from full
+    os_fifo_buf = malloc(size * sizeof(uint32_t));
     os_fifo_head = os_fifo_tail = 0;
-    os_fifo_size = size + 1;
+    os_fifo_size = size;
     OS_InitSemaphore(&fifo_data_available, -1);
+    return !!os_fifo_buf;
 }
 
 bool OS_Fifo_Put(uint32_t data) {
@@ -472,22 +479,21 @@ void OS_ReportJitter(void) {
 volatile uint8_t StreamToDevice = 0; // 0=UART, 1=stream to file (Lab 4)
 
 int fputc(char ch) {
-    if (!fs_append(ch)) {       // close file on error
-        OS_EndRedirectToFile(); // cannot write to file
-        return 1;               // failure
+    if (!littlefs_append(ch)) { // close file on error
+        // OS_EndRedirectToFile(); // cannot write to file
+        return 1; // failure
     }
     return 0; // success writing
 }
 
-int fgetc(FILE* f) {
+int fgetc() {
     char ch = getchar();
     puts(&ch);
     return ch;
 }
 
 int OS_RedirectToFile(const char* name) { // Lab 4
-    fs_create_file(name);                 // ignore error if file already exists
-    if (fs_wopen(name))
+    if (littlefs_open_file(name))
         return 1; // cannot open file
     StreamToDevice = 1;
     return 0;
@@ -495,7 +501,7 @@ int OS_RedirectToFile(const char* name) { // Lab 4
 
 int OS_EndRedirectToFile(void) { // Lab 4
     StreamToDevice = 0;
-    if (fs_close_wfile())
+    if (littlefs_close_file())
         return 1; // cannot close file
     return 0;
 }

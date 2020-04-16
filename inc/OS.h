@@ -41,11 +41,12 @@ void OS_Init(void);
 
 // add a foregound thread to the scheduler
 // inputs: pointer to a foreground task
+//         string with a label for debugging
 //         number of bytes allocated for its stack
 //         priority, 0 is highest, 5 is the lowest
 // returns: true if successful, false if this thread can not be added
-// stack size must be divisable by 8 (aligned to double word boundary)
-bool OS_AddThread(void (*task)(void), const char* name, uint32_t stackSize,
+// stack size must be a multiple of 4 for alignment reasons
+bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
                   uint32_t priority);
 
 // add a background periodic task
@@ -100,12 +101,13 @@ void OS_Suspend(void);
 // temporarily prevent foreground thread switch (but allow background
 // interrupts)
 unsigned long OS_LockScheduler(void);
+
 // resume foreground thread switching
 void OS_UnLockScheduler(unsigned long previous);
 
 // initialize the fifo to be empty
-// size must be < 64    TODO: use dynamic memory to allow larger sizes
-void OS_Fifo_Init(uint32_t size);
+// returns: true if initialized, false if couldn't allocate enough space
+bool OS_Fifo_Init(uint32_t size);
 
 // attempts to add an element to the fifo without blocking
 // returns: true if data is properly added, false if fifo was full
@@ -136,26 +138,5 @@ void OS_ClearTime(void);
 // inputs: number of cycles for each time slice
 void OS_Launch(uint32_t time_slice);
 
-// open the file for writing, redirect stream I/O (printf) to this file
-// if the file exists it will append to the end
-// If the file doesn't exist, it will create a new file with the name
-// input: an ASCII string up to seven characters
-// returns: 0 if successful and 1 on failure (e.g., can't open)
-int OS_RedirectToFile(const char* name);
-
-// close the file for writing, redirect stream I/O (printf) back to the UART
-// returns: 0 if successful and 1 on failure (e.g., trouble writing)
-int OS_EndRedirectToFile(void);
-
-// redirect stream I/O (printf) to the UART0
-// returns: 0 if successful and 1 on failure
-int OS_RedirectToUART(void);
-
-// redirect stream I/O (printf) to the ST7735 LCD
-// returns: 0 if successful and 1 on failure
-int OS_RedirectToLCD(void);
-
 // print jitter stats
 void OS_ReportJitter(void);
-
-int fputc(char ch);
