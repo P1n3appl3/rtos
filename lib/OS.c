@@ -11,8 +11,10 @@
 #include "tivaware/gpio.h"
 #include "tivaware/hw_ints.h"
 #include "tivaware/hw_memmap.h"
+#include "tivaware/hw_nvic.h"
 #include "tivaware/hw_timer.h"
 #include "tivaware/hw_types.h"
+#include "tivaware/mpu.h"
 #include "tivaware/rom.h"
 #include "tivaware/sysctl.h"
 #include "tivaware/timer.h"
@@ -25,6 +27,7 @@ static uint32_t JitterHistogram[128] = {0};
 
 #define MAX_THREADS 8
 #define MAX_PROCESSES 4
+#define MIN_STACK_SIZE 512
 
 static TCB threads[MAX_THREADS];
 static uint8_t thread_count = 0;
@@ -196,8 +199,8 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     adding->next_tcb = adding->prev_tcb = &idle;
 
     // initialize stack
-    adding->stack = calloc(
-        stack_size); // TODO: replace with malloc and detect stack overflow
+    adding->stack =
+        malloc(max(stack_size, MIN_STACK_SIZE) + 32); // extra is for MPU
     if (!adding->stack) {
         return false;
     }
@@ -390,6 +393,18 @@ void OS_Kill(void) {
     end_critical(crit);
 }
 
+// Called from within the context switch to change which stack the MPU protects
+void mpu_swap_region(void) {
+    uint32_t temp = (uint32_t)current_thread->stack;
+    // 32 byte alignment required for MPU regions
+    if (temp % 32) {
+        temp += 32 - temp % 32;
+    }
+    ROM_MPURegionSet(0, temp,
+                     MPU_RGN_SIZE_32B | MPU_RGN_PERM_NOEXEC |
+                         MPU_RGN_PERM_PRV_NO_USR_NO | MPU_RGN_ENABLE);
+}
+
 void OS_Suspend(void) {
     ROM_IntPendSet(FAULT_PENDSV);
 }
@@ -465,6 +480,8 @@ uint32_t OS_Time(void) {
 }
 
 noreturn void OS_Launch(uint32_t time_slice) {
+    ROM_MPUEnable(MPU_CONFIG_PRIV_DEFAULT);
+    ROM_IntEnable(FAULT_MPU);
     ROM_IntPrioritySet(FAULT_PENDSV, 0xff); // priority is high 3 bits
     ROM_IntPrioritySet(FAULT_SYSTICK, 6 << 5);
     ROM_SysTickPeriodSet(time_slice);
@@ -512,5 +529,29 @@ void OS_SVC_handler(uint8_t number, uint32_t* reg) {
         OS_AddThread(*(void (*)(void))reg, (char*)(*(reg + 1)), *(reg + 2),
                      *(reg + 3));
         break;
+    }
+}
+
+void memory_management_fault_handler(void) {
+    HeapNode* stack_allocation =
+        (HeapNode*)((uint8_t*)current_thread->stack - sizeof(HeapNode));
+    printf("\n\n\rSTACK OVERFLOW\n\rThread '%s' overflowed its %d byte stack, "
+           "Consider increasing it.\n\r",
+           current_thread->name, stack_allocation->size);
+    printf("FAULTSTAT: 0x%08x\n\r", HWREG(NVIC_FAULT_STAT));
+    printf("Address accessed: 0x%08x\n\r", HWREG(NVIC_MM_ADDR));
+    while (1) {
+        busy_wait(7, ms(500));
+        led_toggle(RED_LED | BLUE_LED);
+    }
+}
+
+void hardfault_handler(void) {
+    printf("\n\n\rHARD FAULT in thread '%s'\n\r", current_thread->name);
+    printf("FAULTSTAT:  0x%08x\n\r", HWREG(NVIC_FAULT_STAT));
+    printf("HFAULTSTAT: 0x%08x\n\r", HWREG(NVIC_HFAULT_STAT));
+    while (1) {
+        busy_wait(7, ms(500));
+        led_toggle(RED_LED);
     }
 }

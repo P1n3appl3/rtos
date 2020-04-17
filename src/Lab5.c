@@ -81,51 +81,29 @@ void realmain(void) {
 }
 
 //*****************Test project 0*************************
-// This is the simplest configuration,
-// Just see if you can import your OS
-// no UART interrupts
-// no SYSTICK interrupts
-// no timer interrupts
-// no switch interrupts
-// no ADC serial port or LCD output
-// no calls to semaphores
-uint32_t Count1; // number of times thread1 loops
-uint32_t Count2; // number of times thread2 loops
-uint32_t Count3; // number of times thread3 loops
-uint32_t Count4; // number of times thread4 loops
-uint32_t Count5; // number of times thread5 loops
-void Thread1(void) {
-    Count1 = 0;
-    for (;;) {
-        PD0 ^= 0x01; // heartbeat
-        Count1++;
-    }
+
+void overflowA(void) {
+    static int x = 0;
+    printf("A: %d\n\r", x++);
+    OS_Suspend();
+    overflowA();
 }
-void Thread2(void) {
-    Count2 = 0;
-    for (;;) {
-        PD1 ^= 0x02; // heartbeat
-        Count2++;
-    }
-}
-void Thread3(void) {
-    Count3 = 0;
-    for (;;) {
-        PD2 ^= 0x04; // heartbeat
-        Count3++;
-    }
+
+void overflowB(void) {
+    static int x = 0;
+    printf("B: %d\n\r", x++);
+    OS_Suspend();
+    overflowB();
 }
 
 void Testmain0(void) {
     OS_Init();
-    PortD_Init();
-    NumCreated = 0;
-    NumCreated += OS_AddThread(&Thread1, "Thread 1", 256, 1);
-    NumCreated += OS_AddThread(&Thread2, "Thread 2", 256, 2);
-    NumCreated += OS_AddThread(&Thread3, "Thread 3", 256, 3);
-    OS_AddThread(debug_test, "filesystem", 512, 0);
-    OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
-    // Count1 Count2 Count3 should be equal or off by one at all times
+
+    OS_AddThread(overflowA, "overflow test", 2048, 1);
+    OS_AddThread(overflowB, "overflow test", 1024, 1);
+    // OS_AddThread(debug_test, "filesystem", 512, 0);
+    // OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
+
     OS_Launch(ms(10));
 }
 
@@ -295,7 +273,8 @@ void TestProcess(void) {
     heap_stats();
     uint32_t original_free = heap_get_space();
     PD1 ^= 0x02;
-    if (!OS_AddProcess(&TestUser, calloc(128), calloc(128), 128, 1)) {
+    // OS_AddThread(TestUser, "TestUser", 1024, 1);
+    if (!OS_AddProcess(&TestUser, calloc(128), calloc(128), 2048, 1)) {
         printf("OS_AddProcess error");
         OS_Kill();
     }
@@ -331,7 +310,7 @@ void Testmain2(void) {
 
     NumCreated = 0;
     NumCreated += OS_AddThread(&TestProcess, "Test Process", 2048, 1);
-    NumCreated += OS_AddThread(&Idle, "MyIdle", 256, 3);
+    NumCreated += OS_AddThread(&Idle, "MyIdle", 2048, 3);
 
     OS_Launch(ms(10));
 }
@@ -426,9 +405,9 @@ void Testmain3(void) {
 }
 
 void main(void) {
-    // Testmain0();
+    Testmain0();
     // Testmain1();
-    Testmain2();
+    // Testmain2();
     // Testmain3();
     // realmain();
 }

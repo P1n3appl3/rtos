@@ -12,7 +12,8 @@
 #include <stdarg.h>
 #include <stdint.h>
 
-#define USE_OUTPUT_BUFFER
+// Speeds up transmission but annoying when debugging
+// #define USE_OUTPUT_BUFFER
 
 ADDFIFO(tx, 128, uint8_t)
 ADDFIFO(rx, 128, uint8_t)
@@ -74,7 +75,7 @@ void uart_init(void) {
 }
 
 bool putchar(char x) {
-#ifdef USE_IO_BUFFERING
+#ifdef USE_OUTPUT_BUFFER
     // Skip the buffer and go straight to the hardware fifo if possible
     if (txfifo_empty() && ROM_UARTCharPutNonBlocking(UART0_BASE, x)) {
         return true;

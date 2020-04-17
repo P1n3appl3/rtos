@@ -7,11 +7,6 @@
 
 const uint32_t MIN_ALLOCATION = 4;
 
-typedef struct HeapNode {
-    struct HeapNode* next;
-    uint32_t size;
-} HeapNode;
-
 extern uint32_t _heap;
 extern uint32_t _eheap;
 

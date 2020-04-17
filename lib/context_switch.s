@@ -5,18 +5,13 @@
 .text
 
 .extern current_thread
-.extern context_switch_hook
-.global pendsv_handler
-.extern start_critical
-.extern end_critical
+.extern mpu_swap_region
+// .extern context_switch_hook
 
 .thumb_func
+.global pendsv_handler
 pendsv_handler:
-    // CPSID I
-    PUSH {LR}
-    BL start_critical
-    POP {LR}
-    MOV R2, R0
+    CPSID I
     PUSH {R4 - R11}
 
 // For debugging context switches in C
@@ -30,10 +25,13 @@ pendsv_handler:
     LDR  R1, [R1,#4]            // R1 = current_thread->next_tcb;
     STR  R1, [R0]               // current_thread = current_thread->next_tcb;
     LDR  SP, [R1]               // SP = current_thread->sp
-    POP  {R4 - R11}
-    // CPSIE I
-    MOV R0, R2
-    PUSH {LR}
-    BL end_critical
+
+    // Change MPU region to current thread's stack
+    // TODO: make this faster by modifying the address register directly
+    push {LR}
+    BL mpu_swap_region 
     POP {LR}
+
+    POP  {R4 - R11}
+    CPSIE I
     BX LR

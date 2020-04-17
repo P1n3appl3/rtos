@@ -1,4 +1,10 @@
+#pragma once
 #include <stdint.h>
+
+typedef struct HeapNode {
+    struct HeapNode* next;
+    uint32_t size;
+} HeapNode;
 
 void heap_init(void);
 
