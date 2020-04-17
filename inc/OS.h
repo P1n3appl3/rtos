@@ -3,17 +3,18 @@
 #include <stdint.h>
 
 typedef struct pcb {
-    uint16_t pid;
     uint32_t* text;
     uint32_t* data;
-    uint16_t priority;
+    uint16_t pid;
+    uint8_t threads;
+    bool alive;
 } PCB;
 
 typedef struct tcb {
     uint32_t* sp;
     struct tcb* next_tcb;
     struct tcb* prev_tcb;
-    PCB* process;
+    PCB* parent_process;
 
     uint32_t id;
     const char* name;
@@ -45,7 +46,6 @@ void OS_Init(void);
 //         number of bytes allocated for its stack
 //         priority, 0 is highest, 5 is the lowest
 // returns: true if successful, false if this thread can not be added
-// stack size must be a multiple of 4 for alignment reasons
 bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
                   uint32_t priority);
 

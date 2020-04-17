@@ -64,8 +64,8 @@ void Idle(void) {
 }
 
 void realmain(void) {
-    OS_Init();    // initialize, disable interrupts
-    PortD_Init(); // debugging profile
+    OS_Init();
+    PortD_Init();
 
     adc_init(0); // sequencer 3, channel 0, PE3, sampling in Interpreter
 
@@ -116,9 +116,9 @@ void Thread3(void) {
     }
 }
 
-void Testmain0(void) { // Testmain0
-    OS_Init();         // initialize, disable interrupts
-    PortD_Init();      // profile user threads
+void Testmain0(void) {
+    OS_Init();
+    PortD_Init();
     NumCreated = 0;
     NumCreated += OS_AddThread(&Thread1, "Thread 1", 256, 1);
     NumCreated += OS_AddThread(&Thread2, "Thread 2", 256, 2);
@@ -126,7 +126,7 @@ void Testmain0(void) { // Testmain0
     OS_AddThread(debug_test, "filesystem", 512, 0);
     OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
     // Count1 Count2 Count3 should be equal or off by one at all times
-    OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
+    OS_Launch(ms(10));
 }
 
 //*****************Test project 1*************************
@@ -283,8 +283,8 @@ void TestUser(void) {
 }
 
 //  OS-internal OS_AddProcess function
-extern int OS_AddProcess(void (*entry)(void), void* text, void* data,
-                         unsigned long stackSize, unsigned long priority);
+extern bool OS_AddProcess(void (*entry)(void), void* text, void* data,
+                          unsigned long stackSize, unsigned long priority);
 
 void TestProcess(void) {
     // simple process management test, add process with dummy code and data
@@ -317,7 +317,7 @@ void TestProcess(void) {
 }
 
 void SW2Push2(void) {
-    if (OS_AddThread(&TestProcess, "Test Process", 256, 1)) {
+    if (OS_AddThread(&TestProcess, "Test Process", 1024, 1)) {
         NumCreated++;
     }
 }
@@ -330,8 +330,8 @@ void Testmain2(void) {
     OS_AddSW2Task(&SW2Push2, 2); // PF0, SW2
 
     NumCreated = 0;
-    NumCreated += OS_AddThread(&TestProcess, "Test Process", 256, 1);
-    NumCreated += OS_AddThread(&Idle, "Test Process", 256, 3);
+    NumCreated += OS_AddThread(&TestProcess, "Test Process", 2048, 1);
+    NumCreated += OS_AddThread(&Idle, "MyIdle", 256, 3);
 
     OS_Launch(ms(10));
 }
@@ -370,7 +370,7 @@ void TestSVCThread(void) {
     PD3 ^= 0x08;
     line++;
     printf("Thread: %d", id);
-    SVC_OS_Sleep(500);
+    SVC_OS_Sleep(ms(500));
     line++;
     printf("Thread dying: %d", id);
     PD3 ^= 0x08;
@@ -387,7 +387,7 @@ void TestSVC(void) {
     line++;
     SVC_OS_AddThread(TestSVCThread, "TestSVCThread", 128, 1);
     time = SVC_OS_Time();
-    SVC_OS_Sleep(1000);
+    SVC_OS_Sleep(seconds(1));
     time = to_us(SVC_OS_Time() - time);
     printf("Sleep time: %d", time);
     line++;
@@ -409,8 +409,8 @@ void SWPush3(void) {
     }
 }
 
-int Testmain3(void) { // Testmain3
-    OS_Init();        // initialize, disable interrupts
+void Testmain3(void) {
+    OS_Init();
     PortD_Init();
 
     // attach background tasks
@@ -422,19 +422,13 @@ int Testmain3(void) { // Testmain3
     NumCreated += OS_AddThread(&TestSVC, "TestSVC", 128, 1);
     NumCreated += OS_AddThread(&Idle, "Idle", 128, 3);
 
-    OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
-    return 0;          // this never executes
+    OS_Launch(ms(10));
 }
 
 void main(void) {
-<<<<<<< HEAD
-    // Testmain1();
-    Testmain3();
-    // realmain();
-=======
     // Testmain0();
     // Testmain1();
-    // Testmain2();
-    realmain();
->>>>>>> 3b1e6f886e52a95fb50d8021efbfefc8cbde9f3d
+    Testmain2();
+    // Testmain3();
+    // realmain();
 }

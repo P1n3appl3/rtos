@@ -24,7 +24,7 @@ int32_t MaxJitter;
 static uint32_t JitterHistogram[128] = {0};
 
 #define MAX_THREADS 8
-#define MAX_PROCESSES 2
+#define MAX_PROCESSES 4
 
 static TCB threads[MAX_THREADS];
 static uint8_t thread_count = 0;
@@ -44,6 +44,7 @@ static TCB idle = {
     .alive = true,
     .priority = 255,
     .name = "OS Idle",
+    .parent_process = 0,
 };
 
 static noreturn void idle_task(void) {
@@ -183,6 +184,9 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     while (threads[thread_index].alive) { thread_index++; }
     TCB* adding = &threads[thread_index];
 
+    if ((adding->parent_process = current_thread->parent_process)) {
+        ++adding->parent_process->threads;
+    }
     adding->alive = true;
     adding->asleep = false;
     adding->sleep_time = 0;
@@ -192,11 +196,14 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     adding->next_tcb = adding->prev_tcb = &idle;
 
     // initialize stack
-    adding->stack = malloc(stack_size);
+    adding->stack = calloc(
+        stack_size); // TODO: replace with malloc and detect stack overflow
     if (!adding->stack) {
         return false;
     }
     adding->sp = &adding->stack[stack_size / 4 - 1];
+    // TODO: check if 8 byte stack alignment matters
+    adding->sp = (uint32_t*)((uint8_t*)adding->sp - (uint32_t)adding->sp % 8);
     adding->sp -= 18;                    // Space for floating point registers
     *(--adding->sp) = 0x21000000;        // PSR
     *(--adding->sp) = (uint32_t)task;    // PC
@@ -208,23 +215,35 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     return true;
 }
 
-//******** OS_AddProcess ***************
 // add a process with foregound thread to the scheduler
 // Inputs: pointer to a void/void entry point
 //         pointer to process text (code) segment
 //         pointer to process data segment
 //         number of bytes allocated for its stack
 //         priority (0 is highest)
-// Outputs: 1 if successful, 0 if this process can not be added
-// This function will be needed for Lab 5
-// In Labs 2-4, this function can be ignored
+// Returns false if this process could not be added
 bool OS_AddProcess(void (*entry)(void), void* text, void* data,
-                   unsigned long stackSize, unsigned long priority) {
-    process_count++;
-    processes[process_count].text = text;
-    processes[process_count].data = data;
-    processes[process_count].priority = priority;
-    entry();
+                   uint32_t stack_size, uint32_t priority) {
+    uint32_t crit = start_critical();
+    if (process_count == MAX_PROCESSES) {
+        return false;
+    }
+    ++process_count;
+    uint8_t add_idx = 0;
+    for (int i = 0; i < MAX_PROCESSES; ++i) {
+        if (!processes[i].alive) {
+            add_idx = i;
+            break;
+        }
+    }
+    processes[add_idx].text = text;
+    processes[add_idx].data = data;
+    processes[add_idx].alive = true;
+    PCB* saved_parent = current_thread->parent_process;
+    current_thread->parent_process = &processes[add_idx];
+    OS_AddThread(entry, "Process entry", stack_size, priority);
+    current_thread->parent_process = saved_parent;
+    end_critical(crit);
     return true;
 }
 
@@ -359,6 +378,15 @@ void OS_Kill(void) {
     current_thread->alive = false;
     free(current_thread->stack);
     remove_current_thread();
+    // Handle process cleanup if needed
+    if (current_thread->parent_process) {
+        if (!--current_thread->parent_process->threads) {
+            --process_count;
+            current_thread->parent_process->alive = false;
+            free(current_thread->parent_process->data);
+            free(current_thread->parent_process->text);
+        }
+    }
     end_critical(crit);
 }
 
@@ -471,48 +499,6 @@ void OS_ReportJitter(void) {
     }
     printf("Modal Jitter: %d microseconds\n\r", most_idx);
     printf("Average Jitter: %d microseconds\n\r", sum / total_num);
-}
-
-//************** I/O Redirection ***************
-// redirect terminal I/O to UART or file (Lab 4)
-
-volatile uint8_t StreamToDevice = 0; // 0=UART, 1=stream to file (Lab 4)
-
-int fputc(char ch) {
-    if (!littlefs_append(ch)) { // close file on error
-        // OS_EndRedirectToFile(); // cannot write to file
-        return 1; // failure
-    }
-    return 0; // success writing
-}
-
-int fgetc() {
-    char ch = getchar();
-    puts(&ch);
-    return ch;
-}
-
-int OS_RedirectToFile(const char* name) { // Lab 4
-    if (littlefs_open_file(name))
-        return 1; // cannot open file
-    StreamToDevice = 1;
-    return 0;
-}
-
-int OS_EndRedirectToFile(void) { // Lab 4
-    StreamToDevice = 0;
-    if (littlefs_close_file())
-        return 1; // cannot close file
-    return 0;
-}
-
-int OS_RedirectToUART(void) {
-    StreamToDevice = 0;
-    return 0;
-}
-
-int OS_RedirectToLCD(void) {
-    return 1;
 }
 
 void OS_SVC_handler(uint8_t number, uint32_t* reg) {
