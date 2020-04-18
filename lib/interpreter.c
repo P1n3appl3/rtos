@@ -1,6 +1,6 @@
 #include "ADC.h"
 #include "OS.h"
-#include "ST7735.h"
+#include "heap.h"
 #include "io.h"
 #include "launchpad.h"
 #include "littlefs.h"
@@ -31,6 +31,7 @@ static char* HELPSTRING = "Available commands:\n\n\r"
                           "\t\t\t\tCOLOR: red, green, or blue\n\r"
                           "\t\t\t\tACTION: on, off, or toggle\n\r"
                           "adc\t\t\t\tread a single sample from the ADC\n\r"
+                          "heap\t\t\t\tshow heap usage information\n\r"
                           "time [get or reset]\t\tOS time helpers\n\r"
                           "mount\t\t\t\tmount the sd card\n\r"
                           "unmount\t\t\t\tunmount the sd card\n\r"
@@ -44,7 +45,7 @@ static char* HELPSTRING = "Available commands:\n\n\r"
                           "rm FILENAME\t\t\tdelete a file\n\r";
 
 #define ERROR(...)                                                             \
-    printf("ERROR: " __VA_ARGS__);                                               \
+    printf("ERROR: " __VA_ARGS__);                                             \
     return;
 
 void interpret_command(void) {
@@ -81,6 +82,8 @@ void interpret_command(void) {
         }
     } else if (streq(token, "adc")) {
         printf("ADC reading: %d\n\r", adc_in());
+    } else if (streq(token, "heap")) {
+        heap_stats();
     } else if (streq(token, "time")) {
         if (!next_token() || streq(token, "get")) {
             printf("Current time: %dms\n\r", (uint32_t)to_ms(OS_Time()));

@@ -101,8 +101,8 @@ void* realloc(void* allocation, uint32_t size) {
         return malloc(size);
     }
     size = align4(size);
-    HeapNode* this = heap_node_from_alloc(allocation);
     OS_Wait(&heap_mutex);
+    HeapNode* this = heap_node_from_alloc(allocation);
     uint16_t original_size = this->size;
     // if shrinking, try splitting the block to return unused space
     if (this->size > size) {
@@ -110,8 +110,8 @@ void* realloc(void* allocation, uint32_t size) {
         OS_Signal(&heap_mutex);
         if (temp) {
             // TODO: check if these adjustments are correct
-            free_space += 8;
-            used_space -= 8;
+            free_space += sizeof(HeapNode);
+            used_space -= sizeof(HeapNode);
             free((uint8_t*)heap_next_node(this) + sizeof(HeapNode));
         }
         return allocation;
@@ -186,11 +186,24 @@ uint32_t heap_get_max(void) {
     return largest;
 }
 
+const int graph_width = 80;
+
 void heap_stats(void) {
-    puts("Heap stats:");
-    printf("Heap size     = %d\n\r", total_heap_size);
-    printf("Heap used     = %d\n\r", used_space);
-    printf("Heap free     = %d\n\r", free_space);
-    printf("Heap waste    = %d\n\r", total_heap_size - used_space - free_space);
-    printf("Largest block = %d\n\n\r", heap_get_max());
+    printf("Total bytes available: %d\n\r", total_heap_size);
+    printf("Bytes in use: " RED "%d" NORMAL "\n\r", used_space);
+    printf("Bytes still available: " CYAN "%d" NORMAL "\n\r", free_space);
+    uint16_t wasted = total_heap_size - used_space - free_space;
+    printf("Bytes wasted: " YELLOW "%d" NORMAL "\n\r", wasted);
+    printf("[" RED);
+    for (int i = 0; i < graph_width; ++i) {
+        if (used_space * graph_width / total_heap_size == i) {
+            printf(YELLOW);
+        }
+        if ((used_space + wasted) * graph_width / total_heap_size == i) {
+            printf(CYAN);
+        }
+        putchar('#');
+    }
+    puts(NORMAL "]");
+    printf("Largest possible allocation: %d bytes.\n\n\r", heap_get_max());
 }

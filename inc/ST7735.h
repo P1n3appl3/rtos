@@ -16,14 +16,14 @@
 #define ST7735_WIDTH 128
 #define ST7735_HEIGHT 160
 
-#define BLACK 0x0000
-#define BLUE 0xF800
-#define RED 0x001F
-#define GREEN 0x07E0
-#define CYAN 0xFFE0
-#define MAGENTA 0xF81F
-#define YELLOW 0x07FF
-#define WHITE 0xFFFF
+#define LCD_BLACK 0x0000
+#define LCD_BLUE 0xF800
+#define LCD_RED 0x001F
+#define LCD_GREEN 0x07E0
+#define LCD_CYAN 0xFFE0
+#define LCD_MAGENTA 0xF81F
+#define LCD_YELLOW 0x07FF
+#define LCD_WHITE 0xFFFF
 
 // Initialization for ST7735R screens (green or red tabs).
 void lcd_init();

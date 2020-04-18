@@ -12,7 +12,7 @@
 // Requires (11 + size*size*6*8) bytes of transmission for each character
 static uint8_t cursor_x = 0; // position along the horizonal axis 0 to 20
 static uint8_t cursor_y = 0; // position along the vertical axis 0 to 15
-uint16_t text_color = CYAN;
+uint16_t text_color = LCD_CYAN;
 
 #define ST7735_NOP 0x00
 #define ST7735_SWRESET 0x01
@@ -277,8 +277,8 @@ void lcd_init() {
     command_list(Rcmd3);
 
     lcd_set_cursor(0, 0);
-    text_color = YELLOW;
-    lcd_fill(BLACK);
+    text_color = LCD_YELLOW;
+    lcd_fill(LCD_BLACK);
     OS_InitSemaphore(&LCDFree, 0);
 }
 
@@ -506,7 +506,7 @@ uint32_t lcd_string(uint16_t x, uint16_t y, char* pt, int16_t textColor) {
     if (y > 15)
         return 0;
     while (*pt) {
-        lcd_char(x * 6, y * 10, *pt, textColor, BLACK, 1);
+        lcd_char(x * 6, y * 10, *pt, textColor, LCD_BLACK, 1);
         pt++;
         x = x + 1;
         if (x > 20)
@@ -564,11 +564,11 @@ void lcd_putchar(char ch) {
         lcd_string(0, cursor_y, "                     ", text_color);
         return;
     }
-    lcd_char(cursor_x * 6, cursor_y * 10, ch, YELLOW, BLACK, 1);
+    lcd_char(cursor_x * 6, cursor_y * 10, ch, LCD_YELLOW, LCD_BLACK, 1);
     cursor_x++;
     if (cursor_x > 20) {
         cursor_x = 20;
-        lcd_char(cursor_x * 6, cursor_y * 10, '*', RED, BLACK, 1);
+        lcd_char(cursor_x * 6, cursor_y * 10, '*', LCD_RED, LCD_BLACK, 1);
     }
     return;
 }

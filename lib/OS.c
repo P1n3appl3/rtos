@@ -199,8 +199,8 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     adding->next_tcb = adding->prev_tcb = &idle;
 
     // initialize stack
-    adding->stack =
-        malloc(max(stack_size, MIN_STACK_SIZE) + 32); // extra is for MPU
+    stack_size = max(stack_size, MIN_STACK_SIZE) + 32; // extra is for MPU
+    adding->stack = malloc(stack_size);
     if (!adding->stack) {
         return false;
     }
@@ -532,11 +532,14 @@ void OS_SVC_handler(uint8_t number, uint32_t* reg) {
     }
 }
 
+// TODO: change the stack pointer so that using the stack in this handler
+// doesn't overwrite the HeapNode for the stack that just overflowed
 void memory_management_fault_handler(void) {
     HeapNode* stack_allocation = heap_node_from_alloc(current_thread->stack);
+    uint16_t stack_size = stack_allocation->size - 32;
     printf("\n\n\rSTACK OVERFLOW\n\rThread '%s' overflowed its %d byte stack, "
            "Consider increasing it.\n\r",
-           current_thread->name, stack_allocation->size - 32);
+           current_thread->name, stack_size);
     printf("FAULTSTAT: 0x%08x\n\r", HWREG(NVIC_FAULT_STAT));
     printf("Address accessed: 0x%08x\n\r", HWREG(NVIC_MM_ADDR));
     while (true) {

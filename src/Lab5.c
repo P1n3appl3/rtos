@@ -23,10 +23,6 @@ void PortD_Init(void) {
     ROM_GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, 0x0F);
 }
 
-//------------------Task 1--------------------------------
-// background thread executes with SW1 button
-// one foreground task created with button push
-
 void ButtonWork(void) {
     PD1 ^= 0x02;
     PD1 ^= 0x02;
@@ -54,20 +50,56 @@ void realmain(void) {
     OS_Launch(ms(2));
 }
 
-//*****************Test project 0*************************
-
-void overflowA(void) {
-    static int x = 0;
-    printf("A: %d\n\r", x++);
-    OS_Suspend();
-    overflowA();
+void thrasherA(void) {
+    char* a;
+    while (true) {
+        a = malloc(32);
+        if (!a)
+            break;
+        a = realloc(a, 16);
+        if (!a)
+            break;
+        a = realloc(a, 128);
+        if (!a)
+            break;
+        a = realloc(a, 64);
+        if (!a)
+            break;
+        free(a);
+    }
+    printf("Uh oh, it seems you're out of memory\n\r");
+    while (true) {}
 }
 
-void overflowB(void) {
-    static int x = 0;
-    printf("B: %d\n\r", x++);
-    OS_Suspend();
-    overflowB();
+void thrasherB(void) {
+    char* b;
+    while (true) {
+        if (!(b = malloc(32)))
+            break;
+        if (!(b = realloc(b, 16)))
+            break;
+        if (!(b = realloc(b, 128)))
+            break;
+        if (!(b = realloc(b, 64)))
+            break;
+        free(b);
+    }
+    printf("Uh oh, it seems you're out of memory\n\r");
+    while (true) {}
+}
+
+void testmain_thrash_heap(void) {
+    OS_Init();
+    OS_AddThread(thrasherA, "thrasher A", 1024, 0);
+    OS_AddThread(thrasherB, "thrasher B", 1024, 1);
+    OS_Launch(us(100));
+}
+
+void testmain_littlefs(void) {
+    OS_Init();
+    OS_AddThread(debug_test, "filesystem", 2048, 0);
+    OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
+    OS_Launch(ms(10));
 }
 
 void allocator_optimization(void) {
@@ -118,59 +150,30 @@ void allocator_optimization(void) {
     while (true) {}
 }
 
-void thrasherA(void) {
-    char* a;
-    while (true) {
-        a = malloc(32);
-        if (!a)
-            break;
-        // a = realloc(a, 16);
-        // if (!a)
-        //     break;
-        // a = realloc(a, 128);
-        // if (!a)
-        //     break;
-        // a = realloc(a, 64);
-        // if (!a)
-        //     break;
-        free(a);
-    }
-    printf("Uh oh, it seems you're out of memory\n\r");
-    while (true) {}
-}
-
-void thrasherB(void) {
-    char* b;
-    while (true) {
-        b = malloc(32);
-        if (!b)
-            break;
-        // b = realloc(b, 16);
-        // if (!b)
-        //     break;
-        // b = realloc(b, 128);
-        // if (!b)
-        //     break;
-        // b = realloc(b, 64);
-        // if (!b)
-        //     break;
-        free(b);
-    }
-    printf("Uh oh, it seems you're out of memory\n\r");
-    while (true) {}
-}
-
-void Testmain0(void) {
+void testmain_alloc_optimization(void) {
     OS_Init();
+    OS_AddThread(allocator_optimization, "allocator test", 2048, 1);
+    OS_Launch(ms(10));
+}
 
-    OS_AddThread(thrasherA, "thrasher A", 1024, 1);
-    OS_AddThread(thrasherB, "thrasher B", 1024, 1);
-    // OS_AddThread(allocator_optimization, "allocator test", 2048, 1);
-    // OS_AddThread(overflowA, "overflow test", 2048, 1);
-    // OS_AddThread(overflowB, "overflow test", 1024, 1);
-    // OS_AddThread(debug_test, "filesystem", 512, 0);
-    // OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
+void overflowA(void) {
+    static int x = 0;
+    printf("A: %d\n\r", x++);
+    OS_Suspend();
+    overflowA();
+}
 
+void overflowB(void) {
+    static int x = 0;
+    printf("B: %d\n\r", x++);
+    OS_Suspend();
+    overflowB();
+}
+
+void testmain_stack_overflow(void) {
+    OS_Init();
+    OS_AddThread(overflowA, "overflow test", 2048, 1);
+    OS_AddThread(overflowB, "overflow test", 1024, 1);
     OS_Launch(us(100));
 }
 
@@ -368,7 +371,7 @@ void Testmain2(void) {
     OS_AddSW1Task(&SW1Push1, 2); // PF4, SW1
     OS_AddSW2Task(&SW2Push2, 2); // PF0, SW2
 
-    OS_AddThread(&TestProcess, "Test Process", 512, 1);
+    OS_AddThread(&TestProcess, "Test Process", 1024, 1);
 
     OS_Launch(ms(10));
 }
@@ -460,9 +463,12 @@ void Testmain3(void) {
 }
 
 void main(void) {
-    // Testmain0();
+    // testmain_thrash_heap();
+    // testmain_littlefs();
+    // testmain_alloc_optimization();
+    // testmain_stack_overflow();
     // Testmain1();
-    Testmain2();
+    // Testmain2();
     // Testmain3();
-    // realmain();
+    realmain();
 }
