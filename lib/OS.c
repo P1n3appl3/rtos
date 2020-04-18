@@ -533,14 +533,13 @@ void OS_SVC_handler(uint8_t number, uint32_t* reg) {
 }
 
 void memory_management_fault_handler(void) {
-    HeapNode* stack_allocation =
-        (HeapNode*)((uint8_t*)current_thread->stack - sizeof(HeapNode));
+    HeapNode* stack_allocation = heap_node_from_alloc(current_thread->stack);
     printf("\n\n\rSTACK OVERFLOW\n\rThread '%s' overflowed its %d byte stack, "
            "Consider increasing it.\n\r",
-           current_thread->name, stack_allocation->size);
+           current_thread->name, stack_allocation->size - 32);
     printf("FAULTSTAT: 0x%08x\n\r", HWREG(NVIC_FAULT_STAT));
     printf("Address accessed: 0x%08x\n\r", HWREG(NVIC_MM_ADDR));
-    while (1) {
+    while (true) {
         busy_wait(7, ms(500));
         led_toggle(RED_LED | BLUE_LED);
     }
@@ -550,7 +549,7 @@ void hardfault_handler(void) {
     printf("\n\n\rHARD FAULT in thread '%s'\n\r", current_thread->name);
     printf("FAULTSTAT:  0x%08x\n\r", HWREG(NVIC_FAULT_STAT));
     printf("HFAULTSTAT: 0x%08x\n\r", HWREG(NVIC_HFAULT_STAT));
-    while (1) {
+    while (true) {
         busy_wait(7, ms(500));
         led_toggle(RED_LED);
     }

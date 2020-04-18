@@ -1,5 +1,4 @@
 #include "ADC.h"
-#include "LPF.h"
 #include "OS.h"
 #include "ST7735.h"
 #include "eDisk.h"
@@ -13,9 +12,6 @@
 #include "std.h"
 #include "tivaware/rom.h"
 #include <stdint.h>
-
-uint32_t NumCreated; // number of foreground threads created
-uint32_t IdleCount;  // CPU idle counter
 
 #define PD0 (*((volatile uint32_t*)0x40007004))
 #define PD1 (*((volatile uint32_t*)0x40007008))
@@ -39,28 +35,8 @@ void ButtonWork(void) {
     OS_Kill();
 }
 
-void SW1Push(void) {
-    if (OS_AddThread(&ButtonWork, "Button work", 200, 2)) {
-        NumCreated++;
-    }
-}
-
-void SW2Push(void) {
-    if (OS_AddThread(&ButtonWork, "Button work", 200, 2)) {
-        NumCreated++;
-    }
-}
-
-//------------------Idle Task--------------------------------
-// foreground thread, runs when nothing else does
-// never blocks, never sleeps, never dies
-void Idle(void) {
-    IdleCount = 0;
-    while (1) {
-        IdleCount++;
-        PD0 ^= 0x01;
-        wait_for_interrupts();
-    }
+void SWPush(void) {
+    OS_AddThread(&ButtonWork, "Button work", 200, 2);
 }
 
 void realmain(void) {
@@ -70,12 +46,10 @@ void realmain(void) {
     adc_init(0); // sequencer 3, channel 0, PE3, sampling in Interpreter
 
     OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
-    OS_AddSW1Task(&SW1Push, 2);
-    OS_AddSW2Task(&SW2Push, 2);
+    OS_AddSW1Task(&SWPush, 2);
+    OS_AddSW2Task(&SWPush, 2);
 
-    NumCreated = 0;
-    NumCreated += OS_AddThread(&interpreter, "interpreter", 2048, 2);
-    NumCreated += OS_AddThread(&Idle, "Idle", 1024, 5);
+    OS_AddThread(&interpreter, "interpreter", 2048, 2);
 
     OS_Launch(ms(2));
 }
@@ -96,15 +70,108 @@ void overflowB(void) {
     overflowB();
 }
 
+void allocator_optimization(void) {
+    uint8_t* a;
+    uint8_t* b;
+    uint8_t* c;
+    puts("\n\rSINGLE ALLOCATION TEST:");
+    printf("Free space before allocating = %d\n\r", heap_get_space());
+    a = malloc(32);
+    printf("Free space after allocating  = %d\n\r", heap_get_space());
+    free(a);
+    printf("Free space after freeing     = %d\n\n\r", heap_get_space());
+
+    heap_stats();
+
+    puts("\n\rMULTIPLE ALLOCATION TEST");
+    printf("Before = %d\n\r", heap_get_space());
+    a = malloc(32), b = malloc(32), c = malloc(32);
+    printf("After allocating = %d\n\r", heap_get_space());
+    free(a), free(b), free(c);
+    printf("Freed in order = %d\n\r", heap_get_space());
+    a = malloc(32), b = malloc(32), c = malloc(32),
+    printf("After allocating = %d\n\r", heap_get_space());
+    free(c), free(b), free(a);
+    printf("Freed in reverse = %d\n\r", heap_get_space());
+    a = malloc(32), b = malloc(32), c = malloc(32),
+    printf("After allocating = %d\n\r", heap_get_space());
+    free(a), free(c), free(b);
+    printf("Middle freed last = %d\n\n\r", heap_get_space());
+
+    heap_stats();
+
+    puts("\n\rREALLOC TEST");
+    printf("Before allocating = %d\n\r", heap_get_space());
+    a = malloc(32);
+    printf("a = 0x%08x\n\r", a);
+    a = realloc(a, 64);
+    printf("a = 0x%08x\n\r", a);
+    b = malloc(64);
+    a = realloc(a, 128);
+    printf("a = 0x%08x\n\r", a);
+    a = realloc(a, 64);
+    free(a), free(b);
+    printf("After Freeing = %d\n\n\r", heap_get_space());
+
+    heap_stats();
+
+    while (true) {}
+}
+
+void thrasherA(void) {
+    char* a;
+    while (true) {
+        a = malloc(32);
+        if (!a)
+            break;
+        // a = realloc(a, 16);
+        // if (!a)
+        //     break;
+        // a = realloc(a, 128);
+        // if (!a)
+        //     break;
+        // a = realloc(a, 64);
+        // if (!a)
+        //     break;
+        free(a);
+    }
+    printf("Uh oh, it seems you're out of memory\n\r");
+    while (true) {}
+}
+
+void thrasherB(void) {
+    char* b;
+    while (true) {
+        b = malloc(32);
+        if (!b)
+            break;
+        // b = realloc(b, 16);
+        // if (!b)
+        //     break;
+        // b = realloc(b, 128);
+        // if (!b)
+        //     break;
+        // b = realloc(b, 64);
+        // if (!b)
+        //     break;
+        free(b);
+    }
+    printf("Uh oh, it seems you're out of memory\n\r");
+    while (true) {}
+}
+
 void Testmain0(void) {
     OS_Init();
 
-    OS_AddThread(overflowA, "overflow test", 2048, 1);
-    OS_AddThread(overflowB, "overflow test", 1024, 1);
+    OS_AddThread(thrasherA, "thrasher A", 1024, 1);
+    OS_AddThread(thrasherB, "thrasher B", 1024, 1);
+    // OS_AddThread(allocator_optimization, "allocator test", 2048, 1);
+    // OS_AddThread(overflowA, "overflow test", 2048, 1);
+    // OS_AddThread(overflowB, "overflow test", 1024, 1);
     // OS_AddThread(debug_test, "filesystem", 512, 0);
     // OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
 
-    OS_Launch(ms(10));
+    OS_Launch(us(100));
 }
 
 //*****************Test project 1*************************
@@ -226,9 +293,7 @@ void TestHeap(void) {
 }
 
 void SW1Push1(void) {
-    if (OS_AddThread(&TestHeap, "Test Heap", 2048, 1)) {
-        NumCreated++;
-    }
+    OS_AddThread(&TestHeap, "Test Heap", 2048, 1);
 }
 
 void Testmain1(void) {
@@ -237,9 +302,7 @@ void Testmain1(void) {
 
     OS_AddSW1Task(&SW1Push1, 2);
 
-    NumCreated = 0;
-    NumCreated += OS_AddThread(&TestHeap, "Test Heap", 2048, 1);
-    NumCreated += OS_AddThread(&Idle, "Idle", 512, 3);
+    OS_AddThread(&TestHeap, "Test Heap", 2048, 1);
 
     OS_Launch(ms(10));
 }
@@ -273,7 +336,6 @@ void TestProcess(void) {
     heap_stats();
     uint32_t original_free = heap_get_space();
     PD1 ^= 0x02;
-    // OS_AddThread(TestUser, "TestUser", 1024, 1);
     if (!OS_AddProcess(&TestUser, calloc(128), calloc(128), 2048, 1)) {
         printf("OS_AddProcess error");
         OS_Kill();
@@ -296,9 +358,7 @@ void TestProcess(void) {
 }
 
 void SW2Push2(void) {
-    if (OS_AddThread(&TestProcess, "Test Process", 1024, 1)) {
-        NumCreated++;
-    }
+    OS_AddThread(&TestProcess, "Test Process", 1024, 1);
 }
 
 void Testmain2(void) {
@@ -308,9 +368,7 @@ void Testmain2(void) {
     OS_AddSW1Task(&SW1Push1, 2); // PF4, SW1
     OS_AddSW2Task(&SW2Push2, 2); // PF0, SW2
 
-    NumCreated = 0;
-    NumCreated += OS_AddThread(&TestProcess, "Test Process", 2048, 1);
-    NumCreated += OS_AddThread(&Idle, "MyIdle", 2048, 3);
+    OS_AddThread(&TestProcess, "Test Process", 512, 1);
 
     OS_Launch(ms(10));
 }
@@ -318,7 +376,8 @@ void Testmain2(void) {
 //*****************Test project 3*************************
 // Test supervisor calls (SVC exceptions)
 // Using inline assembly, syntax is dependent on the compiler
-// The following code compiles in Keil 5.x (even though the UI complains)
+// The following code compiles in Keil 5.x (even though the UI
+// complains)
 
 __attribute__((naked)) uint32_t SVC_OS_Id(void) {
     __asm("SVC #0\n"
@@ -382,9 +441,7 @@ void TestSVC(void) {
 void SWPush3(void) {
     if (line >= 4) {
         line = 0;
-        if (OS_AddThread(&TestSVC, "TestSVC", 128, 1)) {
-            NumCreated++;
-        }
+        OS_AddThread(&TestSVC, "TestSVC", 128, 1);
     }
 }
 
@@ -397,17 +454,15 @@ void Testmain3(void) {
     OS_AddSW2Task(&SWPush3, 2); // PF0, SW2
 
     // create initial foreground threads
-    NumCreated = 0;
-    NumCreated += OS_AddThread(&TestSVC, "TestSVC", 128, 1);
-    NumCreated += OS_AddThread(&Idle, "Idle", 128, 3);
+    OS_AddThread(&TestSVC, "TestSVC", 128, 1);
 
     OS_Launch(ms(10));
 }
 
 void main(void) {
-    Testmain0();
+    // Testmain0();
     // Testmain1();
-    // Testmain2();
+    Testmain2();
     // Testmain3();
     // realmain();
 }

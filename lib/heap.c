@@ -26,26 +26,40 @@ void heap_init(void) {
     OS_InitSemaphore(&heap_mutex, 0);
 }
 
-void* malloc(uint32_t size) {
-    if (size % 4) {
-        size += 4 - size % 4; // 4 byte alignment
+HeapNode* heap_node_from_alloc(void* alloc) {
+    return (HeapNode*)((uint8_t*)alloc - sizeof(HeapNode));
+}
+
+static HeapNode* heap_next_node(HeapNode* current) {
+    return (HeapNode*)((uint8_t*)current + current->size + sizeof(HeapNode));
+}
+
+static bool try_splitting_block(HeapNode* node, uint32_t size) {
+    if (node->size < size + sizeof(HeapNode) + MIN_ALLOCATION) {
+        return false;
     }
+    HeapNode* new = (HeapNode*)(((uint8_t*)node) + sizeof(HeapNode) +
+                                max(size, MIN_ALLOCATION));
+    new->next = node->next;
+    new->size = node->size - sizeof(HeapNode) - size;
+    node->size = max(size, MIN_ALLOCATION);
+    node->next = new;
+    free_space -= sizeof(HeapNode);
+    return true;
+}
+
+static uint32_t align4(uint32_t n) {
+    return n += n % 4 ? 4 - n % 4 : 0;
+}
+
+void* malloc(uint32_t size) {
+    size = align4(size);
     OS_Wait(&heap_mutex);
     HeapNode* prev;
     HeapNode* current = head;
     while (current) {
         if (current->size >= size) {
-            // split node if large enough
-            if (current->size - size >= sizeof(HeapNode) + MIN_ALLOCATION) {
-                HeapNode* new =
-                    (HeapNode*)(((uint8_t*)current) + sizeof(HeapNode) +
-                                max(size, MIN_ALLOCATION));
-                new->next = current->next;
-                new->size = current->size - sizeof(HeapNode) - size;
-                current->size = max(size, MIN_ALLOCATION);
-                current->next = new;
-                free_space -= sizeof(HeapNode);
-            }
+            try_splitting_block(current, size);
             if (current == head) {
                 head = current->next;
             } else {
@@ -71,13 +85,54 @@ void* calloc(uint32_t size) {
     return temp;
 }
 
+// attempt to merge two heap nodes to reduce fragmentation
+// 'a' should be the node at a lower memory address
+static bool try_combining(HeapNode* a, HeapNode* b) {
+    if (heap_next_node(a) == b) {
+        a->size += b->size + sizeof(HeapNode);
+        free_space += sizeof(HeapNode);
+        return true;
+    }
+    return false;
+}
+
 void* realloc(void* allocation, uint32_t size) {
-    // TODO: grow into contiguous block if possible to avoid copying
-    HeapNode* this = (HeapNode*)((uint8_t*)allocation - sizeof(HeapNode));
+    if (!allocation) {
+        return malloc(size);
+    }
+    size = align4(size);
+    HeapNode* this = heap_node_from_alloc(allocation);
+    OS_Wait(&heap_mutex);
+    uint16_t original_size = this->size;
+    // if shrinking, try splitting the block to return unused space
     if (this->size > size) {
-        // TODO: create new block from shrunken memory
+        bool temp = try_splitting_block(this, size);
+        OS_Signal(&heap_mutex);
+        if (temp) {
+            // TODO: check if these adjustments are correct
+            free_space += 8;
+            used_space -= 8;
+            free((uint8_t*)heap_next_node(this) + sizeof(HeapNode));
+        }
         return allocation;
     }
+    // otherwise, grow into adjacent block if possible to avoid copying
+    HeapNode* current = head;
+    while (current && this > current) { current = current->next; }
+    if (try_combining(this, current)) {
+        this->next = current->next;
+        try_splitting_block(this, size);
+        uint16_t additional_space = this->size - original_size;
+        used_space += additional_space;
+        free_space -= additional_space;
+        if (current == head) {
+            head = this->next;
+        }
+        OS_Signal(&heap_mutex);
+        return allocation;
+    }
+    OS_Signal(&heap_mutex);
+    // if neither works, grab a new allocation, copy, and free the old
     void* new = malloc(size);
     if (new) {
         memcpy(new, allocation, this->size);
@@ -90,37 +145,29 @@ void free(void* allocation) {
     if (!allocation) {
         __asm("BKPT"); // you've fucked up
     }
-    HeapNode* this = (HeapNode*)((uint8_t*)allocation - sizeof(HeapNode));
+    HeapNode* this = heap_node_from_alloc(allocation);
     OS_Wait(&heap_mutex);
+    // move along the linked list until prev/current bracket 'this' in terms
+    // of their location
     HeapNode* current = head;
     HeapNode* prev;
     while (current && this > current) {
-        prev = current;
-        current = current->next;
+        prev = current, current = current->next;
     }
     used_space -= this->size;
     free_space += this->size;
-    // TODO: merge adjacent blocks to defragment
+    // attempt to merge this block with the adjacent ones before and after it
     if (current == head) {
-        this->next = head;
         head = this;
     } else {
-        prev->next = this;
-        this->next = current;
+        if (try_combining(prev, this)) {
+            this = prev;
+        } else {
+            prev->next = this;
+        }
     }
+    this->next = try_combining(this, current) ? current->next : current;
     OS_Signal(&heap_mutex);
-}
-
-void heap_stats(void) {
-    puts("Heap stats:");
-    printf("Heap size  = %d\n\r", total_heap_size);
-    printf("Heap used  = %d\n\r", used_space);
-    printf("Heap free  = %d\n\r", free_space);
-    printf("Heap waste = %d\n\r", total_heap_size - used_space - free_space);
-}
-
-uint32_t heap_get_size(void) {
-    return total_heap_size;
 }
 
 uint32_t heap_get_space(void) {
@@ -137,4 +184,13 @@ uint32_t heap_get_max(void) {
     }
     OS_Signal(&heap_mutex);
     return largest;
+}
+
+void heap_stats(void) {
+    puts("Heap stats:");
+    printf("Heap size     = %d\n\r", total_heap_size);
+    printf("Heap used     = %d\n\r", used_space);
+    printf("Heap free     = %d\n\r", free_space);
+    printf("Heap waste    = %d\n\r", total_heap_size - used_space - free_space);
+    printf("Largest block = %d\n\n\r", heap_get_max());
 }

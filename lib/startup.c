@@ -1,10 +1,11 @@
 #include "tivaware/rom.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 #define mkstr(s) #s
 #define DECLARE_HANDLER(name)                                                  \
     void default_##name##_handler(void) {                                      \
-        while (1) {}                                                           \
+        while (true) {}                                                        \
     }                                                                          \
     __attribute__(                                                             \
         (weak,                                                                 \
@@ -277,5 +278,5 @@ void default_reset_handler(void) {
 
     ROM_FPUEnable();
     main();
-    while (1) {}
+    while (true) {}
 }

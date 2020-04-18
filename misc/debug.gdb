@@ -3,6 +3,22 @@ set history filename out/gdb_history.log
 monitor reset halt
 set backtrace limit 32
 
+define show_heap
+    printf "Heap starts at 0x%08x\n", &_heap
+    echo \nFree Nodes:\n
+    set $current = head
+    printf "0x%08x size: %d\n", $current, $current->size
+    while $current->next
+        set $prev = $current
+        set $current = $current->next
+        set $temp = heap_next_node($prev) 
+        if $temp != $current
+            printf "%d bytes in use\n", ($current - $temp) * sizeof(HeapNode)
+        end
+        printf "0x%08x size: %d\n", $current, $current->size
+    end
+end
+
 define show_threads
     set $current = current_thread
     set $max = thread_count
