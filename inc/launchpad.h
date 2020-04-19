@@ -10,15 +10,14 @@
 // PF4 - Right button
 
 // Initializes the LED and button pins on the launchpad
+// and enables portf interrupts for the buttons
 void launchpad_init(void);
+
+void enable_button_interupts(uint8_t priority);
 
 #define RED_LED GPIO_PIN_1
 #define BLUE_LED GPIO_PIN_2
 #define GREEN_LED GPIO_PIN_3
-
-void switch1_init(void (*task)(void), uint8_t priority);
-
-void switch2_init(void (*task)(void), uint8_t priority);
 
 bool left_switch(void);
 

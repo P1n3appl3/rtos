@@ -280,6 +280,8 @@ static uint8_t send_cmd(uint8_t cmd, uint32_t arg) {
 }
 
 DSTATUS eDisk_Init() {
+    OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
+    OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
     uint8_t n, cmd, ty, ocr[4];
 
     init_spi(); // Initialize SPI

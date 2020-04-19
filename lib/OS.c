@@ -9,6 +9,7 @@
 #include "std.h"
 #include "timer.h"
 #include "tivaware/gpio.h"
+#include "tivaware/hw_gpio.h"
 #include "tivaware/hw_ints.h"
 #include "tivaware/hw_memmap.h"
 #include "tivaware/hw_nvic.h"
@@ -20,6 +21,40 @@
 #include "tivaware/timer.h"
 #include <stdint.h>
 #include <stdnoreturn.h>
+
+typedef struct {
+    uint32_t* text;
+    uint32_t* data;
+    uint16_t pid;
+    uint8_t threads;
+    bool alive;
+} PCB;
+
+typedef struct TCB {
+    uint32_t* sp;
+    struct TCB* next_tcb;
+    struct TCB* prev_tcb;
+    PCB* parent_process;
+
+    uint32_t id;
+    const char* name;
+
+    struct TCB* next_blocked;
+
+    uint32_t sleep_time;
+
+    bool asleep;
+    bool blocked;
+    bool alive;
+    uint8_t priority;
+
+    uint32_t* stack;
+} TCB;
+
+struct Sema4 {
+    int32_t value; // >=0 means free, negative means busy
+    TCB* blocked_head;
+};
 
 // Performance Measurements
 int32_t MaxJitter;
@@ -113,14 +148,6 @@ static void remove_current_thread() {
     OS_Suspend();
 }
 
-unsigned long OS_LockScheduler(void) {
-    // lab 4 might need this for disk formating
-    return 0; // replace with solution
-}
-void OS_UnLockScheduler(unsigned long previous) {
-    // lab 4 might need this for disk formating
-}
-
 void OS_Init(void) {
     disable_interrupts();
     os_running = false;
@@ -128,9 +155,9 @@ void OS_Init(void) {
                        SYSCTL_OSC_MAIN);
     heap_init();
     launchpad_init();
+    enable_button_interupts(3);
     uart_init();
     SSI0_Init(10);
-    // lcd_init();
     MaxJitter = 0;
 }
 
@@ -340,14 +367,36 @@ bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
     return true;
 }
 
-bool OS_AddSW1Task(void (*task)(void), uint32_t priority) {
-    switch1_init(task, priority);
-    return true;
+static void (*sw1task)(void);
+static void (*sw2task)(void);
+
+const uint32_t debounce_ms = 20;
+static uint32_t last_sw1;
+static uint32_t last_sw2;
+
+void gpio_portf_handler(void) {
+    uint32_t now = to_ms(OS_Time());
+    if (HWREG(GPIO_PORTF_BASE + GPIO_O_RIS) & 0x01) {
+        if (sw1task && now - last_sw1 > debounce_ms) {
+            sw1task();
+        }
+        last_sw1 = now;
+    }
+    if (HWREG(GPIO_PORTF_BASE + GPIO_O_RIS) & 0x10) {
+        if (sw2task && now - last_sw2 > debounce_ms) {
+            sw2task();
+        }
+        last_sw2 = now;
+    }
+    HWREG(GPIO_PORTF_BASE + GPIO_O_ICR) = 0x11;
 }
 
-bool OS_AddSW2Task(void (*task)(void), uint32_t priority) {
-    switch2_init(task, priority);
-    return true;
+void OS_AddSW1Task(void (*task)(void)) {
+    sw1task = task;
+}
+
+void OS_AddSW2Task(void (*task)(void)) {
+    sw2task = task;
 }
 
 // TODO: structure this the same as periodic tasks to incur minimum overhead

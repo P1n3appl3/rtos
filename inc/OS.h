@@ -2,49 +2,21 @@
 #include "timer.h"
 #include <stdint.h>
 
-typedef struct pcb {
-    uint32_t* text;
-    uint32_t* data;
-    uint16_t pid;
-    uint8_t threads;
-    bool alive;
-} PCB;
+typedef struct Sema4 Sema4;
 
-typedef struct tcb {
-    uint32_t* sp;
-    struct tcb* next_tcb;
-    struct tcb* prev_tcb;
-    PCB* parent_process;
-
-    uint32_t id;
-    const char* name;
-
-    struct tcb* next_blocked;
-
-    uint32_t sleep_time;
-
-    bool asleep;
-    bool blocked;
-    bool alive;
-    uint8_t priority;
-
-    uint32_t* stack;
-} TCB;
-
-typedef struct {
-    int32_t value; // >=0 means free, negative means busy
-    TCB* blocked_head;
-} Sema4;
-
-// initialize OS controlled I/O: UART, ADC, Systick, LaunchPad I/O and timers
-// disable interrupts until OS_Launch
+// initialize OS controlled IO, timers, and heap
+// disables interrupts until OS_Launch
 void OS_Init(void);
+
+// start the scheduler, enable interrupts
+// inputs: number of cycles for each time slice
+void OS_Launch(uint32_t time_slice);
 
 // add a foregound thread to the scheduler
 // inputs: pointer to a foreground task
 //         string with a label for debugging
 //         number of bytes allocated for its stack
-//         priority, 0 is highest, 5 is the lowest
+//         priority (lower number = higher priority)
 // returns: true if successful, false if this thread can not be added
 bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
                   uint32_t priority);
@@ -52,37 +24,30 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
 // add a background periodic task
 // typically this function receives the highest priority
 // inputs: pointer to a void/void background function
-//         period given in cycles
-//         priority 0 is the highest, 5 is the lowest
+//         period in cycles
+//         priority (lower number = higher priority)
 // returns: true if successful, false if this thread can not be added
 // This task can't block, but it can call OS_Signal or OS_AddThread
-// In lab 3, this command will be called 0 1 or 2 times
-// In lab 3, there will be up to four background threads, and this priority
-// field determines the relative priority of these four threads
 bool OS_AddPeriodicThread(void (*task)(void), uint32_t period,
                           uint32_t priority);
 
+void OS_ReportJitter(void); // print jitter stats for periodic threads
+
 // add a background task to run whenever the SW1 (PF4) button is pushed
-// inputs: pointer to a void/void background function
-//         priority 0 is the highest, 5 is the lowest
 // This task can't block, but it can call OS_Signal or OS_AddThread
-bool OS_AddSW1Task(void (*task)(void), uint32_t priority);
+void OS_AddSW1Task(void (*task)(void));
 
 // add a background task to run whenever the SW2 (PF0) button is pushed
-// inputs: pointer to a void/void background function
-//         priority 0 is the highest, 5 is the lowest
 // This task can't block, but it can call OS_Signal or OS_AddThread
-bool OS_AddSW2Task(void (*task)(void), uint32_t priority);
+void OS_AddSW2Task(void (*task)(void));
 
+uint32_t OS_Time(void);  // return the system time in cycles
+void OS_ClearTime(void); // sets the system time to zero
+
+// set the starting value for a semaphore, 0 or more means available
 void OS_InitSemaphore(Sema4* semaPt, int32_t value);
-
-// block until a semaphore is available
-// input: pointer to a semaphore
-void OS_Wait(Sema4* semaPt);
-
-// increment semaphore value and wake waiting thread if necessary
-// input:  pointer to a semaphore
-void OS_Signal(Sema4* semaPt);
+void OS_Wait(Sema4* semaPt);   // block until a semaphore is available
+void OS_Signal(Sema4* semaPt); // increment semaphore value (may wake thread)
 
 // returns the thread id for the currently running thread
 uint32_t OS_Id(void);
@@ -91,52 +56,14 @@ uint32_t OS_Id(void);
 // input: number of cycles to sleep
 void OS_Sleep(uint32_t sleep_time);
 
-// kill the currently running thread, release its TCB and stack
-void OS_Kill(void);
+void OS_Kill(void);    // kill the current thread, releasing its stack
+void OS_Suspend(void); // suspend execution of current thread
 
-// suspend execution of currently running thread
-// scheduler will choose another thread to execute
-void OS_Suspend(void);
+bool OS_Fifo_Init(uint32_t size); // attempt initialize the fifo to be empty
+bool OS_Fifo_Put(uint32_t data);  // attempt to add element
+uint32_t OS_Fifo_Get(void);       // remove element (blocks if empty)
+int32_t OS_Fifo_Size(void);       // get the number of elements in the fifo
 
-// temporarily prevent foreground thread switch (but allow background
-// interrupts)
-unsigned long OS_LockScheduler(void);
-
-// resume foreground thread switching
-void OS_UnLockScheduler(unsigned long previous);
-
-// initialize the fifo to be empty
-// returns: true if initialized, false if couldn't allocate enough space
-bool OS_Fifo_Init(uint32_t size);
-
-// attempts to add an element to the fifo without blocking
-// returns: true if data is properly added, false if fifo was full
-bool OS_Fifo_Put(uint32_t data);
-
-// remove one data sample from the fifo (blocks if empty)
-uint32_t OS_Fifo_Get(void);
-
-// returns the number of elements in the fifo
-int32_t OS_Fifo_Size(void);
-
-// initialize the mailbox to be empty
-void OS_MailBox_Init(void);
-
-// enter mail into the MailBox, blocks if mailbox is full
-void OS_MailBox_Send(uint32_t data);
-
-// remove mail from the MailBox, blocks if mailbox is empty
-uint32_t OS_MailBox_Recv(void);
-
-// return the system time in cycles
-uint32_t OS_Time(void);
-
-// sets the system time to zero
-void OS_ClearTime(void);
-
-// start the scheduler, enable interrupts
-// inputs: number of cycles for each time slice
-void OS_Launch(uint32_t time_slice);
-
-// print jitter stats
-void OS_ReportJitter(void);
+void OS_MailBox_Init(void);          // initialize the mailbox to be empty
+void OS_MailBox_Send(uint32_t data); // add data. blocks if full
+uint32_t OS_MailBox_Recv(void);      // pull out data. blocks if empty

@@ -41,9 +41,8 @@ void realmain(void) {
 
     adc_init(0); // sequencer 3, channel 0, PE3, sampling in Interpreter
 
-    OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
-    OS_AddSW1Task(&SWPush, 2);
-    OS_AddSW2Task(&SWPush, 2);
+    OS_AddSW1Task(&SWPush);
+    OS_AddSW2Task(&SWPush);
 
     OS_AddThread(&interpreter, "interpreter", 2048, 2);
 
@@ -98,7 +97,6 @@ void testmain_thrash_heap(void) {
 void testmain_littlefs(void) {
     OS_Init();
     OS_AddThread(debug_test, "filesystem", 2048, 0);
-    OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
     OS_Launch(ms(10));
 }
 
@@ -174,7 +172,7 @@ void testmain_stack_overflow(void) {
     OS_Init();
     OS_AddThread(overflowA, "overflow test", 2048, 1);
     OS_AddThread(overflowB, "overflow test", 1024, 1);
-    OS_Launch(us(100));
+    OS_Launch(ms(2));
 }
 
 //*****************Test project 1*************************
@@ -303,7 +301,7 @@ void Testmain1(void) {
     OS_Init();
     PortD_Init();
 
-    OS_AddSW1Task(&SW1Push1, 2);
+    OS_AddSW1Task(&SW1Push1);
 
     OS_AddThread(&TestHeap, "Test Heap", 2048, 1);
 
@@ -368,8 +366,8 @@ void Testmain2(void) {
     OS_Init();
     PortD_Init();
 
-    OS_AddSW1Task(&SW1Push1, 2); // PF4, SW1
-    OS_AddSW2Task(&SW2Push2, 2); // PF0, SW2
+    OS_AddSW1Task(&SW1Push1);
+    OS_AddSW2Task(&SW2Push2);
 
     OS_AddThread(&TestProcess, "Test Process", 1024, 1);
 
@@ -452,11 +450,9 @@ void Testmain3(void) {
     OS_Init();
     PortD_Init();
 
-    // attach background tasks
-    OS_AddSW1Task(&SWPush3, 2); // PF4, SW1
-    OS_AddSW2Task(&SWPush3, 2); // PF0, SW2
+    OS_AddSW1Task(&SWPush3);
+    OS_AddSW2Task(&SWPush3);
 
-    // create initial foreground threads
     OS_AddThread(&TestSVC, "TestSVC", 1024, 1);
 
     OS_Launch(ms(10));
