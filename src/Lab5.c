@@ -38,14 +38,10 @@ void SWPush(void) {
 void realmain(void) {
     OS_Init();
     PortD_Init();
-
-    adc_init(0); // sequencer 3, channel 0, PE3, sampling in Interpreter
-
+    adc_init(0); // sequencer 3, channel 0, PE3, sampling in interpreter
     OS_AddSW1Task(&SWPush);
     OS_AddSW2Task(&SWPush);
-
     OS_AddThread(&interpreter, "interpreter", 2048, 2);
-
     OS_Launch(ms(2));
 }
 
@@ -96,7 +92,7 @@ void testmain_thrash_heap(void) {
 
 void testmain_littlefs(void) {
     OS_Init();
-    OS_AddThread(debug_test, "filesystem", 2048, 0);
+    OS_AddThread(debug_test, "filesystem test", 2048, 0);
     OS_Launch(ms(10));
 }
 
@@ -297,14 +293,11 @@ void SW1Push1(void) {
     OS_AddThread(&TestHeap, "Test Heap", 2048, 1);
 }
 
-void Testmain1(void) {
+void testmain_heap(void) {
     OS_Init();
     PortD_Init();
-
     OS_AddSW1Task(&SW1Push1);
-
     OS_AddThread(&TestHeap, "Test Heap", 2048, 1);
-
     OS_Launch(ms(10));
 }
 
@@ -362,15 +355,12 @@ void SW2Push2(void) {
     OS_AddThread(&TestProcess, "Test Process", 1024, 1);
 }
 
-void Testmain2(void) {
+void testmain_process(void) {
     OS_Init();
     PortD_Init();
-
     OS_AddSW1Task(&SW1Push1);
     OS_AddSW2Task(&SW2Push2);
-
     OS_AddThread(&TestProcess, "Test Process", 1024, 1);
-
     OS_Launch(ms(10));
 }
 
@@ -446,25 +436,22 @@ void SWPush3(void) {
     }
 }
 
-void Testmain3(void) {
+void testmain_svc(void) {
     OS_Init();
     PortD_Init();
-
     OS_AddSW1Task(&SWPush3);
     OS_AddSW2Task(&SWPush3);
-
     OS_AddThread(&TestSVC, "TestSVC", 1024, 1);
-
     OS_Launch(ms(10));
 }
 
 void main(void) {
-    // testmain_thrash_heap();
-    testmain_littlefs();
+    // testmain_littlefs();
+    // testmain_heap();
     // testmain_alloc_optimization();
+    testmain_thrash_heap();
     // testmain_stack_overflow();
-    // Testmain1();
-    // Testmain2();
-    // Testmain3();
+    // testmain_process();
+    // testmain_svc();
     // realmain();
 }
