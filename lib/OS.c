@@ -526,7 +526,7 @@ void OS_SVC_handler(uint8_t number, uint32_t* reg) {
     case 2: OS_Sleep(*reg); break;
     case 3: *reg = OS_Time(); break;
     case 4:
-        OS_AddThread(*(void (*)(void))reg, (char*)(*(reg + 1)), *(reg + 2),
+        OS_AddThread(*(void (*)(void)) * reg, (char*)(*(reg + 1)), *(reg + 2),
                      *(reg + 3));
         break;
     }

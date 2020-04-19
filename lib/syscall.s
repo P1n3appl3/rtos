@@ -9,7 +9,6 @@
 
 .thumb_func
 svcall_handler:
-    // STMFD   sp!, {r0-r3, r12, lr}  // Store registers
     PUSH {r0-r3, r12, lr}
     MOV   r1, sp                 // Set pointer to parameters
     ADD   r0, r1, #48            // find lr on stack with sketchy hardcoded offset
@@ -21,8 +20,6 @@ svcall_handler:
     // r1 now contains pointer to stacked registers
 
     BL      OS_SVC_handler         // Call main part of handler
-    // LDMFD   sp!, {r0-r3, r12, pc}^ // Restore registers and return
-    // TODO: figure out if ^ is necessary
-    POP {r0-r3, r12, pc}
+    POP {r0-r3, r12, lr}
     BX LR
 .end

@@ -426,7 +426,7 @@ void TestSVC(void) {
     PD2 ^= 0x04;
     printf("SVC test: %d", id);
     line++;
-    SVC_OS_AddThread(TestSVCThread, "TestSVCThread", 128, 1);
+    SVC_OS_AddThread(TestSVCThread, "TestSVCThread", 512, 1);
     time = SVC_OS_Time();
     SVC_OS_Sleep(seconds(1));
     time = to_us(SVC_OS_Time() - time);
@@ -457,7 +457,7 @@ void Testmain3(void) {
     OS_AddSW2Task(&SWPush3, 2); // PF0, SW2
 
     // create initial foreground threads
-    OS_AddThread(&TestSVC, "TestSVC", 128, 1);
+    OS_AddThread(&TestSVC, "TestSVC", 1024, 1);
 
     OS_Launch(ms(10));
 }
@@ -469,6 +469,6 @@ void main(void) {
     // testmain_stack_overflow();
     // Testmain1();
     // Testmain2();
-    // Testmain3();
-    realmain();
+    Testmain3();
+    // realmain();
 }
