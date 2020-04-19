@@ -111,14 +111,6 @@ static volatile uint32_t Timer1, Timer2;
 
 static uint8_t CardType; // Card type flags
 
-// Initialize MMC interface
-static void init_spi() {
-    // SSI0_Init(200);
-    chip_select();
-
-    for (Timer1 = 10; Timer1;) {} // 10ms
-}
-
 // Exchange a byte
 static uint8_t xchg_spi(uint8_t dat) {
     uint32_t rcvdat;
@@ -280,11 +272,15 @@ static uint8_t send_cmd(uint8_t cmd, uint32_t arg) {
 }
 
 DSTATUS eDisk_Init() {
-    OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
-    OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
+    static bool started_timerproc = false;
+    if (!started_timerproc) {
+        OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
+        started_timerproc = true;
+    }
     uint8_t n, cmd, ty, ocr[4];
 
-    init_spi(); // Initialize SPI
+    chip_select();
+    for (Timer1 = 10; Timer1;) {} // 10ms
 
     if (Stat & STA_NODISK)
         return Stat; // Is card existing in the socket?

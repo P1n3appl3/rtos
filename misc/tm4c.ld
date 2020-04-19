@@ -30,7 +30,7 @@ SECTIONS {
         __bss_end__ = .;
     } > RAM
 
-    STACK_SIZE = 256;
+    STACK_SIZE = 512;
     RAM_END = ORIGIN(RAM) + LENGTH(RAM);
     _heap = .;
     _eheap = RAM_END - STACK_SIZE;

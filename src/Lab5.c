@@ -460,11 +460,11 @@ void Testmain3(void) {
 
 void main(void) {
     // testmain_thrash_heap();
-    // testmain_littlefs();
+    testmain_littlefs();
     // testmain_alloc_optimization();
     // testmain_stack_overflow();
     // Testmain1();
     // Testmain2();
-    Testmain3();
+    // Testmain3();
     // realmain();
 }

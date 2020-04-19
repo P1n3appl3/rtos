@@ -1,8 +1,11 @@
-#pragma once
 #include "timer.h"
 #include <stdint.h>
 
-typedef struct Sema4 Sema4;
+struct TCB;
+typedef struct {
+    int32_t value; // >=0 means free, negative means busy
+    struct TCB* blocked_head;
+} Sema4;
 
 // initialize OS controlled IO, timers, and heap
 // disables interrupts until OS_Launch

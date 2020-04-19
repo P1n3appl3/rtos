@@ -51,11 +51,6 @@ typedef struct TCB {
     uint32_t* stack;
 } TCB;
 
-struct Sema4 {
-    int32_t value; // >=0 means free, negative means busy
-    TCB* blocked_head;
-};
-
 // Performance Measurements
 int32_t MaxJitter;
 static uint32_t JitterHistogram[128] = {0};
@@ -75,6 +70,7 @@ bool os_running;
 uint32_t criticaltime;
 volatile uint32_t time_disabled = 0;
 
+extern uint32_t _eheap;
 static TCB idle = {
     .next_tcb = &idle,
     .prev_tcb = &idle,
@@ -83,6 +79,7 @@ static TCB idle = {
     .priority = 255,
     .name = "OS Idle",
     .parent_process = 0,
+    .stack = (uint32_t*)&_eheap,
 };
 
 static noreturn void idle_task(void) {
