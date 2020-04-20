@@ -103,8 +103,8 @@ char getchar(void) {
 
 bool puts(const char* str) {
     while (*str) { putchar(*str++); }
-    putchar('\n');
-    putchar('\r');
+    // putchar('\n');
+    // putchar('\r');
     return true;
 }
 

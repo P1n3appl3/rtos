@@ -195,3 +195,7 @@ void __aeabi_memclr4(void* mem, size_t bytes) {
         bytes += 4;
     }
 }
+
+void __aeabi_memcpy(void* dest, const void* src, uint32_t n) {
+    memcpy(dest, src, n);
+}

@@ -5,6 +5,7 @@
 #include "io.h"
 #include "launchpad.h"
 #include "littlefs.h"
+#include "loader.h"
 #include "printf.h"
 #include "std.h"
 #include "timer.h"
@@ -211,7 +212,8 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     while (threads[thread_index].alive) { thread_index++; }
     TCB* adding = &threads[thread_index];
 
-    if ((adding->parent_process = current_thread->parent_process)) {
+    if (current_thread->parent_process->alive) {
+        adding->parent_process = current_thread->parent_process;
         ++adding->parent_process->threads;
     }
     adding->alive = true;
@@ -235,7 +237,8 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     *(--adding->sp) = 0x21000000;        // PSR
     *(--adding->sp) = (uint32_t)task;    // PC
     *(--adding->sp) = (uint32_t)OS_Kill; // LR
-    adding->sp -= 13;                    // Space for R0-R12
+    *(adding->sp - 8) = (uint32_t)adding->parent_process->data; // R9
+    adding->sp -= 13; // Space for R0-R12
 
     insert_thread(adding);
     end_critical(crit);
@@ -572,7 +575,7 @@ void OS_SVC_handler(uint8_t number, uint32_t* reg) {
     case 2: OS_Sleep(*reg); break;
     case 3: *reg = OS_Time(); break;
     case 4:
-        OS_AddThread(*(void (*)(void)) * reg, (char*)(*(reg + 1)), *(reg + 2),
+        OS_AddThread(*(void (*)(void)) * reg, (char*)(*(reg + 1)), 1024,
                      *(reg + 3));
         break;
     }
@@ -601,5 +604,28 @@ void hardfault_handler(void) {
     while (true) {
         busy_wait(7, ms(500));
         led_toggle(RED_LED);
+    }
+}
+
+static Sema4 message_mutex;
+void message_num(uint32_t d, uint32_t l, char* pt, int32_t value) {
+    // printf("%s%d\n\r", pt, value);
+    uint32_t crit = start_critical();
+    char val[10] = "          ";
+    puts(pt);
+    puts(itoa(value, val, 10));
+    puts("\n\r");
+    // printf("%d\n\r", value);
+    end_critical(crit);
+}
+
+static const ELFSymbol_t symtab[] = {{"ST7735_Message", (void*)message_num}};
+
+void LoadProgram(void) {
+    OS_InitSemaphore(&message_mutex, 1);
+    ELFEnv_t env = {symtab, 1};
+    // symbol table with one entry
+    if (!exec_elf("User3.axf", &env)) {
+        puts("load program error\n\r");
     }
 }

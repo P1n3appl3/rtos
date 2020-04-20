@@ -73,11 +73,29 @@ bool littlefs_open_file(const char* name) {
 }
 
 bool littlefs_read_file(char* output) {
-    uint32_t ret = lfs_file_read(&lfs, &file, output, sizeof(char));
+    int32_t ret = lfs_file_read(&lfs, &file, output, sizeof(char));
     if (ret < 1) {
         return false;
     }
     return true;
+}
+
+int32_t littlefs_read_buffer(void* buffer, uint32_t size) {
+    return lfs_file_read(&lfs, &file, buffer, size);
+}
+
+int8_t littlefs_seek(uint32_t off) {
+    if (lfs_file_seek(&lfs, &file, off, LFS_SEEK_SET) > -1)
+        return 0;
+    return -1;
+}
+
+int32_t littlefs_tell() {
+    return lfs_file_tell(&lfs, &file);
+}
+
+bool littlefs_write_buffer(void* buffer, uint32_t size) {
+    return lfs_file_write(&lfs, &file, buffer, size) >= 0;
 }
 
 bool littlefs_close_file(void) {
@@ -96,7 +114,7 @@ bool littlefs_append(char c) {
     return lfs_file_write(&lfs, &file, &c, 1) >= 0;
 }
 
-void debug_test(void) {
+void littlefs_test(void) {
     if (eDisk_Init()) {
         printf("error: edisk init\n\r");
         OS_Kill();

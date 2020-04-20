@@ -26,8 +26,22 @@ void PortD_Init(void) {
 void ButtonWork(void) {
     PD1 ^= 0x02;
     PD1 ^= 0x02;
-    heap_stats();
+    // heap_stats();
+    LoadProgram();
     PD1 ^= 0x02;
+    OS_Kill();
+}
+
+void loader_test(void) {
+    if (!littlefs_init()) {
+        puts("error: disk init");
+        OS_Kill();
+    }
+    if (!littlefs_mount()) {
+        puts("error: mount");
+        OS_Kill();
+    }
+    LoadProgram();
     OS_Kill();
 }
 
@@ -41,7 +55,8 @@ void realmain(void) {
     adc_init(0); // sequencer 3, channel 0, PE3, sampling in interpreter
     OS_AddSW1Task(&SWPush);
     OS_AddSW2Task(&SWPush);
-    OS_AddThread(&interpreter, "interpreter", 2048, 2);
+    // OS_AddThread(&interpreter, "interpreter", 2048, 2);
+    OS_AddThread(loader_test, "loader_test", 2048, 2);
     OS_Launch(ms(2));
 }
 
@@ -92,7 +107,7 @@ void testmain_thrash_heap(void) {
 
 void testmain_littlefs(void) {
     OS_Init();
-    OS_AddThread(debug_test, "filesystem test", 2048, 0);
+    OS_AddThread(littlefs_test, "filesystem test", 2048, 0);
     OS_Launch(ms(10));
 }
 
@@ -449,9 +464,9 @@ void main(void) {
     // testmain_littlefs();
     // testmain_heap();
     // testmain_alloc_optimization();
-    testmain_thrash_heap();
+    // testmain_thrash_heap();
     // testmain_stack_overflow();
     // testmain_process();
     // testmain_svc();
-    // realmain();
+    realmain();
 }

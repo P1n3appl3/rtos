@@ -63,3 +63,5 @@ int32_t OS_Fifo_Size(void);       // get the number of elements in the fifo
 void OS_MailBox_Init(void);          // initialize the mailbox to be empty
 void OS_MailBox_Send(uint32_t data); // add data. blocks if full
 uint32_t OS_MailBox_Recv(void);      // pull out data. blocks if empty
+
+void LoadProgram(void);
