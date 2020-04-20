@@ -36,6 +36,7 @@ static char* HELPSTRING = "Available commands:\n\n\r"
                           "mount\t\t\t\tmount the sd card\n\r"
                           "unmount\t\t\t\tunmount the sd card\n\r"
                           "format yes really\t\tformat the sd card\n\r"
+                          "load FILENAME\t\t\tload process from file\n\r"
                           "touch FILENAME\t\t\tcreates a new file\n\r"
                           "cat FILENAME\t\t\tdisplay the contents of a file\n\r"
                           "append FILENAME WORD\t\tappend a word to a file\n\r"
@@ -110,7 +111,7 @@ void interpret_command(void) {
               "'format yes really'\n\r");
     } else if (streq(token, "ls")) {
         // TODO
-        ERROR("unimplimented\n\r");
+        ERROR("unimplemented\n\r");
     } else if (streq(token, "touch")) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
@@ -169,13 +170,18 @@ void interpret_command(void) {
         //     ERROR("failed to rename file\n\r");
         // }
         // TODO
-        ERROR("unimplimented\n\r");
+        ERROR("unimplemented\n\r");
     } else if (streq(token, "cp")) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
         }
         // TODO
-        ERROR("unimplimented\n\r");
+        ERROR("unimplemented\n\r");
+    } else if (streq(token, "load")) {
+        if (!next_token()) {
+            ERROR("must pass a filename\n\r");
+        }
+        LoadProgram(token);
     } else {
         ERROR("unrecognized command '%s', try 'help'\n\r", token);
     }

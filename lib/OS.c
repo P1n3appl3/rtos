@@ -607,25 +607,24 @@ void hardfault_handler(void) {
     }
 }
 
-static Sema4 message_mutex;
 void message_num(uint32_t d, uint32_t l, char* pt, int32_t value) {
-    // printf("%s%d\n\r", pt, value);
     uint32_t crit = start_critical();
     char val[10] = "          ";
     puts(pt);
     puts(itoa(value, val, 10));
     puts("\n\r");
-    // printf("%d\n\r", value);
     end_critical(crit);
 }
 
 static const ELFSymbol_t symtab[] = {{"ST7735_Message", (void*)message_num}};
 
-void LoadProgram(void) {
-    OS_InitSemaphore(&message_mutex, 1);
+void LoadProgram(char* name) {
+    puts("Loading: ");
+    puts(name);
+    puts("\n\r");
     ELFEnv_t env = {symtab, 1};
     // symbol table with one entry
-    if (!exec_elf("User3.axf", &env)) {
+    if (!exec_elf(name, &env)) {
         puts("load program error\n\r");
     }
 }

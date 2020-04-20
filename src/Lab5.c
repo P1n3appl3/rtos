@@ -26,8 +26,7 @@ void PortD_Init(void) {
 void ButtonWork(void) {
     PD1 ^= 0x02;
     PD1 ^= 0x02;
-    // heap_stats();
-    LoadProgram();
+    heap_stats();
     PD1 ^= 0x02;
     OS_Kill();
 }
@@ -41,12 +40,12 @@ void loader_test(void) {
         puts("error: mount");
         OS_Kill();
     }
-    LoadProgram();
+    LoadProgram("User.axf");
     OS_Kill();
 }
 
 void SWPush(void) {
-    OS_AddThread(&ButtonWork, "Button work", 200, 2);
+    OS_AddThread(&ButtonWork, "Button work", 2048, 2);
 }
 
 void realmain(void) {
@@ -55,8 +54,7 @@ void realmain(void) {
     adc_init(0); // sequencer 3, channel 0, PE3, sampling in interpreter
     OS_AddSW1Task(&SWPush);
     OS_AddSW2Task(&SWPush);
-    // OS_AddThread(&interpreter, "interpreter", 2048, 2);
-    OS_AddThread(loader_test, "loader_test", 2048, 2);
+    OS_AddThread(&interpreter, "interpreter", 2048, 2);
     OS_Launch(ms(2));
 }
 
