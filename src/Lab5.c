@@ -48,12 +48,16 @@ void SWPush(void) {
     OS_AddThread(&ButtonWork, "Button work", 2048, 2);
 }
 
+void SW2Push(void) {
+    OS_AddThread(&loader_test, "loader test", 2048, 2);
+}
+
 void realmain(void) {
     OS_Init();
     PortD_Init();
     adc_init(0); // sequencer 3, channel 0, PE3, sampling in interpreter
     OS_AddSW1Task(&SWPush);
-    OS_AddSW2Task(&SWPush);
+    OS_AddSW2Task(&SW2Push);
     OS_AddThread(&interpreter, "interpreter", 2048, 2);
     OS_Launch(ms(2));
 }
