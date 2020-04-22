@@ -12,12 +12,13 @@
         return ((uint16_t)(NAME##putidx + SIZE - NAME##getidx) % SIZE);        \
     }                                                                          \
     bool NAME##fifo_full() { return NAME##fifo_size() == SIZE - 1; }           \
-    void NAME##fifo_put(TYPE data) {                                           \
+    bool NAME##fifo_put(TYPE data) {                                           \
         if (NAME##fifo_full()) {                                               \
-            return;                                                            \
+            return false;                                                      \
         }                                                                      \
         NAME##fifo[NAME##putidx] = data;                                       \
         NAME##putidx = (NAME##putidx + 1) % SIZE;                              \
+        return true;                                                           \
     }                                                                          \
     bool NAME##fifo_get(TYPE* datapt) {                                        \
         if (NAME##fifo_empty()) {                                              \

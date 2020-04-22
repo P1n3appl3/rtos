@@ -26,3 +26,5 @@ char* strcpy(char* dest, const char* src);
 char* strchr(const char* str, int c);
 size_t strspn(const char* str1, const char* str2);
 size_t strcspn(const char* str1, const char* str2);
+int8_t strncmp(const char* str1, const char* str2, size_t num);
+char* strstr(char* str1, const char* str2);

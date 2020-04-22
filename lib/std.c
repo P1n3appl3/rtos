@@ -28,6 +28,36 @@ bool streq(const char* a, const char* b) {
     return *a == *b;
 }
 
+int8_t strncmp(const char* str1, const char* str2, size_t num) {
+    for (size_t i = 0; i < num; i++) {
+        if (*str1 < *str2) {
+            return -1;
+        } else if (*str1 > *str2) {
+            return 1;
+        }
+        str1++;
+        str2++;
+    }
+    return 0;
+}
+
+char* strstr(char* str1, const char* str2) {
+    uint32_t len1 = strlen(str1);
+    uint32_t len2 = strlen(str2);
+
+    if (len1 < len2) {
+        return ((char*)0);
+    }
+
+    for (uint32_t i = 0; i < len1 - len2 + 1; i++) {
+        if (strncmp(str1, str2, len2) == 0) {
+            return str1;
+        }
+        str1++;
+    }
+    return ((char*)0);
+}
+
 void memcpy(void* dest, const void* src, uint32_t n) {
     uint8_t* a = (uint8_t*)dest;
     const uint8_t* b = (const uint8_t*)src;
