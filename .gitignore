@@ -16,3 +16,4 @@
 !**/*.gdb
 !**/*.rules
 *.uvprojx
+WifiSettings.h

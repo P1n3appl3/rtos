@@ -327,7 +327,7 @@ void ConnectWifi(void) {
     }
     puts("Wifi connected");
     // Launch thread to fetch weather
-    if (OS_AddThread(&FetchWeather, "FetchWeather", 128, 1))
+    if (OS_AddThread(&FetchWeather, "FetchWeather", 1024, 1))
         NumCreated++;
     // Kill thread (should really loop to check and reconnect if necessary
     OS_Kill();
@@ -336,7 +336,7 @@ void ConnectWifi(void) {
 void SW1Push2(void) {
     if (!Running) {
         Running = 1; // don't start twice
-        if (OS_AddThread(&FetchWeather, "FetchWeather", 128, 1)) {
+        if (OS_AddThread(&FetchWeather, "FetchWeather", 1024, 1)) {
             NumCreated++;
         }
     }
@@ -354,7 +354,7 @@ int Testmain2(void) { // Testmain2
     // create initial foreground threads
     NumCreated = 0;
     NumCreated += OS_AddThread(&Idle, "Idle", 128, 3);
-    NumCreated += OS_AddThread(&ConnectWifi, "ConnectWifi", 128, 2);
+    NumCreated += OS_AddThread(&ConnectWifi, "ConnectWifi", 1024, 2);
 
     OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
     return 0;          // this never executes
@@ -489,6 +489,7 @@ int Testmain3(void) { // Testmain3
 
 //*******************Trampoline for selecting main to execute**********
 int main(void) { // main
-    realmain();
+    // realmain();
+    Testmain2();
     return 0;
 }

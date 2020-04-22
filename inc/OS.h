@@ -1,6 +1,8 @@
 #include "timer.h"
 #include <stdint.h>
 
+#pragma once
+
 struct TCB;
 typedef struct {
     int32_t value; // >=0 means free, negative means busy
