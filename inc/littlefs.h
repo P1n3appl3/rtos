@@ -3,9 +3,9 @@
 
 bool littlefs_init(void);
 
-bool littlefs_format(void);
-
 bool littlefs_mount(void);
+
+bool littlefs_format(void);
 
 bool littlefs_open_file(const char* name);
 
@@ -25,6 +25,6 @@ bool littlefs_remove(const char* name);
 
 void littlefs_test(void);
 
-int8_t littlefs_seek(uint32_t off);
+bool littlefs_seek(uint32_t off);
 
 int32_t littlefs_tell(void);

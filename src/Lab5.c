@@ -45,11 +45,11 @@ void loader_test(void) {
 }
 
 void SWPush(void) {
-    OS_AddThread(&ButtonWork, "Button work", 2048, 2);
+    OS_AddThread(ButtonWork, "Button work", 2048, 2);
 }
 
 void SW2Push(void) {
-    OS_AddThread(&loader_test, "loader test", 2048, 2);
+    OS_AddThread(loader_test, "loader test", 2048, 2);
 }
 
 void realmain(void) {

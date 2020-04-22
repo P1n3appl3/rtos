@@ -212,8 +212,7 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     while (threads[thread_index].alive) { thread_index++; }
     TCB* adding = &threads[thread_index];
 
-    if (current_thread->parent_process->alive) {
-        adding->parent_process = current_thread->parent_process;
+    if ((adding->parent_process = current_thread->parent_process)) {
         ++adding->parent_process->threads;
     }
     adding->alive = true;

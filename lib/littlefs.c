@@ -6,7 +6,7 @@
 
 static uint8_t read_buffer[512];
 static uint8_t prog_buffer[512];
-static uint8_t erase_buffer[512] = {0};
+const static uint8_t erase_buffer[512] = {0};
 static uint8_t lookahead_buffer[32] __attribute__((aligned(4)));
 
 static int littlefs_prog(const struct lfs_config* c, lfs_block_t block,
@@ -36,10 +36,10 @@ static lfs_file_t file;
 
 const struct lfs_config cfg = {
     // block device operations
-    .read = &littlefs_read,
-    .prog = &littlefs_prog,
-    .erase = &littlefs_erase,
-    .sync = &littlefs_sync,
+    .read = littlefs_read,
+    .prog = littlefs_prog,
+    .erase = littlefs_erase,
+    .sync = littlefs_sync,
 
     // block device configuration
     .read_size = 512,
@@ -51,9 +51,9 @@ const struct lfs_config cfg = {
     .block_cycles = 500,
 
     // buffers
-    .read_buffer = &read_buffer,
-    .prog_buffer = &prog_buffer,
-    .lookahead_buffer = &lookahead_buffer,
+    .read_buffer = read_buffer,
+    .prog_buffer = prog_buffer,
+    .lookahead_buffer = lookahead_buffer,
 };
 
 bool littlefs_init(void) {
@@ -73,21 +73,15 @@ bool littlefs_open_file(const char* name) {
 }
 
 bool littlefs_read_file(char* output) {
-    int32_t ret = lfs_file_read(&lfs, &file, output, sizeof(char));
-    if (ret < 1) {
-        return false;
-    }
-    return true;
+    return lfs_file_read(&lfs, &file, output, sizeof(char)) == 0;
 }
 
 int32_t littlefs_read_buffer(void* buffer, uint32_t size) {
     return lfs_file_read(&lfs, &file, buffer, size);
 }
 
-int8_t littlefs_seek(uint32_t off) {
-    if (lfs_file_seek(&lfs, &file, off, LFS_SEEK_SET) > -1)
-        return 0;
-    return -1;
+bool littlefs_seek(uint32_t off) {
+    return lfs_file_seek(&lfs, &file, off, LFS_SEEK_SET) > -1;
 }
 
 int32_t littlefs_tell() {
