@@ -1,13 +1,14 @@
 *
 
 !.gitignore
-!Makefile
 !src/
 !inc/
 !inc/tivaware
 !lib/
 !sim/
 !misc/
+!userprog/
+!**/Makefile
 !**/*.c
 !**/*.s
 !**/*.h
