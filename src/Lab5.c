@@ -40,7 +40,7 @@ void loader_test(void) {
         puts("error: mount");
         OS_Kill();
     }
-    LoadProgram("User.axf");
+    OS_LoadProgram("User.axf");
     OS_Kill();
 }
 
@@ -333,10 +333,6 @@ void TestUser(void) {
     PD2 ^= 0x04;
     OS_Kill();
 }
-
-//  OS-internal OS_AddProcess function
-extern bool OS_AddProcess(void (*entry)(void), void* text, void* data,
-                          unsigned long stackSize, unsigned long priority);
 
 void TestProcess(void) {
     // simple process management test, add process with dummy code and data

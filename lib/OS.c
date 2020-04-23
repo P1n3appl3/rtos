@@ -244,13 +244,6 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     return true;
 }
 
-// add a process with foregound thread to the scheduler
-// Inputs: pointer to a void/void entry point
-//         pointer to process text (code) segment
-//         pointer to process data segment
-//         number of bytes allocated for its stack
-//         priority (0 is highest)
-// Returns false if this process could not be added
 bool OS_AddProcess(void (*entry)(void), void* text, void* data,
                    uint32_t stack_size, uint32_t priority) {
     uint32_t crit = start_critical();
@@ -566,20 +559,6 @@ void OS_ReportJitter(void) {
     printf("Average Jitter: %d microseconds\n\r", sum / total_num);
 }
 
-void OS_SVC_handler(uint8_t number, uint32_t* reg) {
-    // reg is ptr to parameters on stack
-    switch (number) {
-    case 0: *reg = OS_Id(); break;
-    case 1: OS_Kill(); break;
-    case 2: OS_Sleep(*reg); break;
-    case 3: *reg = OS_Time(); break;
-    case 4:
-        OS_AddThread(*(void (*)(void)) * reg, (char*)(*(reg + 1)), 1024,
-                     *(reg + 3));
-        break;
-    }
-}
-
 // TODO: change the stack pointer so that using the stack in this handler
 // doesn't overwrite the HeapNode for the stack that just overflowed
 void memory_management_fault_handler(void) {
@@ -606,24 +585,27 @@ void hardfault_handler(void) {
     }
 }
 
-void message_num(uint32_t d, uint32_t l, char* pt, int32_t value) {
-    uint32_t crit = start_critical();
-    char val[10] = "          ";
-    puts(pt);
-    puts(itoa(value, val, 10));
-    puts("\n\r");
-    end_critical(crit);
+// Exported symbol for dynamic function loading
+typedef struct {
+    const char* name;
+    void* ptr;
+} Symbol;
+
+static const Symbol symtab[] = {{"OS_Id", (void*)OS_Id},
+                                {"printf", (void*)printf}};
+
+void* OS_function_lookup(const char* name) {
+    for (int i = 0; i < sizeof(symtab); ++i) {
+        if (streq(symtab[i].name, name)) {
+            return symtab[i].ptr;
+        }
+    }
+    return 0;
 }
 
-static const ELFSymbol_t symtab[] = {{"ST7735_Message", (void*)message_num}};
-
-void LoadProgram(char* name) {
-    puts("Loading: ");
-    puts(name);
-    puts("\n\r");
-    ELFEnv_t env = {symtab, 1};
-    // symbol table with one entry
-    if (!exec_elf(name, &env)) {
+void OS_LoadProgram(char* name) {
+    printf("Loading: '%s'...\n\r", name);
+    if (!exec_elf(name)) {
         puts("load program error\n\r");
     }
 }

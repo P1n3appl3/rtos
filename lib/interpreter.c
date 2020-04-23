@@ -181,7 +181,7 @@ void interpret_command(void) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
         }
-        LoadProgram(token);
+        OS_LoadProgram(token);
     } else {
         ERROR("unrecognized command '%s', try 'help'\n\r", token);
     }

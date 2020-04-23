@@ -64,4 +64,7 @@ void OS_MailBox_Init(void);          // initialize the mailbox to be empty
 void OS_MailBox_Send(uint32_t data); // add data. blocks if full
 uint32_t OS_MailBox_Recv(void);      // pull out data. blocks if empty
 
-void LoadProgram(char* name);
+// These are used to dynamically load user code
+bool OS_AddProcess(void (*entry)(void), void* text, void* data,
+                   uint32_t stack_size, uint32_t priority);
+void OS_LoadProgram(char* name);
