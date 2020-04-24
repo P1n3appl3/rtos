@@ -9,12 +9,12 @@ CFLAGS += -nodefaultlibs -nostdlib -nostartfiles -ffreestanding
 CFLAGS += -fdata-sections -ffunction-sections
 CFLAGS += -Wall -pedantic -std=c2x
 CFLAGS += -fpic -msingle-pic-base -mpic-register=r9 -mno-pic-data-is-text-relative
-CFLAGS += -e main -Wl,--gc-sections -Os
 CFLAGS += -Wl,-z,max-page-size=1  # reduces padding after program headers
+CFLAGS += -Wl,--gc-sections -T user.ld -Os
 
 all: $(target)
 
-$(target): user.c Makefile
+$(target): user.c Makefile user.ld
 	$(CC) user.c $(CFLAGS) -o user_debug.elf
 	$(STRIP) user_debug.elf -o $@
 	$(OBJCPY) --remove-section .ARM.attributes --remove-section .comment $@

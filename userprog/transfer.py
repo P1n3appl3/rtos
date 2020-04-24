@@ -14,7 +14,7 @@ port = "/dev/ttyACM0"
 if len(sys.argv) > 2:
     port = sys.argv[2]
 
-with serial.Serial(port, 57600) as ser:
+with serial.Serial(port, 9600) as ser:
     ser.write(str(len(contents)).encode("UTF-8"))
     ser.write("\r".encode("UTF-8"))
     ser.write(contents)

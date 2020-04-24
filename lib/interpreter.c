@@ -188,7 +188,7 @@ void interpret_command(void) {
         char sizebuf[16];
         if (file_transfer) {
             printf("Close this session and run the file transfer utility...");
-            uart_change_speed(57600);
+            uart_change_speed(9600);
         } else {
             printf("Enter your file's size in bytes: ");
         }
