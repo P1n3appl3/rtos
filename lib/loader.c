@@ -82,7 +82,7 @@ static bool load_segment(Executable* e, Segment* s, ProgramHeader* h) {
         return false;
     }
     if (h->memsz > h->filesz) {
-        memset((char*)s->data + h->filesz, 0, h->memsz - h->filesz);
+        memset((uint8_t*)s->data + h->filesz, 0, h->memsz - h->filesz);
     }
     return true;
 }

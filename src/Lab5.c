@@ -379,81 +379,21 @@ void testmain_process(void) {
 
 //*****************Test project 3*************************
 // Test supervisor calls (SVC exceptions)
-// Using inline assembly, syntax is dependent on the compiler
-// The following code compiles in Keil 5.x (even though the UI
-// complains)
 
-__attribute__((naked)) uint32_t SVC_OS_Id(void) {
-    __asm("SVC #0\n"
-          "BX LR");
-}
-__attribute__((naked)) void SVC_OS_Kill(void) {
-    __asm("SVC #1\n"
-          "BX LR");
-}
-__attribute__((naked)) void SVC_OS_Sleep(uint32_t t) {
-    __asm("SVC #2\n"
-          "BX LR");
-}
-__attribute__((naked)) uint32_t SVC_OS_Time(void) {
-    __asm("SVC #3\n"
-          "BX LR");
-}
-__attribute__((naked)) bool SVC_OS_AddThread(void (*t)(void), const char* name,
-                                             uint32_t s, uint32_t p) {
-    __asm("SVC #4\n"
-          "BX LR");
+__attribute__((naked)) void (*load_function(const char* name))(void) {
+    __asm("SVC #0");
+    __asm("BX LR");
 }
 
-uint32_t line = 0;
-void TestSVCThread(void) {
-    uint32_t id;
-    id = SVC_OS_Id();
-    PD3 ^= 0x08;
-    line++;
-    printf("Thread: %d", id);
-    SVC_OS_Sleep(ms(500));
-    line++;
-    printf("Thread dying: %d", id);
-    PD3 ^= 0x08;
-    SVC_OS_Kill();
-}
 void TestSVC(void) {
-    uint32_t id;
-    uint32_t time;
-    // simple SVC test, mimicking real user program
     printf("\n\rEE445M/EE380L, Lab 5 SCV Test\n\r");
-    id = SVC_OS_Id();
-    PD2 ^= 0x04;
-    printf("SVC test: %d", id);
-    line++;
-    SVC_OS_AddThread(TestSVCThread, "TestSVCThread", 512, 1);
-    time = SVC_OS_Time();
-    SVC_OS_Sleep(seconds(1));
-    time = to_us(SVC_OS_Time() - time);
-    printf("Sleep time: %d", time);
-    line++;
-    PD2 ^= 0x04;
-    if (line != 4) {
-        printf("SVC test error");
-        OS_Kill();
-    }
-    printf("Successful SVC test\n\r");
-    SVC_OS_Kill();
-}
-
-void SWPush3(void) {
-    if (line >= 4) {
-        line = 0;
-        OS_AddThread(&TestSVC, "TestSVC", 128, 1);
-    }
+    printf("Lookup OS_Id: 0x%08x\n\r", load_function("OS_Id"));
+    printf("Actual OS_Id: 0x%08x\n\r", OS_Id);
 }
 
 void testmain_svc(void) {
     OS_Init();
     PortD_Init();
-    OS_AddSW1Task(&SWPush3);
-    OS_AddSW2Task(&SWPush3);
     OS_AddThread(&TestSVC, "TestSVC", 1024, 1);
     OS_Launch(ms(10));
 }

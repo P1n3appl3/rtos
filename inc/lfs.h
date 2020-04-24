@@ -245,7 +245,6 @@ struct lfs_info {
 
     // Size of the file, only valid for REG files. Limited to 32-bits.
     lfs_size_t size;
-
     // Name of the file stored as a null-terminated string. Limited to
     // LFS_NAME_MAX+1, which can be changed by redefining LFS_NAME_MAX to
     // reduce RAM. LFS_NAME_MAX is stored in superblock and must be
