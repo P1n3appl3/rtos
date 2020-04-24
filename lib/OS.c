@@ -606,6 +606,6 @@ void* OS_function_lookup(const char* name) {
 void OS_LoadProgram(char* name) {
     printf("Loading: '%s'...\n\r", name);
     if (!exec_elf(name)) {
-        puts("load program error\n\r");
+        puts("load program error");
     }
 }

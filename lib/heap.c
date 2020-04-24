@@ -215,5 +215,5 @@ void heap_stats(void) {
         putchar('#');
     }
     puts(NORMAL "]");
-    printf("Largest possible allocation: %d bytes.\n\n\r", heap_get_max());
+    printf("Largest possible allocation: %d bytes.\n\r", heap_get_max());
 }

@@ -74,8 +74,9 @@ bool littlefs_mount(void) {
     return lfs_mount(&lfs, &cfg) >= 0;
 }
 
-bool littlefs_open_file(const char* name) {
-    return lfs_file_open(&lfs, &file, name, LFS_O_RDWR | LFS_O_CREAT) >= 0;
+bool littlefs_open_file(const char* name, bool create) {
+    return lfs_file_open(&lfs, &file, name,
+                         LFS_O_RDWR | (create ? LFS_O_CREAT : 0)) >= 0;
 }
 
 bool littlefs_read_file(uint8_t* output) {
@@ -118,10 +119,9 @@ bool littlefs_append(uint8_t c) {
     return lfs_file_write(&lfs, &file, &c, 1) >= 0;
 }
 
-const char* prefixes[] = {"", "K", "M", "G"};
 bool littlefs_ls(void) {
     lfs_dir_t dir;
-    if (lfs_dir_open(&lfs, &dir, "/")) {
+    if (lfs_dir_open(&lfs, &dir, "")) { // empty name for root dir
         return false;
     }
     struct lfs_info info;
@@ -131,18 +131,10 @@ bool littlefs_ls(void) {
             return false;
         } else if (!result) {
             break;
-        } else if (info.type != LFS_TYPE_REG) {
-            printf("Unknown file type for '%s': %d\n\r", info.name, info.type);
-            continue;
+        } else if (info.type == LFS_TYPE_DIR) {
+            continue; // we are only concerned with the root
         }
-        for (int i = sizeof(prefixes) / sizeof(prefixes[0]) - 1; i >= 0; i--) {
-            if (info.size >= (1 << 10 * i) - 1) {
-                printf("%*u%sB ", 4 - (i != 0), info.size >> 10 * i,
-                       prefixes[i]);
-                break;
-            }
-        }
-        printf("%s\n\r", info.name);
+        printf("%-32s %d bytes\n\r", info.name, info.size);
     }
     return !lfs_dir_close(&lfs, &dir);
 }

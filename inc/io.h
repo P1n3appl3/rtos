@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 void uart_init(void);
+void uart_change_speed(uint32_t baud);
 
 bool putchar(char x);
 bool puts(const char* str);

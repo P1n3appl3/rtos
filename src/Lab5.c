@@ -58,7 +58,7 @@ void realmain(void) {
     adc_init(0); // sequencer 3, channel 0, PE3, sampling in interpreter
     OS_AddSW1Task(&SWPush);
     OS_AddSW2Task(&SW2Push);
-    OS_AddThread(&interpreter, "interpreter", 2048, 2);
+    OS_AddThread(&interpreter, "interpreter", 3000, 2);
     OS_Launch(ms(2));
 }
 

@@ -7,7 +7,7 @@ bool littlefs_mount(void);
 
 bool littlefs_format(void);
 
-bool littlefs_open_file(const char* name);
+bool littlefs_open_file(const char* name, bool create);
 
 bool littlefs_read_file(uint8_t* output);
 

@@ -2492,7 +2492,7 @@ cleanup:
 int lfs_file_open(lfs_t* lfs, lfs_file_t* file, const char* path, int flags) {
     LFS_TRACE("lfs_file_open(%p, %p, \"%s\", %x)", (void*)lfs, (void*)file,
               path, flags);
-    static const struct lfs_file_config defaults = {.buffer = 0};
+    static const struct lfs_file_config defaults = {0};
     int err = lfs_file_opencfg(lfs, file, path, flags, &defaults);
     LFS_TRACE("lfs_file_open -> %d", err);
     return err;
@@ -2513,7 +2513,7 @@ int lfs_file_close(lfs_t* lfs, lfs_file_t* file) {
     }
 
     // clean up memory
-    if (!file->cfg->buffer) {
+    if (!file->cfg->buffer && file->cache.buffer) {
         lfs_free(file->cache.buffer);
     }
 

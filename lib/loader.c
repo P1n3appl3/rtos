@@ -10,7 +10,7 @@
 
 const uint32_t user_process_stack = 1024;
 
-#define ERR(msg) puts("ELF ERROR: " msg "\n\r")
+#define ERR(msg) puts(RED "ELF ERROR: " NORMAL msg)
 #define SEGMENT_OFFSET(e, n) (e->programHeaderTable + n * sizeof(ProgramHeader))
 
 typedef struct {
@@ -114,7 +114,7 @@ static bool init_elf(Executable* e) {
 static bool jump_to(uint32_t ofs, void* text, void* data) {
     if (ofs) {
         return OS_AddProcess((void (*)(void))((uint8_t*)text + ofs), text, data,
-                             user_process_stack, 1);
+                             user_process_stack, 0);
     } else {
         ERR("No entry defined.");
         return false;
@@ -123,7 +123,7 @@ static bool jump_to(uint32_t ofs, void* text, void* data) {
 
 bool exec_elf(const char* path) {
     static Executable exec; // this is only static to save stack space
-    if (!(littlefs_open_file(path) && init_elf(&exec))) {
+    if (!(littlefs_open_file(path, false) && init_elf(&exec))) {
         printf("Invalid elf %s\n\r", path);
         return false;
     }
