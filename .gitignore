@@ -16,4 +16,5 @@
 !**/*.ld
 !**/*.gdb
 !**/*.rules
+!**/*.py
 *.uvprojx
