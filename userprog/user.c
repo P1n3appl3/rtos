@@ -5,13 +5,13 @@
 
 volatile uint32_t id = 0; // bss
 
-volatile uint32_t other; // noinit
+volatile uint32_t other; // noinit (but actually bss)
 
-const int x = 17; // rodata
+volatile static int y = 5; // data
 
-int y = 5; // data
+const int x = 17; // rodata (but actually just data)
 
-__attribute__((naked)) void (*load_function(const char* name))(void) {
+static __attribute__((naked)) void (*load_function(const char* name))(void) {
     __asm("SVC #0");
     __asm("BX LR");
 }

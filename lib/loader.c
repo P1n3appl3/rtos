@@ -121,6 +121,14 @@ static bool jump_to(uint32_t ofs, void* text, void* data) {
     }
 }
 
+// CURSED LINKER HACK (see /userprog/user.ld for details)
+void fix_GOT(Segment* data) {
+    uint32_t* start = data->data;
+    uint32_t* current = start;
+    uint32_t offset = *current++;
+    while (*current != 0xAAAAAAAA) { *current++ += (uint32_t)start - offset; }
+}
+
 bool exec_elf(const char* path) {
     static Executable exec; // this is only static to save stack space
     if (!(littlefs_open_file(path, false) && init_elf(&exec))) {
@@ -155,6 +163,7 @@ bool exec_elf(const char* path) {
                 return false;
             }
             found_writable = true;
+            fix_GOT(&exec.load_data);
         } else if (ph.flags & 1) { // 1 == X
             if (!load_segment(&exec, &exec.load_text, &ph)) {
                 return false;

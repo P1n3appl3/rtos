@@ -236,7 +236,10 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     *(--adding->sp) = 0x21000000;        // PSR
     *(--adding->sp) = (uint32_t)task;    // PC
     *(--adding->sp) = (uint32_t)OS_Kill; // LR
-    *(adding->sp - 8) = (uint32_t)adding->parent_process->data; // R9
+    if (adding->parent_process) {
+        // R9 is the static base
+        *(adding->sp - 8) = (uint32_t)adding->parent_process->data;
+    }
     adding->sp -= 13; // Space for R0-R12
 
     insert_thread(adding);
@@ -595,7 +598,7 @@ static const Symbol symtab[] = {{"OS_Id", (void*)OS_Id},
                                 {"printf", (void*)printf}};
 
 void* OS_function_lookup(const char* name) {
-    for (int i = 0; i < sizeof(symtab); ++i) {
+    for (int i = 0; i < sizeof(symtab) / sizeof(Symbol); ++i) {
         if (streq(symtab[i].name, name)) {
             return symtab[i].ptr;
         }
