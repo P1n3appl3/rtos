@@ -6,10 +6,7 @@
 
 #define BLOCK_SIZE 512
 
-static uint8_t read_buffer[BLOCK_SIZE];
-static uint8_t prog_buffer[BLOCK_SIZE];
 const static uint8_t erase_buffer[BLOCK_SIZE] = {0};
-static uint8_t lookahead_buffer[32] __attribute__((aligned(4)));
 
 static int littlefs_prog(const struct lfs_config* c, lfs_block_t block,
                          lfs_off_t off, const void* buffer, lfs_size_t size) {
@@ -36,7 +33,7 @@ static int littlefs_sync(const struct lfs_config* c) {
 static lfs_t lfs;
 static lfs_file_t file;
 
-const struct lfs_config cfg = {
+static struct lfs_config cfg = {
     // block device operations
     .read = littlefs_read,
     .prog = littlefs_prog,
@@ -47,19 +44,12 @@ const struct lfs_config cfg = {
     .read_size = BLOCK_SIZE,
     .prog_size = BLOCK_SIZE,
     .block_size = BLOCK_SIZE,
-    .block_count = 32768, // TODO: 1<<21 for 1gb of storage
+    .block_count = 1 << 21, // 1GiB
     .cache_size = BLOCK_SIZE,
     .lookahead_size = 32,
     .block_cycles = 500,
 
-    // buffers
-    .lookahead_buffer = lookahead_buffer,
-    // TODO: let it use malloc for these by defining them as -1
-    .read_buffer = read_buffer,
-    .prog_buffer = prog_buffer,
-
-    // TODO: use smaller name size
-    // .name_max = 63,
+    .name_max = 63,
 };
 
 bool littlefs_init(void) {

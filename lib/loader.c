@@ -107,7 +107,7 @@ static bool init_elf(Executable* e) {
     e->segments = h.phnum;
     e->programHeaderTable = h.phoff;
 
-    // TODO: Check ELF validity using magic numbers
+    // TODO: Check that it's actualy an ELF using magic numbers
     return true;
 }
 

@@ -6,8 +6,6 @@ SECTIONS {
     .text : {
         *(.text*)
     } : code
-    .got : {
-    } : data
     .data : {
 /* address of GOT's start */
         LONG(.)

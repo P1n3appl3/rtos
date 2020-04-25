@@ -123,7 +123,6 @@ void* _realloc(void* allocation, uint32_t size) {
     if (this->size > size) {
         bool temp = try_splitting_block(this, size);
         if (temp) {
-            // TODO: check if these adjustments are correct
             free_space += sizeof(HeapNode);
             used_space -= sizeof(HeapNode);
             _free((uint8_t*)heap_next_node(this) + sizeof(HeapNode));
