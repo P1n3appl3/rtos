@@ -106,7 +106,7 @@ void interpret_command(void) {
     } else if (streq(token, "mount")) {
         littlefs_init() && littlefs_mount();
     } else if (streq(token, "unmount")) {
-        littlefs_close();
+        littlefs_unmount();
     } else if (streq(token, "format")) {
         if (next_token() && streq(token, "yes") && next_token() &&
             streq(token, "really")) {
@@ -121,7 +121,8 @@ void interpret_command(void) {
     } else if (streq(token, "touch")) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
-        } else if (!(littlefs_open_file(token, true) && littlefs_close())) {
+        } else if (!(littlefs_open_file(token, true) &&
+                     littlefs_close_file())) {
             ERROR("couldn't create file\n\r");
         }
     } else if (streq(token, "cat")) {
@@ -131,7 +132,7 @@ void interpret_command(void) {
             ERROR("couldn't open file '%s'\n\r", token);
         }
         char temp;
-        while (littlefs_read_file((uint8_t*)&temp)) { putchar(temp); }
+        while (littlefs_read((uint8_t*)&temp)) { putchar(temp); }
         printf("\n\r");
         littlefs_close_file();
     } else if (streq(token, "append")) {
@@ -203,7 +204,7 @@ void interpret_command(void) {
         }
         while (size--) {
             char temp = getchar();
-            if (!littlefs_append(temp)) {
+            if (!littlefs_write(temp)) {
                 littlefs_close_file();
                 ERROR("failed to write to the file\n\r");
                 if (file_transfer) {
@@ -212,7 +213,7 @@ void interpret_command(void) {
             }
             // translate to CRLF line endings
             if (!binary && (temp == '\r' || temp == '\n')) {
-                littlefs_append(temp == '\n' ? '\r' : '\n');
+                littlefs_write(temp == '\n' ? '\r' : '\n');
             }
         }
         if (file_transfer) {
@@ -228,7 +229,7 @@ void interpret_command(void) {
         }
         char temp;
         uint32_t checksum = 0;
-        while (littlefs_read_file((uint8_t*)&temp)) { checksum += temp; }
+        while (littlefs_read((uint8_t*)&temp)) { checksum += temp; }
         printf("0x%08x\n\r", checksum);
         littlefs_close_file();
     } else {

@@ -11,7 +11,7 @@ CC = clang --target=thumbv7em-unknown-none-eabi -Wno-keyword-macro -fshort-enums
 ASSEMBLER = clang --target=thumbv7em-unknown-none-eabi
 
 ARCHFLAGS = -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard
-COMMONFLAGS = -ggdb3 -nodefaultlibs -nostdlib -Wall -O0
+COMMONFLAGS = -ggdb3 -nodefaultlibs -nostdlib -Wall -Os
 
 CFLAGS = $(COMMONFLAGS) $(ARCHFLAGS) -fdata-sections -ffunction-sections
 CFLAGS += -pedantic -ffreestanding -MD -MP -std=c2x -Iinc
@@ -22,13 +22,13 @@ SHELL := /bin/zsh
 
 all: $(target)
 
-$(build_dir)/%.o: src/%.c
+$(build_dir)/%.o: src/%.c Makefile
 	$(CC) -o $@ $< -c $(CFLAGS)
 
-$(build_dir)/%.o: lib/%.c
+$(build_dir)/%.o: lib/%.c Makefile
 	$(CC) -o $@ $< -c $(CFLAGS)
 
-$(build_dir)/%.o: lib/%.s
+$(build_dir)/%.o: lib/%.s Makefile
 	$(ASSEMBLER) -o $@ $< -c $(COMMONFLAGS) $(ARCHFLAGS)
 
 $(target): $(OBJS)

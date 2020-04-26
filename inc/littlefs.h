@@ -3,27 +3,23 @@
 
 bool littlefs_init(void);
 
-bool littlefs_mount(void);
-
 bool littlefs_format(void);
 
-bool littlefs_open_file(const char* name, bool create);
+bool littlefs_mount(void);
+bool littlefs_unmount(void);
 
-bool littlefs_read_file(uint8_t* output);
+bool littlefs_open_file(const char* name, bool create);
+bool littlefs_close_file(void);
+
+bool littlefs_read(uint8_t* output);
+bool littlefs_write(uint8_t c);
 
 // These return number of bytes read/written or -1 on error
 int32_t littlefs_read_buffer(void* buffer, uint32_t size);
 int32_t littlefs_write_buffer(void* buffer, uint32_t size);
 
-bool littlefs_append(uint8_t c);
-
-bool littlefs_close_file(void);
-
-bool littlefs_close(void);
-
-bool littlefs_remove(const char* name);
-
 bool littlefs_move(const char* name, const char* new_name);
+bool littlefs_remove(const char* name);
 
 bool littlefs_seek(int32_t off);
 
