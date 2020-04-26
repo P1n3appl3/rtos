@@ -18,8 +18,6 @@
 ADDFIFO(tx, 128, uint8_t)
 ADDFIFO(rx, 128, uint8_t)
 
-// TODO: use a semaphore for RX
-
 static void hw_to_sw_fifo() {
     do {
         rxfifo_put(ROM_UARTCharGet(UART0_BASE));

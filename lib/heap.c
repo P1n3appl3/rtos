@@ -152,6 +152,7 @@ void* _realloc(void* allocation, uint32_t size) {
     return new;
 }
 
+// TODO: check whether critical sections are required or if the mutex is fine
 void* malloc(uint32_t size) {
     OS_Wait(&heap_mutex);
     void* temp = _malloc(size);

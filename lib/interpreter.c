@@ -141,7 +141,7 @@ void interpret_command(void) {
         }
         uint8_t len = strlen(token);
         bool ret = littlefs_write_buffer(token, len);
-        littlefs_close_file();
+        littlefs_close_file(); // TODO: investigate hanging
         if (!ret) {
             ERROR("failed to write to the file\n\r");
         }
