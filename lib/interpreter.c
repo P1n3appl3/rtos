@@ -9,9 +9,11 @@
 #include "timer.h"
 #include <stdint.h>
 
-char raw_command[128];
+const size_t COMMAND_BUF_LEN = 128;
+
+char* raw_command;
 char* current;
-char token[32];
+char* token;
 
 static bool next_token() {
     while (is_whitespace(*current)) { ++current; }
@@ -30,9 +32,11 @@ static char* HELPSTRING =
     "Available commands:\n\n\r"
     "led COLOR [on, off, or toggle]\tcontrol the onboard RGB led\n\r"
     "adc\t\t\t\tread a single sample from the ADC\n\r"
-    "time [get or reset]\t\tOS time helpers\n\n\r"
+    "time [get/reset]\t\tOS time helpers\n\n\r"
 
+#ifdef TRACK_JITTER
     "jitter\t\t\t\tshow periodic task jitter stats\n\r"
+#endif
     "heap\t\t\t\tshow heap usage information\n\n\r"
 
     "mount\t\t\t\tmount the sd card\n\r"
@@ -56,7 +60,7 @@ static char* HELPSTRING =
 
 void interpret_command(void) {
     printf("\n\r\xF0\x9F\x8D\x8D> ");
-    readline(raw_command, sizeof(raw_command));
+    readline(raw_command, COMMAND_BUF_LEN);
     current = raw_command;
     if (!next_token()) {
         ERROR("enter a command\n\r");
@@ -233,8 +237,10 @@ void interpret_command(void) {
 }
 
 void interpreter(void) {
+    token = malloc(32);
+    raw_command = malloc(COMMAND_BUF_LEN);
     printf("\x1b[1;1H\x1b[2JPress Enter to begin...");
-    readline(raw_command, sizeof(raw_command));
+    readline(raw_command, COMMAND_BUF_LEN);
     puts(HELPSTRING);
     if (littlefs_init() && littlefs_mount()) {
         puts(GREEN "Filesystem mounted" NORMAL);

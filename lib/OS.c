@@ -52,10 +52,6 @@ typedef struct TCB {
     uint32_t* stack;
 } TCB;
 
-// Performance Measurements
-int32_t MaxJitter;
-static uint32_t JitterHistogram[128] = {0};
-
 #define MAX_THREADS 8
 #define MAX_PROCESSES 4
 #define MIN_STACK_SIZE 512
@@ -156,7 +152,6 @@ void OS_Init(void) {
     enable_button_interupts(3);
     uart_init();
     SSI0_Init(10);
-    MaxJitter = 0;
 }
 
 void OS_InitSemaphore(Sema4* sem, int32_t value) {
@@ -276,6 +271,12 @@ uint32_t OS_Id(void) {
     return current_thread->id;
 }
 
+// performance measurments for periodic tasks
+#ifdef TRACK_JITTER
+static int32_t max_jitter;
+static uint32_t jitter_histogram[128] = {0};
+#endif
+
 typedef struct ptask {
     void (*task)(void);
     struct ptask* next;
@@ -314,13 +315,15 @@ static void periodic_task(void) {
     uint32_t time = OS_Time();
     do {
         uint32_t current = OS_Time();
+#ifdef TRACK_JITTER
         uint32_t jitter = to_us(
             difference(current - current_ptask->last, current_ptask->reload));
-        current_ptask->last = current;
-        MaxJitter = max(MaxJitter, jitter);
+        max_jitter = max(max_jitter, jitter);
         uint8_t idx = min(
-            sizeof(JitterHistogram) / sizeof(JitterHistogram[0]) - 1, jitter);
-        ++JitterHistogram[idx];
+            sizeof(jitter_histogram) / sizeof(jitter_histogram[0]) - 1, jitter);
+        ++jitter_histogram[idx];
+#endif
+        current_ptask->last = current;
         current_ptask->task();
     } while ((current_ptask = current_ptask->next));
     setup_next_ptask(OS_Time() - time);
@@ -544,13 +547,14 @@ void systick_handler() {
 }
 
 void OS_ReportJitter(void) {
-    printf("Max Jitter: %d microseconds\n\r", MaxJitter);
+#ifdef TRACK_JITTER
+    printf("Max Jitter: %d microseconds\n\r", max_jitter);
     uint32_t most = 0, most_idx;
     uint32_t sum = 0;
     uint32_t total_num = 0;
-    for (int i = 0; i < sizeof(JitterHistogram) / sizeof(JitterHistogram[0]);
+    for (int i = 0; i < sizeof(jitter_histogram) / sizeof(jitter_histogram[0]);
          ++i) {
-        uint32_t num = JitterHistogram[i];
+        uint32_t num = jitter_histogram[i];
         sum += i * num;
         total_num += num;
         if (num > most) {
@@ -560,6 +564,9 @@ void OS_ReportJitter(void) {
     }
     printf("Modal Jitter: %d microseconds\n\r", most_idx);
     printf("Average Jitter: %d microseconds\n\r", sum / total_num);
+#else
+    puts("Jitter tracking not enabled...");
+#endif
 }
 
 // TODO: change the stack pointer so that using the stack in this handler
