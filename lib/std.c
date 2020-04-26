@@ -189,10 +189,10 @@ char* itoa(int32_t value, char* s, uint8_t radix) {
 // aligned. This allows us to clear it faster than byte by byte.
 void __aeabi_memclr4(void* mem, size_t bytes) {
     uint32_t* buf = (uint32_t*)mem;
-    while (bytes) {
+    while (bytes > 0) {
         *buf = 0;
         ++buf;
-        bytes += 4;
+        bytes -= 4;
     }
 }
 
