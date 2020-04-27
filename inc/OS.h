@@ -1,6 +1,7 @@
 #include "timer.h"
 #include <stdint.h>
 
+#pragma once
 // #define TRACK_JITTER
 
 struct TCB;
