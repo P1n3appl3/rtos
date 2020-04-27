@@ -10,9 +10,11 @@
 #include "timer.h"
 #include <stdint.h>
 
-char raw_command[128];
+const size_t COMMAND_BUF_LEN = 128;
+
+char* raw_command;
 char* current;
-char token[32];
+char* token;
 
 static bool next_token() {
     while (is_whitespace(*current)) { ++current; }
@@ -27,24 +29,31 @@ static bool next_token() {
     return true;
 }
 
-static char* HELPSTRING = "Available commands:\n\n\r"
-                          "led COLOR [on, off, or toggle]\t\n\r"
-                          "\t\t\t\tCOLOR: red, green, or blue\n\r"
-                          "\t\t\t\tACTION: on, off, or toggle\n\r"
-                          "adc\t\t\t\tread a single sample from the ADC\n\r"
-                          "heap\t\t\t\tshow heap usage information\n\r"
-                          "time [get or reset]\t\tOS time helpers\n\r"
-                          "mount\t\t\t\tmount the sd card\n\r"
-                          "unmount\t\t\t\tunmount the sd card\n\r"
-                          "format yes really\t\tformat the sd card\n\r"
-                          "load FILENAME\t\t\tload process from file\n\r"
-                          "touch FILENAME\t\t\tcreates a new file\n\r"
-                          "cat FILENAME\t\t\tdisplay the contents of a file\n\r"
-                          "append FILENAME WORD\t\tappend a word to a file\n\r"
-                          "ls\t\t\t\tlist the files in the directory\n\r"
-                          "mv FILENAME NEWNAME\t\tmove a file\n\r"
-                          "cp FILENAME NEWNAME\t\tcopy a file\n\r"
-                          "rm FILENAME\t\t\tdelete a file\n\r";
+static char* HELPSTRING =
+    "Available commands:\n\n\r"
+    "led COLOR [on, off, or toggle]\tcontrol the onboard RGB led\n\r"
+    "adc\t\t\t\tread a single sample from the ADC\n\r"
+    "time [get/reset]\t\tOS time helpers\n\n\r"
+
+#ifdef TRACK_JITTER
+    "jitter\t\t\t\tshow periodic task jitter stats\n\r"
+#endif
+    "heap\t\t\t\tshow heap usage information\n\n\r"
+
+    "mount\t\t\t\tmount the sd card\n\r"
+    "unmount\t\t\t\tunmount the sd card\n\r"
+    "format yes really\t\tformat the sd card\n\n\r"
+
+    "upload FILENAME\t\t\ttransfer a file over UART\n\r"
+    "exec FILENAME\t\t\tload and run process from file\n\r"
+    "touch FILENAME\t\t\tcreates a new file\n\r"
+    "cat FILENAME\t\t\tdisplay the contents of a file\n\r"
+    "append FILENAME WORD\t\tappend a word to a file\n\r"
+    "ls\t\t\t\tlist the files in the directory\n\r"
+    "mv FILENAME NEWNAME\t\tmove a file\n\r"
+    "cp FILENAME NEWNAME\t\tcopy a file\n\r"
+    "rm FILENAME\t\t\tdelete a file\n\r"
+    "checksum FILENAME\t\tcompute a checksum of a file\n\r";
 
 #define telnet_server
 #ifdef telnet_server
@@ -62,14 +71,14 @@ char ibuffer[64];
 #define iprintf printf
 #define iputs puts
 #define ERROR(...)                                                             \
-    printf("ERROR: " __VA_ARGS__);                                             \
+    printf(RED "ERROR: " NORMAL __VA_ARGS__);                                  \
     return;
 #define ireadline(cmd, size) readline(cmd, size)
 #endif
 
 void interpret_command(void) {
-    iprintf("\n\r> ");
-    ireadline(raw_command, sizeof(raw_command));
+    iprintf("\n\r\xF0\x9F\x8D\x8D> ");
+    ireadline(raw_command, COMMAND_BUF_LEN);
 #ifdef telnet_client
     ESP8266_SendBuffered(raw_command);
     ireadline(raw_command, sizeof(raw_command));
@@ -79,15 +88,13 @@ void interpret_command(void) {
     current = raw_command;
     if (!next_token()) {
         ERROR("enter a command\n\r");
-    }
-    if (streq(token, "help") || streq(token, "h")) {
+    } else if (streq(token, "help") || streq(token, "h")) {
         iputs(HELPSTRING);
     } else if (streq(token, "led")) {
+        uint8_t led;
         if (!next_token()) {
             ERROR("expected another argument for color\n\r");
-        }
-        uint8_t led;
-        if (streq(token, "red") || streq(token, "r")) {
+        } else if (streq(token, "red") || streq(token, "r")) {
             led = RED_LED;
         } else if (streq(token, "blue") || streq(token, "b")) {
             led = BLUE_LED;
@@ -106,7 +113,13 @@ void interpret_command(void) {
             ERROR("invalid action '%s'\n\rTry on, off, or toggle\n\r", token);
         }
     } else if (streq(token, "adc")) {
+<<<<<<< HEAD
         iprintf("ADC reading: %d\n\r", adc_in());
+=======
+        printf("ADC reading: %d\n\r", adc_in());
+    } else if (streq(token, "jitter")) {
+        OS_ReportJitter();
+>>>>>>> 6d3c24e7d4659f3844f84dab9cc3ab8a0207a0cc
     } else if (streq(token, "heap")) {
         heap_stats();
     } else if (streq(token, "time")) {
@@ -116,13 +129,16 @@ void interpret_command(void) {
             iprintf("OS time reset\n\r");
             OS_ClearTime();
         } else {
+<<<<<<< HEAD
             iprintf("ERROR: expected 'get' or 'reset', got '%s'\n\r", token);
+=======
+            ERROR("expected 'get' or 'reset', got '%s'\n\r", token);
+>>>>>>> 6d3c24e7d4659f3844f84dab9cc3ab8a0207a0cc
         }
     } else if (streq(token, "mount")) {
-        littlefs_init();
-        littlefs_mount();
+        littlefs_init() && littlefs_mount();
     } else if (streq(token, "unmount")) {
-        littlefs_close();
+        littlefs_unmount();
     } else if (streq(token, "format")) {
         if (next_token() && streq(token, "yes") && next_token() &&
             streq(token, "really")) {
@@ -131,89 +147,150 @@ void interpret_command(void) {
             }
             ERROR("foramtting failed\n\r");
         }
-        ERROR("you need to show that you're sure by entering "
-              "'format yes really'\n\r");
+        ERROR("You need to indicate that you're REALLY sure\n\r");
     } else if (streq(token, "ls")) {
-        // TODO
-        ERROR("unimplemented\n\r");
+        littlefs_ls();
     } else if (streq(token, "touch")) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
-        }
-        if (!(littlefs_open_file(token) && littlefs_close())) {
+        } else if (!(littlefs_open_file(token, true) &&
+                     littlefs_close_file())) {
             ERROR("couldn't create file\n\r");
         }
     } else if (streq(token, "cat")) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
-        }
-        if (!littlefs_open_file(token)) {
+        } else if (!littlefs_open_file(token, false)) {
             ERROR("couldn't open file '%s'\n\r", token);
         }
         char temp;
+<<<<<<< HEAD
         iprintf("Contents of '%s':\n\r", token);
         while (littlefs_read_file(&temp)) { putchar(temp); }
         iprintf("\n\r");
+=======
+        while (littlefs_read((uint8_t*)&temp)) { putchar(temp); }
+        printf("\n\r");
+>>>>>>> 6d3c24e7d4659f3844f84dab9cc3ab8a0207a0cc
         littlefs_close_file();
     } else if (streq(token, "append")) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
-        }
-        if (!littlefs_open_file(token)) {
+        } else if (!littlefs_open_file(token, true)) {
             ERROR("couldn't open file\n\r", token);
-        }
-        if (!next_token()) {
+        } else if (!next_token()) {
             littlefs_close_file();
             ERROR("must pass some characters to append\n\r");
         }
-        for (int i = 0; token[i]; ++i) {
-            if (!littlefs_append(token[i])) {
-                ERROR("failed to write to the file\n\r");
-            }
+        uint8_t len = strlen(token);
+        bool ret = littlefs_write_buffer(token, len);
+        littlefs_close_file();
+        if (!ret) {
+            ERROR("failed to write to the file\n\r");
         }
-        if (!littlefs_close_file()) {
-            ERROR("failed to close the file, try remounting\n\r");
-        }
+        printf("Wrote %d bytes\n\r", len);
     } else if (streq(token, "rm")) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
-        }
-        if (!littlefs_remove(token)) {
+        } else if (!littlefs_remove(token)) {
             ERROR("couldn't remove file '%s'\n\r", token);
         }
     } else if (streq(token, "mv")) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
         }
-        // char filename[FILENAME_SIZE];
-        // memcpy(filename, token, FILENAME_SIZE);
+        char filename[32];
+        memcpy(filename, token, sizeof(filename));
         if (!next_token()) {
             ERROR("must pass another filename\n\r");
+        } else if (!littlefs_move(filename, token)) {
+            ERROR("failed to move file\n\r");
         }
-        // if (!fs_rename_file(filename, token)) {
-        //     ERROR("failed to rename file\n\r");
-        // }
-        // TODO
-        ERROR("unimplemented\n\r");
     } else if (streq(token, "cp")) {
-        if (!next_token()) {
-            ERROR("must pass a filename\n\r");
-        }
         // TODO
         ERROR("unimplemented\n\r");
-    } else if (streq(token, "load")) {
+    } else if (streq(token, "exec")) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
         }
-        LoadProgram(token);
+        OS_LoadProgram(token);
+    } else if (streq(token, "upload")) {
+        if (!next_token()) {
+            ERROR("must pass a filename\n\r");
+        }
+        if (!littlefs_open_file(token, true)) {
+            ERROR("failed to open file\n\r");
+        }
+        printf("Are you using the file transfer utility? [Y/n]\n\r");
+        bool file_transfer = !(getchar() == 'n');
+        bool binary = false;
+        if (file_transfer) {
+            printf("Is the file you're transferring binary? [y/N]\n\r");
+            binary = getchar() == 'y';
+        }
+        char sizebuf[16];
+        if (file_transfer) {
+            printf("Close this session and run the file transfer utility...");
+            uart_change_speed(9600);
+        } else {
+            printf("Enter your file's size in bytes: ");
+        }
+        readline(sizebuf, sizeof(sizebuf));
+        uint32_t size = atoi(sizebuf);
+        if (!file_transfer) {
+            printf("Now paste the contents of your file...");
+        }
+        while (size--) {
+            char temp = getchar();
+            if (!littlefs_write(temp)) {
+                littlefs_close_file();
+                ERROR("failed to write to the file\n\r");
+                if (file_transfer) {
+                    __asm("BKPT");
+                }
+            }
+            // translate to CRLF line endings
+            if (!binary && (temp == '\r' || temp == '\n')) {
+                littlefs_write(temp == '\n' ? '\r' : '\n');
+            }
+        }
+        if (file_transfer) {
+            uart_change_speed(115200);
+        }
+        printf("   Successfully Uploaded!\n\r");
+        littlefs_close_file();
+    } else if (streq(token, "checksum")) {
+        if (!next_token()) {
+            ERROR("must pass a filename\n\r");
+        } else if (!littlefs_open_file(token, false)) {
+            ERROR("couldn't open file '%s'\n\r", token);
+        }
+        char temp;
+        uint32_t checksum = 0;
+        while (littlefs_read((uint8_t*)&temp)) { checksum += temp; }
+        printf("0x%08x\n\r", checksum);
+        littlefs_close_file();
     } else {
         ERROR("unrecognized command '%s', try 'help'\n\r", token);
     }
 }
 
 void interpreter(void) {
+<<<<<<< HEAD
     iprintf("\x1b[1;1H\x1b[2JPress Enter to begin...");
     ireadline(raw_command, sizeof(raw_command));
     iprintf(HELPSTRING);
+=======
+    token = malloc(32);
+    raw_command = malloc(COMMAND_BUF_LEN);
+    printf("\x1b[1;1H\x1b[2JPress Enter to begin...");
+    readline(raw_command, COMMAND_BUF_LEN);
+    puts(HELPSTRING);
+    if (littlefs_init() && littlefs_mount()) {
+        puts(GREEN "Filesystem mounted" NORMAL);
+    } else {
+        puts(RED "Filesystem failed to mount" NORMAL);
+    }
+>>>>>>> 6d3c24e7d4659f3844f84dab9cc3ab8a0207a0cc
     while (true) { interpret_command(); }
 }

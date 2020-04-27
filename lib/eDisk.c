@@ -6,24 +6,11 @@
 #include "tivaware/rom.h"
 #include "tivaware/ssi.h"
 #include "tivaware/sysctl.h"
-#include "tivaware/udma.h"
 
 #include "OS.h"
-#include "dma.h"
 #include "eDisk.h"
 #include "printf.h"
 #include <stdint.h>
-
-static Sema4 dma_mutex;
-
-void spi0_handler(void) {
-    ROM_SSIIntClear(SSI0_BASE, SSI_DMARX);
-    if (ROM_uDMAChannelModeGet(UDMA_CHANNEL_SSI0RX | UDMA_PRI_SELECT) ==
-        UDMA_MODE_STOP) {
-        printf("DMA Transfer Complete\n\r");
-        OS_Signal(&dma_mutex);
-    }
-}
 
 static void chip_select(void) {
     while (ROM_SSIBusy(SSI0_BASE)) {}
@@ -68,7 +55,6 @@ void SSI0_Init(unsigned long CPSDVSR) {
     // read any residual data from ssi port
     uint32_t _temp;
     while (ROM_SSIDataGetNonBlocking(SSI0_BASE, &_temp)) {}
-    OS_InitSemaphore(&dma_mutex, -1);
 }
 
 // SSIClk = PIOSC / (CPSDVSR * (1 + SCR)) = 80 MHz/CPSDVSR
@@ -139,8 +125,6 @@ static void rcvr_spi_multi(uint8_t* buff, uint32_t count) {
         count--;
         buff++;
     }
-    // dma_recv(buff, count);
-    // OS_Wait(&dma_mutex);
 }
 
 // Send multiple bytes
@@ -274,7 +258,7 @@ static uint8_t send_cmd(uint8_t cmd, uint32_t arg) {
 DSTATUS eDisk_Init() {
     static bool started_timerproc = false;
     if (!started_timerproc) {
-        OS_AddPeriodicThread(&disk_timerproc, ms(1), 0);
+        OS_AddPeriodicThread(&disk_timerproc, ms(1), 1);
         started_timerproc = true;
     }
     uint8_t n, cmd, ty, ocr[4];

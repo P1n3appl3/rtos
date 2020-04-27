@@ -11,7 +11,7 @@ CC = clang --target=thumbv7em-unknown-none-eabi -Wno-keyword-macro -fshort-enums
 ASSEMBLER = clang --target=thumbv7em-unknown-none-eabi
 
 ARCHFLAGS = -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mthumb -mfloat-abi=hard
-COMMONFLAGS = -ggdb3 -nodefaultlibs -nostdlib -Wall -O0
+COMMONFLAGS = -ggdb3 -nodefaultlibs -nostdlib -Wall -Os
 
 CFLAGS = $(COMMONFLAGS) $(ARCHFLAGS) -fdata-sections -ffunction-sections
 CFLAGS += -pedantic -ffreestanding -MD -MP -std=c2x -Iinc
@@ -22,13 +22,13 @@ SHELL := /bin/zsh
 
 all: $(target)
 
-$(build_dir)/%.o: src/%.c
+$(build_dir)/%.o: src/%.c Makefile
 	$(CC) -o $@ $< -c $(CFLAGS)
 
-$(build_dir)/%.o: lib/%.c
+$(build_dir)/%.o: lib/%.c Makefile
 	$(CC) -o $@ $< -c $(CFLAGS)
 
-$(build_dir)/%.o: lib/%.s
+$(build_dir)/%.o: lib/%.s Makefile
 	$(ASSEMBLER) -o $@ $< -c $(COMMONFLAGS) $(ARCHFLAGS)
 
 $(target): $(OBJS)
@@ -39,22 +39,18 @@ release:
 
 -include $(DEPS)
 
-flash: $(target)
+timestamp = $(build_dir)/timestamp
+$(timestamp): $(target)
+	$(shell date '+%y%m%d%H%M%S' > $(timestamp))
 	$(OPENOCD) -c "program $(target) exit"
 
-run: $(target)
-	$(OPENOCD) -c "program $(target) reset exit"
+flash: $(timestamp)
 
-# TODO: only flash if necessary
-quick_uart:
-	screen -L /dev/ttyACM0 115200
+run: flash
+	$(OPENOCD) -c "init;reset;shutdown"
 
 uart: run
 	screen -L /dev/ttyACM0 115200
-
-# TODO: only flash if necessary
-quick_debug:
-	arm-none-eabi-gdb $(target) -x misc/debug.gdb
 
 debug: flash
 	arm-none-eabi-gdb $(target) -x misc/debug.gdb
@@ -63,15 +59,16 @@ debug_gui: flash
 	gdbgui -g arm-none-eabi-gdb --gdb-args="-command=misc/debug_gui.gdb" \
 		$(target)
 
-size: $(target)
+size = $(build_dir)/size
+$(size): $(target)
 	llvm-nm --demangle --print-size --size-sort --no-weak --radix=d $(target) \
 		> $(build_dir)/sizes
 
-rom_size: size
+rom_size: $(size)
 	@grep "^0" < $(build_dir)/sizes | cut -f 2,4 -d ' ' | \
 		numfmt --field 1 --to=iec --padding -6 | sed "/^0/d"
 
-ram_size: size
+ram_size: $(size)
 	@grep "^[^0]" < $(build_dir)/sizes | cut -f 2,4 -d ' ' | \
 		numfmt --field 1 --to=iec --padding -6 | sed "/^0/d"
 

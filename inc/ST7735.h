@@ -10,6 +10,7 @@
 // CARD_CS -> PB0
 
 #pragma once
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -28,8 +29,12 @@
 // Initialization for ST7735R screens (green or red tabs).
 void lcd_init();
 
+typedef uint16_t Color;
+
 // convert 24 bit color to the 16 bit BGR format used by the ST7735
-uint16_t rgb(uint8_t r, uint8_t g, uint8_t b);
+Color rgb(uint8_t r, uint8_t g, uint8_t b);
+// convert packed color (0x00RRGGBB) to the 16 bit format;
+Color rgb_packed(uint32_t packed_color);
 
 // Color the pixel at the given coordinates with the given color.
 // Requires 13 bytes of transmission
@@ -40,22 +45,22 @@ uint16_t rgb(uint8_t r, uint8_t g, uint8_t b);
 //               must be less than 160
 //               159 is near the wires, 0 is the side opposite the wires
 //        color 16-bit color in BGR 5-6-5 format
-void lcd_pixel(int16_t x, int16_t y, uint16_t color);
+void lcd_pixel(int16_t x, int16_t y, Color color);
 
 // Draw a vertical line at the given coordinates with the given height and
 // color. A vertical line is parallel to the longer side of the rectangular
 // display Requires (11 + 2*h) bytes of transmission (assuming image fully on
 // screen)
-void lcd_fast_vline(int16_t x, int16_t y, int16_t h, uint16_t color);
+void lcd_fast_vline(int16_t x, int16_t y, int16_t h, Color color);
 
 // Draw a horizontal line at the given coordinates with the given width and
 // color. A horizontal line is parallel to the shorter side of the rectangular
 // display Requires (11 + 2*w) bytes of transmission (assuming image fully on
 // screen)
-void lcd_fast_hline(int16_t x, int16_t y, int16_t w, uint16_t color);
+void lcd_fast_hline(int16_t x, int16_t y, int16_t w, Color color);
 
 // Input: color 16-bit color in BGR 5-6-5 format
-void lcd_fill(uint16_t color);
+void lcd_fill(Color color);
 
 // Draw a filled rectangle at the given coordinates with the given width,
 // height, and color. Requires (11 + 2*w*h) bytes of transmission (assuming
@@ -67,7 +72,7 @@ void lcd_fill(uint16_t color);
 //        w     horizontal width of the rectangle
 //        h     vertical height of the rectangle
 //        color 16-bit color in BGR 5-6-5 format
-void lcd_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
+void lcd_rect(int16_t x, int16_t y, int16_t w, int16_t h, Color color);
 
 // Displays a 16-bit color bitmap.
 // array image[] has one 16-bit color for each pixel to be
@@ -116,8 +121,8 @@ uint32_t lcd_string(uint16_t x, uint16_t y, char* pt, int16_t textColor);
 // Move the cursor to the desired X- and Y-position.  The
 // next character will be printed here.  X=0 is the leftmost
 // column.  Y=0 is the top row.
-// inputs: newX  new X-position of the cursor (0<=newX<=20)
-//         newY  new Y-position of the cursor (0<=newY<=15)
+// Input: newX  new X-position of the cursor (0<=newX<=20)
+//        newY  new Y-position of the cursor (0<=newY<=15)
 void lcd_set_cursor(uint32_t newX, uint32_t newY);
 
 // Output a 32-bit number in unsigned decimal format
@@ -142,16 +147,13 @@ void lcd_message(uint32_t d, uint32_t l, char* pt);
 // Input: false to disable inversion, true to enable inversion
 void lcd_invert(bool i);
 
-// Output one character to the LCD
-// Inputs: 8-bit ASCII character
+// Output one character
 void lcd_putchar(char ch);
 
-// Print a string of characters to the ST7735 LCD.
-// The string will not automatically wrap.
-// inputs: ptr  pointer to NULL-terminated ASCII string
-void lcd_puts(char* ptr);
+// Print a string of characters
+// The string will not automatically wrap
+void lcd_puts(char* str);
 
-// Sets the color in which the characters will be printed
+// Sets the color in which characters will be printed
 // Background color is fixed at black
-// Input:  16-bit packed color
-void lcd_set_text_color(uint16_t color);
+void lcd_set_text_color(Color color);

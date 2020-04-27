@@ -123,7 +123,6 @@ void* _realloc(void* allocation, uint32_t size) {
     if (this->size > size) {
         bool temp = try_splitting_block(this, size);
         if (temp) {
-            // TODO: check if these adjustments are correct
             free_space += sizeof(HeapNode);
             used_space -= sizeof(HeapNode);
             _free((uint8_t*)heap_next_node(this) + sizeof(HeapNode));
@@ -153,6 +152,7 @@ void* _realloc(void* allocation, uint32_t size) {
     return new;
 }
 
+// TODO: check whether critical sections are required or if the mutex is fine
 void* malloc(uint32_t size) {
     OS_Wait(&heap_mutex);
     void* temp = _malloc(size);
@@ -215,5 +215,5 @@ void heap_stats(void) {
         putchar('#');
     }
     puts(NORMAL "]");
-    printf("Largest possible allocation: %d bytes.\n\n\r", heap_get_max());
+    printf("Largest possible allocation: %d bytes.\n\r", heap_get_max());
 }

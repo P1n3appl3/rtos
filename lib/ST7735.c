@@ -303,19 +303,19 @@ static void set_address_window(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1) {
 }
 
 // Send two bytes of data, most significant byte first
-static void push_color(uint16_t color) {
+static void push_color(Color color) {
     write_data((color >> 8));
     write_data(color);
 }
 
-void lcd_pixel(int16_t x, int16_t y, uint16_t color) {
+void lcd_pixel(int16_t x, int16_t y, Color color) {
     if ((x < 0) || (x >= ST7735_WIDTH) || (y < 0) || (y >= ST7735_HEIGHT))
         return;
     set_address_window(x, y, x, y);
     push_color(color);
 }
 
-void lcd_fast_vline(int16_t x, int16_t y, int16_t h, uint16_t color) {
+void lcd_fast_vline(int16_t x, int16_t y, int16_t h, Color color) {
     uint8_t hi = color >> 8, lo = color;
 
     // Rudimentary clipping
@@ -331,7 +331,7 @@ void lcd_fast_vline(int16_t x, int16_t y, int16_t h, uint16_t color) {
     }
 }
 
-void lcd_fast_hline(int16_t x, int16_t y, int16_t w, uint16_t color) {
+void lcd_fast_hline(int16_t x, int16_t y, int16_t w, Color color) {
     uint8_t hi = color >> 8, lo = color;
 
     // Rudimentary clipping
@@ -347,12 +347,12 @@ void lcd_fast_hline(int16_t x, int16_t y, int16_t w, uint16_t color) {
     }
 }
 
-void lcd_fill(uint16_t color) {
+void lcd_fill(Color color) {
     lcd_rect(0, 0, ST7735_WIDTH, ST7735_HEIGHT, color);
     //  screen is actually 129 by 161 pixels, x 0 to 128, y goes from 0 to 160
 }
 
-void lcd_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
+void lcd_rect(int16_t x, int16_t y, int16_t w, int16_t h, Color color) {
     uint8_t hi = color >> 8, lo = color;
 
     // rudimentary clipping (drawChar w/big text requires this)
@@ -373,7 +373,12 @@ void lcd_rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) {
     }
 }
 
-uint16_t rgb(uint8_t r, uint8_t g, uint8_t b) {
+Color rgb_packed(uint32_t packed_color) {
+    return ((packed_color << 8) & ~0xF800) | ((packed_color >> 3) & ~0x07E0) |
+           (packed_color >> 19);
+}
+
+Color rgb(uint8_t r, uint8_t g, uint8_t b) {
     return ((b & 0xF8) << 8) | ((g & 0xFC) << 3) | (r >> 3);
 }
 
@@ -573,13 +578,10 @@ void lcd_putchar(char ch) {
     return;
 }
 
-void lcd_puts(char* ptr) {
-    while (*ptr) {
-        lcd_putchar(*ptr);
-        ++ptr;
-    }
+void lcd_puts(char* s) {
+    while (*s) { lcd_putchar(*s), ++s; }
 }
 
-void lcd_set_text_color(uint16_t color) {
+void lcd_set_text_color(Color color) {
     text_color = color;
 }

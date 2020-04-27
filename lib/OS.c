@@ -52,10 +52,6 @@ typedef struct TCB {
     uint32_t* stack;
 } TCB;
 
-// Performance Measurements
-int32_t MaxJitter;
-static uint32_t JitterHistogram[128] = {0};
-
 #define MAX_THREADS 8
 #define MAX_PROCESSES 4
 #define MIN_STACK_SIZE 512
@@ -156,7 +152,6 @@ void OS_Init(void) {
     enable_button_interupts(3);
     uart_init();
     SSI0_Init(10);
-    MaxJitter = 0;
 }
 
 void OS_InitSemaphore(Sema4* sem, int32_t value) {
@@ -212,8 +207,7 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     while (threads[thread_index].alive) { thread_index++; }
     TCB* adding = &threads[thread_index];
 
-    if (current_thread->parent_process) {
-        adding->parent_process = current_thread->parent_process;
+    if ((adding->parent_process = current_thread->parent_process)) {
         ++adding->parent_process->threads;
     }
     adding->alive = true;
@@ -237,7 +231,10 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     *(--adding->sp) = 0x21000000;        // PSR
     *(--adding->sp) = (uint32_t)task;    // PC
     *(--adding->sp) = (uint32_t)OS_Kill; // LR
-    *(adding->sp - 8) = (uint32_t)adding->parent_process->data; // R9
+    if (adding->parent_process) {
+        // R9 is the static base
+        *(adding->sp - 8) = (uint32_t)adding->parent_process->data;
+    }
     adding->sp -= 13; // Space for R0-R12
 
     insert_thread(adding);
@@ -245,13 +242,6 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     return true;
 }
 
-// add a process with foregound thread to the scheduler
-// Inputs: pointer to a void/void entry point
-//         pointer to process text (code) segment
-//         pointer to process data segment
-//         number of bytes allocated for its stack
-//         priority (0 is highest)
-// Returns false if this process could not be added
 bool OS_AddProcess(void (*entry)(void), void* text, void* data,
                    uint32_t stack_size, uint32_t priority) {
     uint32_t crit = start_critical();
@@ -280,6 +270,12 @@ bool OS_AddProcess(void (*entry)(void), void* text, void* data,
 uint32_t OS_Id(void) {
     return current_thread->id;
 }
+
+// performance measurments for periodic tasks
+#ifdef TRACK_JITTER
+static int32_t max_jitter;
+static uint32_t jitter_histogram[128] = {0};
+#endif
 
 typedef struct ptask {
     void (*task)(void);
@@ -319,13 +315,15 @@ static void periodic_task(void) {
     uint32_t time = OS_Time();
     do {
         uint32_t current = OS_Time();
+#ifdef TRACK_JITTER
         uint32_t jitter = to_us(
             difference(current - current_ptask->last, current_ptask->reload));
-        current_ptask->last = current;
-        MaxJitter = max(MaxJitter, jitter);
+        max_jitter = max(max_jitter, jitter);
         uint8_t idx = min(
-            sizeof(JitterHistogram) / sizeof(JitterHistogram[0]) - 1, jitter);
-        ++JitterHistogram[idx];
+            sizeof(jitter_histogram) / sizeof(jitter_histogram[0]) - 1, jitter);
+        ++jitter_histogram[idx];
+#endif
+        current_ptask->last = current;
         current_ptask->task();
     } while ((current_ptask = current_ptask->next));
     setup_next_ptask(OS_Time() - time);
@@ -549,13 +547,14 @@ void systick_handler() {
 }
 
 void OS_ReportJitter(void) {
-    printf("Max Jitter: %d microseconds\n\r", MaxJitter);
+#ifdef TRACK_JITTER
+    printf("Max Jitter: %d microseconds\n\r", max_jitter);
     uint32_t most = 0, most_idx;
     uint32_t sum = 0;
     uint32_t total_num = 0;
-    for (int i = 0; i < sizeof(JitterHistogram) / sizeof(JitterHistogram[0]);
+    for (int i = 0; i < sizeof(jitter_histogram) / sizeof(jitter_histogram[0]);
          ++i) {
-        uint32_t num = JitterHistogram[i];
+        uint32_t num = jitter_histogram[i];
         sum += i * num;
         total_num += num;
         if (num > most) {
@@ -565,20 +564,9 @@ void OS_ReportJitter(void) {
     }
     printf("Modal Jitter: %d microseconds\n\r", most_idx);
     printf("Average Jitter: %d microseconds\n\r", sum / total_num);
-}
-
-void OS_SVC_handler(uint8_t number, uint32_t* reg) {
-    // reg is ptr to parameters on stack
-    switch (number) {
-    case 0: *reg = OS_Id(); break;
-    case 1: OS_Kill(); break;
-    case 2: OS_Sleep(*reg); break;
-    case 3: *reg = OS_Time(); break;
-    case 4:
-        OS_AddThread(*(void (*)(void)) * reg, (char*)(*(reg + 1)), 1024,
-                     *(reg + 3));
-        break;
-    }
+#else
+    puts("Jitter tracking not enabled...");
+#endif
 }
 
 // TODO: change the stack pointer so that using the stack in this handler
@@ -607,24 +595,27 @@ void hardfault_handler(void) {
     }
 }
 
-void message_num(uint32_t d, uint32_t l, char* pt, int32_t value) {
-    uint32_t crit = start_critical();
-    char val[10] = "          ";
-    puts(pt);
-    puts(itoa(value, val, 10));
-    puts("\n\r");
-    end_critical(crit);
+// Exported symbol for dynamic function loading
+typedef struct {
+    const char* name;
+    void* ptr;
+} Symbol;
+
+static const Symbol symtab[] = {{"OS_Id", (void*)OS_Id},
+                                {"printf", (void*)printf}};
+
+void* OS_function_lookup(const char* name) {
+    for (int i = 0; i < sizeof(symtab) / sizeof(Symbol); ++i) {
+        if (streq(symtab[i].name, name)) {
+            return symtab[i].ptr;
+        }
+    }
+    return 0;
 }
 
-static const ELFSymbol_t symtab[] = {{"ST7735_Message", (void*)message_num}};
-
-void LoadProgram(char* name) {
-    puts("Loading: ");
-    puts(name);
-    puts("\n\r");
-    ELFEnv_t env = {symtab, 1};
-    // symbol table with one entry
-    if (!exec_elf(name, &env)) {
-        puts("load program error\n\r");
+void OS_LoadProgram(char* name) {
+    printf("Loading: '%s'...\n\r", name);
+    if (!exec_elf(name)) {
+        puts("load program error");
     }
 }

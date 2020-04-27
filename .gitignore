@@ -1,13 +1,14 @@
 *
 
 !.gitignore
-!Makefile
 !src/
 !inc/
 !inc/tivaware
 !lib/
 !sim/
 !misc/
+!userprog/
+!**/Makefile
 !**/*.c
 !**/*.s
 !**/*.h
@@ -15,5 +16,6 @@
 !**/*.ld
 !**/*.gdb
 !**/*.rules
+!**/*.py
 *.uvprojx
 inc/WifiSettings.h

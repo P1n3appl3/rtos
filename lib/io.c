@@ -18,8 +18,6 @@
 ADDFIFO(tx, 128, uint8_t)
 ADDFIFO(rx, 128, uint8_t)
 
-Sema4 chars_avail;
-
 static void hw_to_sw_fifo() {
     do {
         rxfifo_put(ROM_UARTCharGet(UART0_BASE));
@@ -41,7 +39,6 @@ void uart0_handler(void) {
     if (source & (UART_INT_RX | UART_INT_RT)) {
         ROM_UARTIntClear(UART0_BASE, UART_INT_RX | UART_INT_RT);
         hw_to_sw_fifo();
-        OS_Signal(&chars_avail);
     }
     if (source & UART_INT_TX) {
         ROM_UARTIntClear(UART0_BASE, UART_INT_TX);
@@ -59,7 +56,7 @@ void uart_init(void) {
                             UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE |
                                 UART_CONFIG_PAR_NONE);
     ROM_UARTFIFOEnable(UART0_BASE);
-    ROM_IntPrioritySet(INT_UART0, 0x20); // priority is high 3 bits
+    ROM_IntPrioritySet(INT_UART0, 0 << 5); // priority is high 3 bits
     ROM_UARTFIFOLevelSet(UART0_BASE, UART_FIFO_TX1_8, UART_FIFO_RX1_8);
 #ifdef USE_OUTPUT_BUFFER
     ROM_UARTIntEnable(UART0_BASE, UART_INT_TX | UART_INT_RX | UART_INT_RT);
@@ -71,7 +68,12 @@ void uart_init(void) {
     ROM_UARTEnable(UART0_BASE);
     txfifo_init();
     rxfifo_init();
-    OS_InitSemaphore(&chars_avail, 0);
+}
+
+void uart_change_speed(uint32_t baud) {
+    ROM_UARTConfigSetExpClk(UART0_BASE, ROM_SysCtlClockGet(), baud,
+                            UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE |
+                                UART_CONFIG_PAR_NONE);
 }
 
 bool putchar(char x) {
@@ -95,9 +97,8 @@ bool putchar(char x) {
 }
 
 char getchar(void) {
-    OS_Wait(&chars_avail);
     uint8_t temp;
-    rxfifo_get(&temp);
+    while (!rxfifo_get(&temp)) { OS_Suspend(); };
     return temp;
 }
 
@@ -124,14 +125,12 @@ uint16_t readline(char* str, uint16_t len) {
     char current = '\0';
     while (len--) {
         switch (current = getchar()) {
+        case '\n':
         case '\r':
             putchar('\n');
             putchar('\r');
-            // if (recieved == 0) {
-            //     break; // don't return empty strings
-            // }
             *str = '\0';
-            return recieved + 1;
+            return ++recieved;
         case 127:
             if (recieved > 0) {
                 putchar('\b');
