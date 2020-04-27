@@ -18,4 +18,3 @@
 !**/*.rules
 !**/*.py
 *.uvprojx
-inc/WifiSettings.h

@@ -26,7 +26,8 @@ $(build_dir)/%.o: src/%.c Makefile
 	$(CC) -o $@ $< -c $(CFLAGS)
 
 $(build_dir)/%.o: lib/%.c Makefile
-	$(CC) -o $@ $< -c $(CFLAGS)
+	$(CC) -o $@ $< -c $(CFLAGS) -D SSID_NAME='"${wifi_network}"' \
+		-D PASSKEY='"${wifi_pass}"'
 
 $(build_dir)/%.o: lib/%.s Makefile
 	$(ASSEMBLER) -o $@ $< -c $(COMMONFLAGS) $(ARCHFLAGS)
