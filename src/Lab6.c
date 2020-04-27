@@ -80,6 +80,37 @@ void TelnetServer(void) {
     }
 }
 
+void RPCClient(void) {
+    // Initialize and bring up Wifi adapter
+    if (!ESP8266_Init(true, false)) { // verbose rx echo on UART for debugging
+        puts("No Wifi adapter");
+        OS_Kill();
+    }
+    // Get Wifi adapter version (for debugging)
+    ESP8266_GetVersionNumber();
+    // Connect to access point
+    if (!ESP8266_Connect(true)) {
+        puts("No Wifi network");
+        OS_Kill();
+    }
+    puts("Wifi connected");
+    if (!ESP8266_MakeTCPConnection("107.15.206.58", 23,
+                                   600)) { // port 80, 5min timeout
+        puts("Client failure");
+        OS_Kill();
+    }
+    puts("Client started");
+
+    while (1) {
+        // Launch thread with higher priority to serve request
+        OS_AddThread(&iclient, "iclient", 2048, 1);
+
+        // The ESP driver only supports one connection, wait for the thread
+        // to complete
+        OS_Wait(&WebServerSema);
+    }
+}
+
 //--------------end of Idle Task-----------------------------
 
 //*******************final user main - bare bones OS, extend with your
@@ -99,7 +130,11 @@ int realmain(void) { // realmain
     // create initial foreground threads
     // NumCreated += OS_AddThread(&interpreter, "Interpreter", 128, 2);
     OS_AddThread(&Idle, "Idle", 128, 5); // at lowest priority
+#if defined(rpc_client)
+    OS_AddThread(&RPCClient, "RPC Client", 1024, 2);
+#else
     OS_AddThread(&TelnetServer, "TelnetServer", 1024, 2);
+#endif
 
     OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
     return 0;         // this never executes

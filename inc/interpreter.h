@@ -2,7 +2,9 @@
 
 #pragma once
 
+// choices: telnet_server, rpc_server, rpc_client
 #define telnet_server
+
 #if defined(telnet_server) || defined(rpc_server)
 char ibuffer[64];
 #define iprintf(...)                                                           \
@@ -25,3 +27,4 @@ char ibuffer[64];
 
 // Run the user interface.
 void interpreter(void);
+void iclient(void);

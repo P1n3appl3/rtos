@@ -56,20 +56,27 @@ static char* HELPSTRING =
     "rm FILENAME\t\t\tdelete a file\n\r"
     "checksum FILENAME\t\tcompute a checksum of a file\n\r";
 
-void interpret_command(void) {
-    iprintf("\n\r\xF0\x9F\x8D\x8D> ");
+void client_command(void) {
+    // receive >
+    ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
+    puts(raw_command);
+    // send command
     ireadline(raw_command, COMMAND_BUF_LEN);
-#ifdef rpc_client
     ESP8266_SendBuffered(raw_command);
+    // read output
     while (true) {
-        ireadline(raw_command, COMMAND_BUF_LEN);
+        ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
         if (streq(raw_command, "rpcstop")) {
             break;
         }
         puts(raw_command);
     }
     return;
-#endif
+}
+
+void interpret_command(void) {
+    iprintf("\n\r\xF0\x9F\x8D\x8D> ");
+    ireadline(raw_command, COMMAND_BUF_LEN);
     current = raw_command;
     if (!next_token()) {
         ERROR("enter a command\n\r");
@@ -257,6 +264,23 @@ void interpret_command(void) {
 #ifdef rpc_server
     ESP8266_SendBuffered("rpcstop");
 #endif
+}
+
+void iclient(void) {
+    token = malloc(32);
+    raw_command = malloc(COMMAND_BUF_LEN);
+    // receive enter
+    ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
+    puts(raw_command);
+    // press enter
+    ireadline(raw_command, COMMAND_BUF_LEN);
+    ESP8266_SendBuffered(raw_command);
+    // receive helpstring
+    ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
+    puts(raw_command);
+    // receive fs mounted
+    ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
+    puts(raw_command);
 }
 
 void interpreter(void) {
