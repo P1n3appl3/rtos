@@ -1,5 +1,6 @@
 #include "heap.h"
 #include "OS.h"
+#include "interpreter.h"
 #include "io.h"
 #include "printf.h"
 #include "std.h"
@@ -199,21 +200,25 @@ uint32_t heap_get_max(void) {
 
 const int graph_width = 80;
 void heap_stats(void) {
-    printf("Total bytes available: %d\n\r", total_heap_size);
-    printf("Bytes in use: " RED "%d" NORMAL "\n\r", used_space);
-    printf("Bytes still available: " CYAN "%d" NORMAL "\n\r", free_space);
+    iprintf("Total bytes available: %d\n\r", total_heap_size);
+    iprintf("Bytes in use: " RED "%d" NORMAL "\n\r", used_space);
+    iprintf("Bytes still available: " CYAN "%d" NORMAL "\n\r", free_space);
     uint16_t wasted = total_heap_size - used_space - free_space;
-    printf("Bytes wasted: " YELLOW "%d" NORMAL "\n\r", wasted);
-    printf("[" RED);
+    iprintf("Bytes wasted: " YELLOW "%d" NORMAL "\n\r", wasted);
+    iprintf("[" RED);
     for (int i = 0; i < graph_width; ++i) {
         if (used_space * graph_width / total_heap_size == i) {
-            printf(YELLOW);
+            iprintf(YELLOW);
         }
         if ((used_space + wasted) * graph_width / total_heap_size == i) {
-            printf(CYAN);
+            iprintf(CYAN);
         }
+#if defined(rpc_server) || defined(telnet_server)
+        iputs("#");
+#else
         putchar('#');
+#endif
     }
-    puts(NORMAL "]");
-    printf("Largest possible allocation: %d bytes.\n\r", heap_get_max());
+    iputs(NORMAL "]");
+    iprintf("\nLargest possible allocation: %d bytes.\n\r", heap_get_max());
 }
