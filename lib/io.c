@@ -121,7 +121,7 @@ uint16_t gets(char* str, uint16_t len) {
 }
 
 uint16_t readline(char* str, uint16_t len) {
-    int recieved = 0;
+    int received = 0;
     char current = '\0';
     while (len--) {
         switch (current = getchar()) {
@@ -130,22 +130,22 @@ uint16_t readline(char* str, uint16_t len) {
             putchar('\n');
             putchar('\r');
             *str = '\0';
-            return ++recieved;
+            return ++received;
         case 127:
-            if (recieved > 0) {
+            if (received > 0) {
                 putchar('\b');
                 putchar(' ');
                 putchar('\b');
                 --str;
-                --recieved;
+                --received;
             }
             break;
         default:
             putchar(current);
             *str++ = current;
-            ++recieved;
+            ++received;
         }
     }
     *--str = '\0';
-    return recieved;
+    return received;
 }

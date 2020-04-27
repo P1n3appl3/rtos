@@ -6,6 +6,7 @@
 #include "interpreter.h"
 #include "interrupts.h"
 #include "io.h"
+#include "littlefs.h"
 #include "printf.h"
 #include "std.h"
 #include "tivaware/rom.h"
@@ -352,10 +353,17 @@ void Testmain3(void) {
     OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
 }
 
+void testmain_littlefs(void) {
+    OS_Init();
+    OS_AddThread(littlefs_test, "filesystem test", 2048, 0);
+    OS_Launch(ms(10));
+}
+
 //*******************Trampoline for selecting main to execute**********
 
 int main(void) {
     realmain();
     // Testmain2();
+    // testmain_littlefs();
     return 0;
 }

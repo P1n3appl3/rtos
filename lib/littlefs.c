@@ -1,6 +1,7 @@
 #include "OS.h"
 #include "eDisk.h"
 #include "heap.h"
+#include "interpreter.h"
 #include "io.h"
 #include "lfs.h"
 #include "printf.h"
@@ -76,8 +77,42 @@ bool littlefs_open_file(const char* name, bool create) {
                          LFS_O_RDWR | (create ? LFS_O_CREAT : 0)) >= 0;
 }
 
+bool littlefs_open_file_append(const char* name, bool create) {
+    return lfs_file_open(lfs, file, name,
+                         LFS_O_RDWR | (create ? LFS_O_CREAT : 0) |
+                             LFS_O_APPEND) >= 0;
+}
+
 bool littlefs_read(uint8_t* output) {
     return lfs_file_read(lfs, file, output, 1) == 1;
+}
+
+uint16_t littlefs_read_line(char* str, uint16_t len) {
+    int received = 0;
+    char current = '\0';
+    while (len--) {
+        if (!littlefs_read((uint8_t*)&current)) {
+            *str++ = '\n';
+            *str = '\0';
+            return 0;
+        }
+        switch (current) {
+        case '\n':
+        case '\r':
+            *str++ = '\n';
+            *str = '\0';
+            return ++received;
+        case 127:
+            if (received > 0) {
+                --str;
+                --received;
+            }
+            break;
+        default: *str++ = current; ++received;
+        }
+    }
+    *--str = '\0';
+    return received;
 }
 
 int32_t littlefs_read_buffer(void* buffer, uint32_t size) {
@@ -131,47 +166,21 @@ bool littlefs_ls(void) {
         } else if (info.type == LFS_TYPE_DIR) {
             continue; // we are only concerned with the root
         }
-        printf("%-32s %d bytes\n\r", info.name, info.size);
+        iprintf("%-32s %d bytes\n\r", info.name, info.size);
     }
     return !lfs_dir_close(lfs, &dir);
 }
 
 void littlefs_test(void) {
-    if (eDisk_Init()) {
+    if (littlefs_init()) {
         printf("error: edisk init\n\r");
         OS_Kill();
     }
 
+    // puts("formatting");
+    // littlefs_format();
+
     // mount the filesystem
-    int err = lfs_mount(lfs, &cfg);
-
-    // reformat if we can't mount the filesystem
-    // this should only happen on the first boot
-    if (err) {
-        printf("formatting\n\r");
-        err = lfs_format(lfs, &cfg);
-        printf("mounting: %d\n\r", err);
-        lfs_mount(lfs, &cfg);
-    }
-
-    // read current count
-    uint32_t boot_count = 0;
-    lfs_file_open(lfs, file, "boot_count", LFS_O_RDWR | LFS_O_CREAT);
-    lfs_file_read(lfs, file, &boot_count, sizeof(boot_count));
-
-    // update boot count
-    boot_count += 1;
-    lfs_file_rewind(lfs, file);
-    err = lfs_file_write(lfs, file, &boot_count, sizeof(boot_count));
-
-    // remember the storage is not updated until the file is closed
-    // successfully
-    lfs_file_close(lfs, file);
-
-    // release any resources we were using
-    lfs_unmount(lfs);
-
-    // print the boot count
-    printf("boot_count: %d\n\r", boot_count);
+    // littlefs_mount();
     OS_Kill();
 }

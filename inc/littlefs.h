@@ -9,10 +9,12 @@ bool littlefs_mount(void);
 bool littlefs_unmount(void);
 
 bool littlefs_open_file(const char* name, bool create);
+bool littlefs_open_file_append(const char* name, bool create);
 bool littlefs_close_file(void);
 
 bool littlefs_read(uint8_t* output);
 bool littlefs_write(uint8_t c);
+uint16_t littlefs_read_line(char* str, uint16_t len);
 
 // These return number of bytes read/written or -1 on error
 int32_t littlefs_read_buffer(void* buffer, uint32_t size);

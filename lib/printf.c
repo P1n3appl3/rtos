@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "interpreter.h"
 #include "io.h"
 #include "printf.h"
 
@@ -950,5 +951,14 @@ int fctprintf(void (*out)(char character, void* arg), void* arg,
     const int ret = _vsnprintf(_out_fct, (char*)(uintptr_t)&out_fct_wrap,
                                (size_t)-1, format, va);
     va_end(va);
+    return ret;
+}
+
+int user_printf(const char* format, ...) {
+    va_list va;
+    va_start(va, format);
+    const int ret = _vsnprintf(_out_buffer, ibuffer, (size_t)-1, format, va);
+    va_end(va);
+    ESP8266_SendBuffered(ibuffer);
     return ret;
 }

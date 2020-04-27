@@ -1,6 +1,7 @@
 #include "OS.h"
 #include "eDisk.h"
 #include "heap.h"
+#include "interpreter.h"
 #include "interrupts.h"
 #include "io.h"
 #include "launchpad.h"
@@ -601,8 +602,13 @@ typedef struct {
     void* ptr;
 } Symbol;
 
+#if defined(rpc_server) || defined(telnet_server)
+static const Symbol symtab[] = {{"OS_Id", (void*)OS_Id},
+                                {"printf", (void*)user_printf}};
+#else
 static const Symbol symtab[] = {{"OS_Id", (void*)OS_Id},
                                 {"printf", (void*)printf}};
+#endif
 
 void* OS_function_lookup(const char* name) {
     for (int i = 0; i < sizeof(symtab) / sizeof(Symbol); ++i) {

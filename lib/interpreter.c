@@ -1,3 +1,4 @@
+#include "interpreter.h"
 #include "ADC.h"
 #include "OS.h"
 #include "esp8266.h"
@@ -55,34 +56,18 @@ static char* HELPSTRING =
     "rm FILENAME\t\t\tdelete a file\n\r"
     "checksum FILENAME\t\tcompute a checksum of a file\n\r";
 
-#define telnet_server
-#ifdef telnet_server
-char ibuffer[64];
-#define iprintf(...)                                                           \
-    sprintf(ibuffer, __VA_ARGS__);                                             \
-    ESP8266_SendBuffered(ibuffer);
-#define iputs(X) ESP8266_SendBuffered(X)
-#define ERROR(...)                                                             \
-    sprintf(ibuffer, "ERROR: " __VA_ARGS__);                                   \
-    ESP8266_SendBuffered(ibuffer);                                             \
-    return;
-#define ireadline(cmd, size) ESP8266_Receive(cmd, size)
-#else
-#define iprintf printf
-#define iputs puts
-#define ERROR(...)                                                             \
-    printf(RED "ERROR: " NORMAL __VA_ARGS__);                                  \
-    return;
-#define ireadline(cmd, size) readline(cmd, size)
-#endif
-
 void interpret_command(void) {
     iprintf("\n\r\xF0\x9F\x8D\x8D> ");
     ireadline(raw_command, COMMAND_BUF_LEN);
-#ifdef telnet_client
+#ifdef rpc_client
     ESP8266_SendBuffered(raw_command);
-    ireadline(raw_command, sizeof(raw_command));
-    puts(raw_command);
+    while (true) {
+        ireadline(raw_command, COMMAND_BUF_LEN);
+        if (streq(raw_command, "rpcstop")) {
+            break;
+        }
+        puts(raw_command);
+    }
     return;
 #endif
     current = raw_command;
@@ -128,18 +113,20 @@ void interpret_command(void) {
             ERROR("expected 'get' or 'reset', got '%s'\n\r", token);
         }
     } else if (streq(token, "mount")) {
-        littlefs_init() && littlefs_mount();
+        if (!littlefs_init() || !littlefs_mount()) {
+            ERROR("mount failed");
+        }
     } else if (streq(token, "unmount")) {
         littlefs_unmount();
     } else if (streq(token, "format")) {
         if (next_token() && streq(token, "yes") && next_token() &&
             streq(token, "really")) {
-            if (littlefs_format()) {
-                return;
+            if (!littlefs_format()) {
+                ERROR("formatting failed\n\r");
             }
-            ERROR("foramtting failed\n\r");
+        } else {
+            ERROR("You need to indicate that you're REALLY sure\n\r");
         }
-        ERROR("You need to indicate that you're REALLY sure\n\r");
     } else if (streq(token, "ls")) {
         littlefs_ls();
     } else if (streq(token, "touch")) {
@@ -155,14 +142,21 @@ void interpret_command(void) {
         } else if (!littlefs_open_file(token, false)) {
             ERROR("couldn't open file '%s'\n\r", token);
         }
+#if defined(telnet_server) || defined(rpc_server)
+        while (littlefs_read_line(raw_command, COMMAND_BUF_LEN)) {
+            ESP8266_SendBuffered(raw_command);
+        }
+        ESP8266_SendBuffered(raw_command);
+#else
         char temp;
         while (littlefs_read((uint8_t*)&temp)) { putchar(temp); }
+#endif
         iprintf("\n\r");
         littlefs_close_file();
     } else if (streq(token, "append")) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
-        } else if (!littlefs_open_file(token, true)) {
+        } else if (!littlefs_open_file_append(token, true)) {
             ERROR("couldn't open file\n\r", token);
         } else if (!next_token()) {
             littlefs_close_file();
@@ -200,6 +194,7 @@ void interpret_command(void) {
             ERROR("must pass a filename\n\r");
         }
         OS_LoadProgram(token);
+        OS_Sleep(ms(1000));
     } else if (streq(token, "upload")) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
@@ -259,6 +254,9 @@ void interpret_command(void) {
     } else {
         ERROR("unrecognized command '%s', try 'help'\n\r", token);
     }
+#ifdef rpc_server
+    ESP8266_SendBuffered("rpcstop");
+#endif
 }
 
 void interpreter(void) {
