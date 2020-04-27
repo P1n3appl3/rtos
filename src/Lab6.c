@@ -1,34 +1,5 @@
-// Lab6.c
-// Runs on LM4F120/TM4C123
-// Real Time Operating System for Lab 6
-
-// Jonathan W. Valvano 3/29/17, valvano@mail.utexas.edu
-// Andreas Gerstlauer 3/1/16, gerstl@ece.utexas.edu
-// EE445M/EE380L.6
-// You may use, edit, run or distribute this file
-// You are free to change the syntax/organization of this file
-
-// LED outputs to logic analyzer for use by OS profile
-// PF1 is preemptive thread switch
-// PF2 is first periodic background task (if any)
-// PF3 is second periodic background task (if any)
-// PC4 is PF4 button touch (SW1 task)
-
-// Outputs for task profiling
-// PD0 is idle task
-// PD1 is button task
-
-// Button inputs
-// PF0 is SW2 task
-// PF4 is SW1 button input
-
-// Analog inputs
-// PE3 Ain0 sampled at 2kHz, sequencer 3, by Interpreter, using software start
-
 #include "ADC.h"
-#include "LPF.h"
 #include "OS.h"
-#include "can0.h"
 #include "eDisk.h"
 #include "esp8266.h"
 #include "heap.h"
@@ -41,22 +12,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// CAN IDs are set dynamically at time of CAN0_Open
-// Reverse on other microcontroller
-#define RCV_ID 2
-#define XMT_ID 4
-
-//*********Prototype for PID in PID_stm32.s, STMicroelectronics
-short PID_stm32(short Error, short* Coeff);
-short IntTerm;   // accumulated error, RPM-sec
-short PrevError; // previous error, RPM
-
-uint32_t NumCreated; // number of foreground threads created
-uint32_t IdleCount;  // CPU idle counter
-
-//---------------------User debugging-----------------------
-extern int32_t MaxJitter; // largest time jitter between interrupts in usec
-
 #define PD0 (*((volatile uint32_t*)0x40007004))
 #define PD1 (*((volatile uint32_t*)0x40007008))
 #define PD2 (*((volatile uint32_t*)0x40007010))
@@ -67,160 +22,12 @@ void PortD_Init(void) {
     ROM_GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, 0x0F);
 }
 
-//------------------Idle Task--------------------------------
-// foreground thread, runs when nothing else does
-// never blocks, never sleeps, never dies
-// inputs:  none
-// outputs: none
-void Idle(void) {
-    IdleCount = 0;
-    while (1) {
-        IdleCount++;
-        PD0 ^= 0x01;
-        wait_for_interrupts();
-    }
-}
-
-//--------------end of Idle Task-----------------------------
-
-//*******************final user main - bare bones OS, extend with your
-// code**********
-int realmain(void) { // realmain
-    OS_Init();       // initialize, disable interrupts
-    PortD_Init();    // debugging profile
-    heap_init();     // initialize heap
-    MaxJitter = 0;   // in 1us units
-
-    // hardware init
-    adc_init(0); // sequencer 3, channel 0, PE3, sampling in Interpreter
-    CAN0_Open(RCV_ID, XMT_ID);
-
-    // attach background tasks
-    OS_AddPeriodicThread(&disk_timerproc, ms(1),
-                         0); // time out routines for disk
-
-    // create initial foreground threads
-    NumCreated = 0;
-    NumCreated += OS_AddThread(&interpreter, "Interpreter", 128, 2);
-    NumCreated += OS_AddThread(&Idle, "Idle", 128, 5); // at lowest priority
-
-    OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
-    return 0;         // this never executes
-}
-
-//+++++++++++++++++++++++++DEBUGGING CODE++++++++++++++++++++++++
-// ONCE YOUR RTOS WORKS YOU CAN COMMENT OUT THE REMAINING CODE
-//
-
-//*****************Test project 0*************************
-// This is the simplest configuration,
-// Just see if you can import your OS
-// no UART interrupts
-// no SYSTICK interrupts
-// no timer interrupts
-// no switch interrupts
-// no ADC serial port or LCD output
-// no calls to semaphores
-uint32_t Count1; // number of times thread1 loops
-uint32_t Count2; // number of times thread2 loops
-uint32_t Count3; // number of times thread3 loops
-void Thread1(void) {
-    Count1 = 0;
-    for (;;) {
-        PD0 ^= 0x01; // heartbeat
-        Count1++;
-    }
-}
-void Thread2(void) {
-    Count2 = 0;
-    for (;;) {
-        PD1 ^= 0x02; // heartbeat
-        Count2++;
-    }
-}
-void Thread3(void) {
-    Count3 = 0;
-    for (;;) {
-        PD2 ^= 0x04; // heartbeat
-        Count3++;
-    }
-}
-
-int Testmain0(void) { // Testmain0
-    OS_Init();        // initialize, disable interrupts
-    PortD_Init();     // profile user threads
-    NumCreated = 0;
-    NumCreated += OS_AddThread(&Thread1, "Thread1", 128, 1);
-    NumCreated += OS_AddThread(&Thread2, "Thread2", 128, 2);
-    NumCreated += OS_AddThread(&Thread3, "Thread3", 128, 3);
-    // Count1 Count2 Count3 should be equal or off by one at all times
-    OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
-    return 0;         // this never executes
-}
-
-//*****************Test project 1*************************
-// CAN test, exchange CAN messages with second instance
-#define PF0 (*((volatile uint32_t*)0x40025004))
-#define PF4 (*((volatile uint32_t*)0x40025040))
-uint8_t XmtData[4];
-uint8_t RcvData[4];
-uint32_t RcvCount = 0;
-uint8_t sequenceNum = 0;
-
-// periodic background task to send CAN message
-void CANSendTask(void) {
-    XmtData[0] = PF0 << 1;    // 0 or 2
-    XmtData[1] = PF4 >> 2;    // 0 or 4
-    XmtData[2] = 0;           // unassigned field
-    XmtData[3] = sequenceNum; // sequence count
-    CAN0_SendData(XmtData);
-    sequenceNum++;
-}
-
-// foreground receiver task
-void CANReceiveTask(void) {
-    while (1) {
-        CAN0_GetMail(RcvData);
-        RcvCount++;
-        printf("RcvCount = %d", RcvCount);
-        printf("RcvData[0] = %d", RcvData[0]);
-        printf("RcvData[1] = %d", RcvData[1]);
-    }
-}
-
-void ButtonWork1(void) {
-    // uint32_t myId = OS_Id();
-    printf("SequenceNum = %d", sequenceNum);
-    OS_Kill(); // done, OS does not return from a Kill
-}
-
-void SW1Push1(void) {
-    if (to_ms(OS_Time()) > 20) { // debounce
-        if (OS_AddThread(&ButtonWork1, "ButtonWork1", 128, 1)) {
-            NumCreated++;
-        }
-        OS_ClearTime(); // at least 20ms between touches
-    }
-}
-
-int Testmain1(void) { // Testmain1
-    OS_Init();        // initialize, disable interrupts
+void realmain(void) {
+    OS_Init();
     PortD_Init();
-
-    // Initialize CAN with given IDs
-    CAN0_Open(RCV_ID, XMT_ID);
-
-    // attach background tasks
-    OS_AddPeriodicThread(&CANSendTask, 80000000 / 10, 2); // 10 Hz
-    OS_AddSW1Task(&SW1Push1);
-
-    // create initial foreground threads
-    NumCreated = 0;
-    NumCreated += OS_AddThread(&Idle, "Idle", 128, 3);
-    NumCreated += OS_AddThread(&CANReceiveTask, "CANReceiveTask", 128, 2);
-
-    OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
-    return 0;          // this never executes
+    adc_init(0);
+    OS_AddThread(&interpreter, "Interpreter", 2048, 2);
+    OS_Launch(ms(2));
 }
 
 //*****************Test project 2*************************
@@ -327,8 +134,7 @@ void ConnectWifi(void) {
     }
     puts("Wifi connected");
     // Launch thread to fetch weather
-    if (OS_AddThread(&FetchWeather, "FetchWeather", 1024, 1))
-        NumCreated++;
+    OS_AddThread(&FetchWeather, "FetchWeather", 1024, 1);
     // Kill thread (should really loop to check and reconnect if necessary
     OS_Kill();
 }
@@ -336,28 +142,18 @@ void ConnectWifi(void) {
 void SW1Push2(void) {
     if (!Running) {
         Running = 1; // don't start twice
-        if (OS_AddThread(&FetchWeather, "FetchWeather", 1024, 1)) {
-            NumCreated++;
-        }
+        OS_AddThread(&FetchWeather, "FetchWeather", 1024, 1);
     }
 }
 
-int Testmain2(void) { // Testmain2
-    OS_Init();        // initialize, disable interrupts
+void Testmain2(void) {
+    OS_Init();
     PortD_Init();
     heap_init();
     Running = 1;
-
-    // attach background tasks
     OS_AddSW1Task(&SW1Push2);
-
-    // create initial foreground threads
-    NumCreated = 0;
-    NumCreated += OS_AddThread(&Idle, "Idle", 128, 3);
-    NumCreated += OS_AddThread(&ConnectWifi, "ConnectWifi", 1024, 2);
-
-    OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
-    return 0;          // this never executes
+    OS_AddThread(&ConnectWifi, "ConnectWifi", 1024, 2);
+    OS_Launch(ms(10));
 }
 
 //*****************Test project 3*************************
@@ -440,7 +236,8 @@ void ServeHTTPRequest(void) {
 }
 void WebServer(void) {
     // Initialize and bring up Wifi adapter
-    if (!ESP8266_Init(true, false)) { // verbose rx echo on UART for debugging
+    if (!ESP8266_Init(true,
+                      false)) { // verbose rx echo on UART for debugging
         puts("No Wifi adapter");
         OS_Kill();
     }
@@ -463,33 +260,23 @@ void WebServer(void) {
         ESP8266_WaitForConnection();
 
         // Launch thread with higher priority to serve request
-        if (OS_AddThread(&ServeHTTPRequest, "ServeHTTPRequest", 128, 1))
-            NumCreated++;
+        OS_AddThread(&ServeHTTPRequest, "ServeHTTPRequest", 512, 1);
 
-        // The ESP driver only supports one connection, wait for the thread to
-        // complete
+        // The ESP driver only supports one connection, wait for the
+        // thread to complete
         OS_Wait(&WebServerSema);
     }
 }
 
-int Testmain3(void) { // Testmain3
-    OS_Init();        // initialize, disable interrupts
+void Testmain3(void) {
+    OS_Init();
     PortD_Init();
-
     OS_InitSemaphore(&WebServerSema, 0);
-
-    // create initial foreground threads
-    NumCreated = 0;
-    NumCreated += OS_AddThread(&Idle, "Idle", 128, 3);
-    NumCreated += OS_AddThread(&WebServer, "WebServer", 128, 2);
-
-    OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
-    return 0;          // this never executes
+    OS_AddThread(&WebServer, "WebServer", 512, 2);
+    OS_Launch(ms(10));
 }
 
-//*******************Trampoline for selecting main to execute**********
-int main(void) { // main
-    // realmain();
-    Testmain2();
-    return 0;
+void main(void) {
+    realmain();
+    // Testmain2();
 }

@@ -125,12 +125,10 @@ uint16_t readline(char* str, uint16_t len) {
     char current = '\0';
     while (len--) {
         switch (current = getchar()) {
+        case '\n':
         case '\r':
             putchar('\n');
             putchar('\r');
-            // if (recieved == 0) {
-            //     break; // don't return empty strings
-            // }
             *str = '\0';
             return ++recieved;
         case 127:
