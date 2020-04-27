@@ -113,13 +113,9 @@ void interpret_command(void) {
             ERROR("invalid action '%s'\n\rTry on, off, or toggle\n\r", token);
         }
     } else if (streq(token, "adc")) {
-<<<<<<< HEAD
         iprintf("ADC reading: %d\n\r", adc_in());
-=======
-        printf("ADC reading: %d\n\r", adc_in());
     } else if (streq(token, "jitter")) {
         OS_ReportJitter();
->>>>>>> 6d3c24e7d4659f3844f84dab9cc3ab8a0207a0cc
     } else if (streq(token, "heap")) {
         heap_stats();
     } else if (streq(token, "time")) {
@@ -129,11 +125,7 @@ void interpret_command(void) {
             iprintf("OS time reset\n\r");
             OS_ClearTime();
         } else {
-<<<<<<< HEAD
-            iprintf("ERROR: expected 'get' or 'reset', got '%s'\n\r", token);
-=======
             ERROR("expected 'get' or 'reset', got '%s'\n\r", token);
->>>>>>> 6d3c24e7d4659f3844f84dab9cc3ab8a0207a0cc
         }
     } else if (streq(token, "mount")) {
         littlefs_init() && littlefs_mount();
@@ -164,14 +156,8 @@ void interpret_command(void) {
             ERROR("couldn't open file '%s'\n\r", token);
         }
         char temp;
-<<<<<<< HEAD
-        iprintf("Contents of '%s':\n\r", token);
-        while (littlefs_read_file(&temp)) { putchar(temp); }
-        iprintf("\n\r");
-=======
         while (littlefs_read((uint8_t*)&temp)) { putchar(temp); }
-        printf("\n\r");
->>>>>>> 6d3c24e7d4659f3844f84dab9cc3ab8a0207a0cc
+        iprintf("\n\r");
         littlefs_close_file();
     } else if (streq(token, "append")) {
         if (!next_token()) {
@@ -188,7 +174,7 @@ void interpret_command(void) {
         if (!ret) {
             ERROR("failed to write to the file\n\r");
         }
-        printf("Wrote %d bytes\n\r", len);
+        iprintf("Wrote %d bytes\n\r", len);
     } else if (streq(token, "rm")) {
         if (!next_token()) {
             ERROR("must pass a filename\n\r");
@@ -221,24 +207,24 @@ void interpret_command(void) {
         if (!littlefs_open_file(token, true)) {
             ERROR("failed to open file\n\r");
         }
-        printf("Are you using the file transfer utility? [Y/n]\n\r");
+        iprintf("Are you using the file transfer utility? [Y/n]\n\r");
         bool file_transfer = !(getchar() == 'n');
         bool binary = false;
         if (file_transfer) {
-            printf("Is the file you're transferring binary? [y/N]\n\r");
+            iprintf("Is the file you're transferring binary? [y/N]\n\r");
             binary = getchar() == 'y';
         }
         char sizebuf[16];
         if (file_transfer) {
-            printf("Close this session and run the file transfer utility...");
+            iprintf("Close this session and run the file transfer utility...");
             uart_change_speed(9600);
         } else {
-            printf("Enter your file's size in bytes: ");
+            iprintf("Enter your file's size in bytes: ");
         }
         readline(sizebuf, sizeof(sizebuf));
         uint32_t size = atoi(sizebuf);
         if (!file_transfer) {
-            printf("Now paste the contents of your file...");
+            iprintf("Now paste the contents of your file...");
         }
         while (size--) {
             char temp = getchar();
@@ -257,7 +243,7 @@ void interpret_command(void) {
         if (file_transfer) {
             uart_change_speed(115200);
         }
-        printf("   Successfully Uploaded!\n\r");
+        iprintf("   Successfully Uploaded!\n\r");
         littlefs_close_file();
     } else if (streq(token, "checksum")) {
         if (!next_token()) {
@@ -268,7 +254,7 @@ void interpret_command(void) {
         char temp;
         uint32_t checksum = 0;
         while (littlefs_read((uint8_t*)&temp)) { checksum += temp; }
-        printf("0x%08x\n\r", checksum);
+        iprintf("0x%08x\n\r", checksum);
         littlefs_close_file();
     } else {
         ERROR("unrecognized command '%s', try 'help'\n\r", token);
@@ -276,21 +262,15 @@ void interpret_command(void) {
 }
 
 void interpreter(void) {
-<<<<<<< HEAD
-    iprintf("\x1b[1;1H\x1b[2JPress Enter to begin...");
-    ireadline(raw_command, sizeof(raw_command));
-    iprintf(HELPSTRING);
-=======
     token = malloc(32);
     raw_command = malloc(COMMAND_BUF_LEN);
-    printf("\x1b[1;1H\x1b[2JPress Enter to begin...");
-    readline(raw_command, COMMAND_BUF_LEN);
-    puts(HELPSTRING);
+    iprintf("\x1b[1;1H\x1b[2JPress Enter to begin...");
+    ireadline(raw_command, COMMAND_BUF_LEN);
+    iputs(HELPSTRING);
     if (littlefs_init() && littlefs_mount()) {
-        puts(GREEN "Filesystem mounted" NORMAL);
+        iputs(GREEN "Filesystem mounted" NORMAL);
     } else {
-        puts(RED "Filesystem failed to mount" NORMAL);
+        iputs(RED "Filesystem failed to mount" NORMAL);
     }
->>>>>>> 6d3c24e7d4659f3844f84dab9cc3ab8a0207a0cc
     while (true) { interpret_command(); }
 }
