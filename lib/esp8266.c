@@ -102,10 +102,10 @@ bool ESP8266_EchoResponse = false;
 bool ESP8266_EchoCommand = false;
 
 // UART receive control/data & transmit FIFOs (see FIFO.h)
-ADDFIFO(esprx, FIFOSIZE, char)
-ADDFIFO(esprx0, FIFOSIZE, char)
+ADDFIFOSYNC(esprx, FIFOSIZE, char)
+ADDFIFOSYNC(esprx0, FIFOSIZE, char)
 #ifndef USE_UART_DRV
-ADDFIFO(esptx, FIFOSIZE, char)
+ADDFIFOSYNC(esptx, FIFOSIZE, char)
 #endif
 
 // ESP8266 state
@@ -495,10 +495,6 @@ int ESP8266_Connect(int verbose) {
 
     if (verbose) // debug output: MAC address oF ESP8266
         if (ESP8266_GetMACAddress() == FAILURE)
-            return FAILURE;
-
-    if (verbose) // debug output: see APs in area
-        if (ESP8266_ListAccessPoints() == FAILURE)
             return FAILURE;
 
 #if SOFTAP

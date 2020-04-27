@@ -1,6 +1,7 @@
 #pragma once
 
 #include "OS.h"
+#include "io.h"
 
 // ADDFIFO(tx, 32, char) Creates txfifo_init(), txfifo_size(),
 // txfifo_full(), txfifo_empty(), txfifo_get() and txfifo_put()
@@ -47,6 +48,7 @@
     bool NAME##fifo_full() { return NAME##fifo_size() == SIZE - 1; }           \
     bool NAME##fifo_put(TYPE data) {                                           \
         if (NAME##fifo_full()) {                                               \
+            __asm("bkpt");                                                     \
             return false;                                                      \
         }                                                                      \
         NAME##fifo[NAME##putidx] = data;                                       \
@@ -55,8 +57,11 @@
         return true;                                                           \
     }                                                                          \
     bool NAME##fifo_get(TYPE* datapt) {                                        \
-        OS_Wait(&NAME##_data_available);                                       \
+        while (NAME##fifo_empty())                                             \
+            ;                                                                  \
         *datapt = NAME##fifo[NAME##getidx];                                    \
         NAME##getidx = (NAME##getidx + 1) % SIZE;                              \
         return true;                                                           \
     }
+
+// OS_Wait(&NAME##_data_available);                                       \

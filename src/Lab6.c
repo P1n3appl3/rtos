@@ -81,6 +81,52 @@ void Idle(void) {
     }
 }
 
+char Response[64];
+Sema4 WebServerSema;
+void ServeTelnetRequest(void) {
+    puts("Connected           ");
+
+    interpreter();
+
+    ESP8266_CloseTCPConnection();
+    OS_Signal(&WebServerSema);
+    OS_Kill();
+}
+
+void TelnetServer(void) {
+    // Initialize and bring up Wifi adapter
+    if (!ESP8266_Init(true, false)) { // verbose rx echo on UART for debugging
+        puts("No Wifi adapter");
+        OS_Kill();
+    }
+    // Get Wifi adapter version (for debugging)
+    ESP8266_GetVersionNumber();
+    // Connect to access point
+    if (!ESP8266_Connect(true)) {
+        puts("No Wifi network");
+        OS_Kill();
+    }
+    puts("Wifi connected");
+    if (!ESP8266_StartServer(23, 600)) { // port 80, 5min timeout
+        puts("Server failure");
+        OS_Kill();
+    }
+    puts("Server started");
+
+    while (1) {
+        // Wait for connection
+        ESP8266_WaitForConnection();
+
+        // Launch thread with higher priority to serve request
+        if (OS_AddThread(&ServeTelnetRequest, "ServeTelnetRequest", 2048, 1))
+            NumCreated++;
+
+        // The ESP driver only supports one connection, wait for the thread to
+        // complete
+        OS_Wait(&WebServerSema);
+    }
+}
+
 //--------------end of Idle Task-----------------------------
 
 //*******************final user main - bare bones OS, extend with your
@@ -101,8 +147,9 @@ int realmain(void) { // realmain
 
     // create initial foreground threads
     NumCreated = 0;
-    NumCreated += OS_AddThread(&interpreter, "Interpreter", 128, 2);
+    // NumCreated += OS_AddThread(&interpreter, "Interpreter", 128, 2);
     NumCreated += OS_AddThread(&Idle, "Idle", 128, 5); // at lowest priority
+    NumCreated += OS_AddThread(&TelnetServer, "TelnetServer", 1024, 2);
 
     OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
     return 0;         // this never executes
@@ -237,7 +284,6 @@ const char Fetch[] =
 // 3) get an API key (APPID) replace the 1234567890abcdef1234567890abcdef with
 // your APPID
 
-char Response[64];
 uint32_t Running; // true while fetch is running
 void FetchWeather(void) {
     uint32_t len;
@@ -372,13 +418,12 @@ const char formBody[] = "<!DOCTYPE html><html><body><center> \
 const char statusBody[] = "<!DOCTYPE html><html><body><center> \
   <h1>Message sent successfully!</h1> \
   </body></html>";
-Sema4 WebServerSema;
 int HTTP_ServePage(const char* body) {
     char header[] = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: "
                     "close\r\nContent-Length: ";
 
     char contentLength[16];
-    sprintf(contentLength, "%d\r\n\r\n", strlen(body));
+    sprintf(contentLength, "%d\r\n\r\n\0", strlen(body));
 
     if (!ESP8266_SendBuffered(header))
         return 0;
@@ -463,7 +508,7 @@ void WebServer(void) {
         ESP8266_WaitForConnection();
 
         // Launch thread with higher priority to serve request
-        if (OS_AddThread(&ServeHTTPRequest, "ServeHTTPRequest", 128, 1))
+        if (OS_AddThread(&ServeHTTPRequest, "ServeHTTPRequest", 1024, 1))
             NumCreated++;
 
         // The ESP driver only supports one connection, wait for the thread to
@@ -481,7 +526,7 @@ int Testmain3(void) { // Testmain3
     // create initial foreground threads
     NumCreated = 0;
     NumCreated += OS_AddThread(&Idle, "Idle", 128, 3);
-    NumCreated += OS_AddThread(&WebServer, "WebServer", 128, 2);
+    NumCreated += OS_AddThread(&WebServer, "WebServer", 1024, 2);
 
     OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
     return 0;          // this never executes
@@ -489,7 +534,8 @@ int Testmain3(void) { // Testmain3
 
 //*******************Trampoline for selecting main to execute**********
 int main(void) { // main
-    // realmain();
-    Testmain2();
+    realmain();
+    // Testmain2();
+    // Testmain3();
     return 0;
 }

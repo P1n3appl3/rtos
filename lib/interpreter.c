@@ -1,5 +1,6 @@
 #include "ADC.h"
 #include "OS.h"
+#include "esp8266.h"
 #include "heap.h"
 #include "io.h"
 #include "launchpad.h"
@@ -45,19 +46,42 @@ static char* HELPSTRING = "Available commands:\n\n\r"
                           "cp FILENAME NEWNAME\t\tcopy a file\n\r"
                           "rm FILENAME\t\t\tdelete a file\n\r";
 
+#define telnet_server
+#ifdef telnet_server
+char ibuffer[64];
+#define iprintf(...)                                                           \
+    sprintf(ibuffer, __VA_ARGS__);                                             \
+    ESP8266_SendBuffered(ibuffer);
+#define iputs(X) ESP8266_SendBuffered(X)
+#define ERROR(...)                                                             \
+    sprintf(ibuffer, "ERROR: " __VA_ARGS__);                                   \
+    ESP8266_SendBuffered(ibuffer);                                             \
+    return;
+#define ireadline(cmd, size) ESP8266_Receive(cmd, size)
+#else
+#define iprintf printf
+#define iputs puts
 #define ERROR(...)                                                             \
     printf("ERROR: " __VA_ARGS__);                                             \
     return;
+#define ireadline(cmd, size) readline(cmd, size)
+#endif
 
 void interpret_command(void) {
-    printf("\n\r> ");
-    readline(raw_command, sizeof(raw_command));
+    iprintf("\n\r> ");
+    ireadline(raw_command, sizeof(raw_command));
+#ifdef telnet_client
+    ESP8266_SendBuffered(raw_command);
+    ireadline(raw_command, sizeof(raw_command));
+    puts(raw_command);
+    return;
+#endif
     current = raw_command;
     if (!next_token()) {
         ERROR("enter a command\n\r");
     }
     if (streq(token, "help") || streq(token, "h")) {
-        puts(HELPSTRING);
+        iputs(HELPSTRING);
     } else if (streq(token, "led")) {
         if (!next_token()) {
             ERROR("expected another argument for color\n\r");
@@ -82,17 +106,17 @@ void interpret_command(void) {
             ERROR("invalid action '%s'\n\rTry on, off, or toggle\n\r", token);
         }
     } else if (streq(token, "adc")) {
-        printf("ADC reading: %d\n\r", adc_in());
+        iprintf("ADC reading: %d\n\r", adc_in());
     } else if (streq(token, "heap")) {
         heap_stats();
     } else if (streq(token, "time")) {
         if (!next_token() || streq(token, "get")) {
-            printf("Current time: %dms\n\r", (uint32_t)to_ms(OS_Time()));
+            iprintf("Current time: %dms\n\r", (uint32_t)to_ms(OS_Time()));
         } else if (streq(token, "reset")) {
-            printf("OS time reset\n\r");
+            iprintf("OS time reset\n\r");
             OS_ClearTime();
         } else {
-            printf("ERROR: expected 'get' or 'reset', got '%s'\n\r", token);
+            iprintf("ERROR: expected 'get' or 'reset', got '%s'\n\r", token);
         }
     } else if (streq(token, "mount")) {
         littlefs_init();
@@ -127,9 +151,9 @@ void interpret_command(void) {
             ERROR("couldn't open file '%s'\n\r", token);
         }
         char temp;
-        printf("Contents of '%s':\n\r", token);
+        iprintf("Contents of '%s':\n\r", token);
         while (littlefs_read_file(&temp)) { putchar(temp); }
-        printf("\n\r");
+        iprintf("\n\r");
         littlefs_close_file();
     } else if (streq(token, "append")) {
         if (!next_token()) {
@@ -188,8 +212,8 @@ void interpret_command(void) {
 }
 
 void interpreter(void) {
-    printf("\x1b[1;1H\x1b[2JPress Enter to begin...");
-    readline(raw_command, sizeof(raw_command));
-    puts(HELPSTRING);
+    iprintf("\x1b[1;1H\x1b[2JPress Enter to begin...");
+    ireadline(raw_command, sizeof(raw_command));
+    iprintf(HELPSTRING);
     while (true) { interpret_command(); }
 }
