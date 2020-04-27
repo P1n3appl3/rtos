@@ -352,10 +352,7 @@ void Testmain3(void) {
     OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
 }
 
-//*******************Trampoline for selecting main to execute**********
-
-int main(void) {
-    realmain();
-    // Testmain2();
-    return 0;
+void main(void) {
+    // realmain();
+    Testmain2();
 }

@@ -497,6 +497,10 @@ int ESP8266_Connect(int verbose) {
         if (ESP8266_GetMACAddress() == FAILURE)
             return FAILURE;
 
+            // if (verbose) // debug output: see APs in area
+            //     if (ESP8266_ListAccessPoints() == FAILURE)
+            //         return FAILURE;
+
 #if SOFTAP
     if (ESP8266_SoftAccessPoint(SSID_NAME, PASSKEY) == FAILURE)
         return FAILURE;
