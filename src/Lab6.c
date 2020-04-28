@@ -368,7 +368,7 @@ void WebServer(void) {
         ESP8266_WaitForConnection();
 
         // Launch thread with higher priority to serve request
-        OS_AddThread(&ServeHTTPRequest, "ServeHTTPRequest", 512, 1);
+        OS_AddThread(&ServeHTTPRequest, "ServeHTTPRequest", 1024, 1);
 
         // The ESP driver only supports one connection, wait for the
         // thread to complete
@@ -398,7 +398,7 @@ void testmain_littlefs(void) {
 
 int main(void) {
     realmain();
-    // Testmain2();
+    // Testmain3();
     // testmain_littlefs();
     return 0;
 }

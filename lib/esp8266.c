@@ -824,6 +824,28 @@ int ESP8266_SendBuffered(const char* fetch) {
     return FAILURE;
 }
 
+int ESP8266_SendMessage(const char* fetch) {
+    uint8_t len = strlen(fetch);
+    char* fetch_append = (char*)fetch;
+    fetch_append[len++] = EOT;
+    fetch_append[len] = '\0';
+    char TXBuffer[32];
+    if (ESP8266_ConnectionMux) {
+        sprintf(TXBuffer, "AT+CIPSENDBUF=%d,%d\r\n", 0, strlen(fetch));
+    } else {
+        sprintf(TXBuffer, "AT+CIPSENDBUF=%d\r\n", strlen(fetch));
+    }
+    ESP8266_SendCommand(TXBuffer);
+    if (!ESP8266_WaitForResponse(">", ESP8266_ERROR_RESPONSE))
+        return FAILURE;
+    ESP8266_Segment++;
+    ESP8266_SendCommand(fetch);
+    sprintf(TXBuffer, "Recv %d bytes", strlen(fetch));
+    if (ESP8266_WaitForResponse(TXBuffer, ESP8266_ERROR_RESPONSE))
+        return SUCCESS;
+    return FAILURE;
+}
+
 //---------ESP8266_SendBufferedStatus----------
 // Check status of last buffered segment
 // Input: none
@@ -865,6 +887,43 @@ int ESP8266_Receive(char* fetch, uint32_t max) {
             if (letter == '\r')
                 continue;
             if (letter == '\n')
+                break;
+            *fetch = letter;
+            fetch++;
+            max--;
+        } else { // wait for next packet or connection close
+            if (ESP8266_ConnectionMux) {
+                s = "0,CLOSED";
+            } else {
+                s = "CLOSED";
+            }
+            if (!ESP8266_WaitForResponse(ReceiveDataSearchString, s)) {
+                *fetch = 0; // connection closed
+                return FAILURE;
+            }
+            while (ESP8266_InChar() != ':') {
+            } // wait for DataAvailable to be updated
+        }
+    }
+    *fetch = 0; // terminate with null character
+    return SUCCESS;
+}
+
+int ESP8266_ReceiveMessage(char* fetch, uint32_t max) {
+    long sr;
+    const char* s;
+    char letter;
+    while (max > 1) {
+        if (esprx0fifo_size() ||
+            ESP8266_DataAvailable) { // data (about to be) available?
+            while (esprx0fifo_get(&letter) == FIFOFAIL) {};
+            // ESP8266_DisableInterrupt();  // critical section
+            sr = start_critical();
+            if (ESP8266_DataAvailable)
+                ESP8266_DataAvailable--;
+            end_critical(sr);
+            // ESP8266_EnableInterrupt();
+            if (letter == EOT)
                 break;
             *fetch = letter;
             fetch++;

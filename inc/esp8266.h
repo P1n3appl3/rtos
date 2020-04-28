@@ -24,6 +24,8 @@
 #define ESP8266_WIFI_MODE_AP 2
 #define ESP8266_WIFI_MODE_AP_AND_CLIENT 3
 
+#define EOT 4
+
 //-------------------ESP8266_Init --------------
 // Initializes the module
 // Inputs: RX and/or TX echo for debugging
@@ -134,6 +136,7 @@ int ESP8266_Send(const char* fetch);
 // Input: payload to send
 // output: 1 if success, 0 if fail
 int ESP8266_SendBuffered(const char* fetch);
+int ESP8266_SendMessage(const char* fetch);
 
 //---------ESP8266_SendBuferedStatus----------
 // Check status of last buffered segment
@@ -147,6 +150,7 @@ int ESP8266_SendBufferedStatus(void);
 // Input: buffer and max length
 // Output: 1 and null-terminated string if success, 0 if fail (disconnected)
 int ESP8266_Receive(char* fetch, uint32_t max);
+int ESP8266_ReceiveMessage(char* fetch, uint32_t max);
 
 //---------ESP8266_CloseTCPConnection----------
 // Close TCP connection

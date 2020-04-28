@@ -9,11 +9,11 @@
 char ibuffer[64];
 #define iprintf(...)                                                           \
     sprintf(ibuffer, __VA_ARGS__);                                             \
-    ESP8266_SendBuffered(ibuffer);
-#define iputs(X) ESP8266_SendBuffered(X)
+    ESP8266_SendMessage(ibuffer);
+#define iputs(S) ESP8266_SendMessage(S)
 #define ERROR(...)                                                             \
     sprintf(ibuffer, "ERROR: " __VA_ARGS__);                                   \
-    ESP8266_SendBuffered(ibuffer);                                             \
+    ESP8266_SendMessage(ibuffer);                                              \
     return;
 #define ireadline(cmd, size) ESP8266_Receive(cmd, size)
 #else

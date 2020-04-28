@@ -58,14 +58,14 @@ static char* HELPSTRING =
 
 void client_command(void) {
     // receive >
-    ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
+    ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
     puts(raw_command);
     // send command
     ireadline(raw_command, COMMAND_BUF_LEN);
-    ESP8266_SendBuffered(raw_command);
+    ESP8266_SendMessage(raw_command);
     // read output
     while (true) {
-        ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
+        ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
         if (streq(raw_command, "rpcstop")) {
             break;
         }
@@ -76,7 +76,11 @@ void client_command(void) {
 
 void interpret_command(void) {
     iprintf("\n\r\xF0\x9F\x8D\x8D> ");
+#ifdef rpc_server
+    ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
+#else
     ireadline(raw_command, COMMAND_BUF_LEN);
+#endif
     current = raw_command;
     if (!next_token()) {
         ERROR("enter a command\n\r");
@@ -262,7 +266,7 @@ void interpret_command(void) {
         ERROR("unrecognized command '%s', try 'help'\n\r", token);
     }
 #ifdef rpc_server
-    ESP8266_SendBuffered("rpcstop");
+    ESP8266_SendMessage("rpcstop");
 #endif
 }
 
@@ -270,20 +274,21 @@ void iclient(void) {
     token = malloc(32);
     raw_command = malloc(COMMAND_BUF_LEN);
     // receive enter
-    ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
+    ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
     puts(raw_command);
     // press enter
     ireadline(raw_command, COMMAND_BUF_LEN);
-    ESP8266_SendBuffered(raw_command);
+    ESP8266_SendMessage(raw_command);
     // receive helpstring
-    ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
+    ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
     puts(raw_command);
     // receive fs mounted
-    ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
+    ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
     puts(raw_command);
 }
 
 void interpreter(void) {
+    busy_wait(7, ms(1000));
     token = malloc(32);
     raw_command = malloc(COMMAND_BUF_LEN);
     iprintf("\x1b[1;1H\x1b[2JPress Enter to begin...");
