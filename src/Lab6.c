@@ -94,7 +94,7 @@ void RPCClient(void) {
         OS_Kill();
     }
     puts("Wifi connected");
-    if (!ESP8266_MakeTCPConnection("107.15.206.58", 23,
+    if (!ESP8266_MakeTCPConnection("71.135.6.224", 23,
                                    600)) { // port 80, 5min timeout
         puts("Client failure");
         OS_Kill();
@@ -120,6 +120,7 @@ int realmain(void) { // realmain
     PortD_Init();    // debugging profile
     heap_init();     // initialize heap
 
+    OS_InitSemaphore(&WebServerSema, 0);
     // hardware init
     adc_init(0); // sequencer 3, channel 0, PE3, sampling in Interpreter
 

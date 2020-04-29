@@ -151,6 +151,7 @@ int ESP8266_SendBufferedStatus(void);
 // Output: 1 and null-terminated string if success, 0 if fail (disconnected)
 int ESP8266_Receive(char* fetch, uint32_t max);
 int ESP8266_ReceiveMessage(char* fetch, uint32_t max);
+int ESP8266_ReceiveEcho();
 
 //---------ESP8266_CloseTCPConnection----------
 // Close TCP connection

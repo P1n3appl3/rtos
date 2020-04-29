@@ -57,21 +57,9 @@ static char* HELPSTRING =
     "checksum FILENAME\t\tcompute a checksum of a file\n\r";
 
 void client_command(void) {
-    // receive >
-    ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
-    puts(raw_command);
-    // send command
+    ESP8266_ReceiveEcho();
     ireadline(raw_command, COMMAND_BUF_LEN);
     ESP8266_SendMessage(raw_command);
-    // read output
-    while (true) {
-        ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
-        if (streq(raw_command, "rpcstop")) {
-            break;
-        }
-        puts(raw_command);
-    }
-    return;
 }
 
 void interpret_command(void) {
@@ -273,18 +261,12 @@ void interpret_command(void) {
 void iclient(void) {
     token = malloc(32);
     raw_command = malloc(COMMAND_BUF_LEN);
-    // receive enter
-    ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
-    puts(raw_command);
-    // press enter
+
+    ESP8266_ReceiveEcho();
     ireadline(raw_command, COMMAND_BUF_LEN);
     ESP8266_SendMessage(raw_command);
-    // receive helpstring
-    ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
-    puts(raw_command);
-    // receive fs mounted
-    ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
-    puts(raw_command);
+
+    while (true) { client_command(); }
 }
 
 void interpreter(void) {

@@ -3,10 +3,10 @@
 #pragma once
 
 // choices: telnet_server, rpc_server, rpc_client
-#define telnet_server
+#define rpc_client
 
-#if defined(telnet_server) || defined(rpc_server)
 char ibuffer[64];
+#if defined(telnet_server) || defined(rpc_server)
 #define iprintf(...)                                                           \
     sprintf(ibuffer, __VA_ARGS__);                                             \
     ESP8266_SendMessage(ibuffer);
