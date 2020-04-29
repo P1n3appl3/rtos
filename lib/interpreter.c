@@ -63,7 +63,7 @@ void client_command(void) {
 }
 
 void interpret_command(void) {
-    iprintf("\n\r\xF0\x9F\x8D\x8D> ");
+    iprintf("\n\r\xF0\x9F\x8D\x8D> \x03");
 #ifdef rpc_server
     ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
 #else
@@ -253,9 +253,6 @@ void interpret_command(void) {
     } else {
         ERROR("unrecognized command '%s', try 'help'\n\r", token);
     }
-#ifdef rpc_server
-    ESP8266_SendMessage("rpcstop");
-#endif
 }
 
 void iclient(void) {
@@ -273,7 +270,7 @@ void interpreter(void) {
     busy_wait(7, ms(1000));
     token = malloc(32);
     raw_command = malloc(COMMAND_BUF_LEN);
-    iprintf("\x1b[1;1H\x1b[2JPress Enter to begin...");
+    iprintf("\x1b[1;1H\x1b[2JPress Enter to begin...\x03");
     ireadline(raw_command, COMMAND_BUF_LEN);
     iputs(HELPSTRING);
     if (littlefs_init() && littlefs_mount()) {

@@ -1,53 +1,30 @@
-// esp8266.c
 // Driver for ESP8266 module to act as a WiFi client or server
 // Currently restricted to one incoming or outgoing connection at a time
-//
-// Steven Prickett (steven.prickett@gmail.com)
-// Modified version by Dung Nguyen, Wally Guzman
-// Modified by Jonathan Valvano, March 28, 2017
-// Conolidated by Andreas Gerstlauer, April 6, 2020
-
-/*
-  THIS SOFTWARE IS PROVIDED "AS IS".  NO WARRANTIES, WHETHER EXPRESS, IMPLIED
-  OR STATUTORY, INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF
-  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE APPLY TO THIS SOFTWARE.
-  VALVANO SHALL NOT, IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL,
-  OR CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
-*/
-
-// NOTE: ESP8266 resources below:
+// ESP8266 resources below:
 // General info and AT commands: http://nurdspace.nl/ESP8266
 // General info and AT commands: http://www.electrodragon.com/w/Wi07c
-// Community forum: http://www.esp8266.com/
-// Offical forum: http://bbs.espressif.com/
-// Example: http://zeflo.com/2014/esp8266-weather-display/
-// Flashing: http://www.xess.com/blog/esp8266-reflash/
+// Vcc is a separate regulated 3.3V supply with at least 215mA
+// /------------------------------\
+// |              chip      1   8 |
+// | Ant                    2   7 |
+// | enna       processor   3   6 |
+// |                        4   5 |
+// \------------------------------/
+// Connects (#define below) TM4C123 on either UART1 (PB) or UART2 (PD)
+// Reset (#define below) on either PB5 or PB1
 
-/* Hardware connections
- Vcc is a separate regulated 3.3V supply with at least 215mA
- /------------------------------\
- |              chip      1   8 |
- | Ant                    2   7 |
- | enna       processor   3   6 |
- |                        4   5 |
- \------------------------------/
- Connects (#define below) TM4C123 on either UART1 (PB) or UART2 (PD)
- Reset (#define below) on either PB5 or PB1
-
- ESP8266    TM4C123
-  1 URxD    PB1/PD7   UART out of TM4C123, 115200 baud
-  2 GPIO0             +3.3V for normal operation (ground to flash)
-  3 GPIO2             +3.3V
-  4 GND     Gnd       GND (70mA)
-  5 UTxD    PB0/PD6   UART out of ESP8266, 115200 baud
-  6 Ch_PD             chip select, 10k resistor to 3.3V
-  7 Reset   PB5/PB1   TM4C123 can issue output low to cause hardware reset
-  8 Vcc               regulated 3.3V supply with at least 70mA
- */
+// ESP8266    TM4C123
+//  1 URxD    PD7       UART out of TM4C123, 115200 baud
+//  2 GPIO0             +3.3V for normal operation (ground to flash)
+//  3 GPIO2             +3.3V
+//  4 GND     Gnd       GND (70mA)
+//  5 UTxD    PD6       UART out of ESP8266, 115200 baud
+//  6 Ch_PD             chip select, 10k resistor to 3.3V
+//  7 Reset   PB1       TM4C123 can issue output low to cause hardware reset
+//  8 Vcc               regulated 3.3V supply with at least 70mA
 
 #include "esp8266.h"
 #include "FIFO.h"
-#include "WifiSettings.h" // access point parameters
 #include "interrupts.h"
 #include "io.h"
 #include "printf.h"
@@ -64,25 +41,18 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/*
-===========================================================
-==========          CONSTANTS                    ==========
-===========================================================
-*/
+#ifndef PASSKEY
+#define PASSKEY ""
+#endif
+#ifndef SSID_NAME
+#define SSID_NAME ""
+#endif
 
-// #define ESP8266_PB_RST   5  // PB5
 #define ESP8266_PB_RST 1 // PB1
-
-// #define ESP8266_UART     1   // UART1: PB1/PB0
-#define ESP8266_UART 2 // UART2: PD7/PB6
-
-// #define USE_UART_DRV  // Use external UART driver (only works with UART1)
+#define ESP8266_UART 2   // UART2: PD7/PB6
 
 #define FIFOSIZE 1024 // size of the FIFOs (must be power of 2)
-#define FIFOSUCCESS 1 // return value on success
-#define FIFOFAIL 0    // return value on failure
-
-#define MAXTRY 1 // number of attempts to send command
+#define MAXTRY 1      // number of attempts to send command
 
 // ESP responses
 static const char ESP8266_READY_RESPONSE[] = "\r\nready\r\n";
@@ -158,7 +128,7 @@ bool ReceiveDataFilter(char letter) {
         if (ReceiveDataLen) {
             switch (ReceiveDataStream) {
             case 0:
-                if (esprx0fifo_put(letter) == FIFOFAIL) { // overflow, data loss
+                if (esprx0fifo_put(letter) == false) { // overflow, data loss
                     ESP8266_DataAvailable--;
                     ESP8266_DataLoss++;
                 }
@@ -372,7 +342,7 @@ void uart2_handler(void) {
 // Inputs: character to transmit
 // Outputs: none
 void ESP8266_OutChar(char data) {
-    while (esptxfifo_put(data) == FIFOFAIL) {};
+    while (esptxfifo_put(data) == false) {};
     UART_ESP8266(O_IM) &= ~UART_IM_TXIM; // disable TX FIFO interrupt
     ESP8266BufferToTx();
     UART_ESP8266(O_IM) |= UART_IM_TXIM; // enable TX FIFO interrupt
@@ -384,7 +354,7 @@ void ESP8266_OutChar(char data) {
 // Outputs: character received
 char ESP8266_InChar(void) {
     char letter;
-    while (esprxfifo_get(&letter) == FIFOFAIL) {};
+    while (esprxfifo_get(&letter) == false) {};
     return (letter);
 }
 
@@ -874,7 +844,7 @@ int ESP8266_Receive(char* fetch, uint32_t max) {
     while (max > 1) {
         if (esprx0fifo_size() ||
             ESP8266_DataAvailable) { // data (about to be) available?
-            while (esprx0fifo_get(&letter) == FIFOFAIL) {};
+            while (esprx0fifo_get(&letter) == false) {};
             // ESP8266_DisableInterrupt();  // critical section
             sr = start_critical();
             if (ESP8266_DataAvailable)
@@ -913,18 +883,18 @@ int ESP8266_ReceiveMessage(char* fetch, uint32_t max) {
     while (max > 1) {
         if (esprx0fifo_size() ||
             ESP8266_DataAvailable) { // data (about to be) available?
-            while (esprx0fifo_get(&letter) == FIFOFAIL) {};
+            while (esprx0fifo_get(&letter) == false) {};
             // ESP8266_DisableInterrupt();  // critical section
             sr = start_critical();
             if (ESP8266_DataAvailable)
                 ESP8266_DataAvailable--;
             end_critical(sr);
             // ESP8266_EnableInterrupt();
-            if (letter == EOT)
-                break;
             *fetch = letter;
             fetch++;
             max--;
+            if (letter == '\n')
+                break;
         } else { // wait for next packet or connection close
             if (ESP8266_ConnectionMux) {
                 s = "0,CLOSED";

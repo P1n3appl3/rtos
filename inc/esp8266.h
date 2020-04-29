@@ -1,16 +1,9 @@
-//***********************  ESP8266.h  ***********************
-// Program written by:
-// - Steven Prickett  steven.prickett@gmail.com
-//
-// Driver for ESP8266 module to act as a WiFi client or server
-//
-//*********************************************************
-/* Modified by Jonathan Valvano, Sept 19, 2015
-   Modified by Andreas Gerstlauer, Apr 13, 2020
- */
+// Driver written by Steven Prickett (steven.prickett@gmail.com)
+// Modified version by Dung Nguyen, Wally Guzman
+// Modified by Jonathan Valvano, March 28, 2017
+// Consolidated by Andreas Gerstlauer, April 6, 2020
 
-#ifndef ESP8266_H
-#define ESP8266_H
+#pragma once
 
 #include <stdint.h>
 
@@ -24,6 +17,22 @@
 #define ESP8266_WIFI_MODE_AP 2
 #define ESP8266_WIFI_MODE_AP_AND_CLIENT 3
 
+// Baudrate for UART connection to ESP8266
+#define BAUDRATE 115200
+
+// Return values
+#define NORESPONSE (-1)
+#define BADVALUE (-1)
+#define SUCCESS 1
+#define FAILURE 0
+
+enum Menu_Status { RX = 0, TX, CONNECTED };
+
+// Station or soft access point mode
+// 0 means regular station, 1 means act as soft AP
+#define SOFTAP 0
+
+#define ETX 3
 #define EOT 4
 
 //-------------------ESP8266_Init --------------
@@ -194,5 +203,3 @@ int ESP8266_WaitForConnection(void);
 // Input: none
 // output: 1 if success, 0 if fail
 int ESP8266_DisableServer(void);
-
-#endif

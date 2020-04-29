@@ -127,6 +127,7 @@ int realmain(void) { // realmain
     // attach background tasks
     OS_AddPeriodicThread(&disk_timerproc, ms(1),
                          0); // time out routines for disk
+    OS_InitSemaphore(&WebServerSema, 0);
 
     // create initial foreground threads
     // NumCreated += OS_AddThread(&interpreter, "Interpreter", 128, 2);

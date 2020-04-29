@@ -15,7 +15,7 @@ char ibuffer[64];
     sprintf(ibuffer, "ERROR: " __VA_ARGS__);                                   \
     ESP8266_SendMessage(ibuffer);                                              \
     return;
-#define ireadline(cmd, size) ESP8266_Receive(cmd, size)
+#define ireadline(cmd, size) ESP8266_ReceiveMessage(cmd, size)
 #else
 #define iprintf printf
 #define iputs puts
