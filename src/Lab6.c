@@ -94,8 +94,7 @@ void RPCClient(void) {
         OS_Kill();
     }
     puts("Wifi connected");
-    if (!ESP8266_MakeTCPConnection("71.135.6.224", 23,
-                                   600)) { // port 80, 5min timeout
+    if (!ESP8266_MakeTCPConnection("71.135.6.224", 23)) {
         puts("Client failure");
         OS_Kill();
     }
@@ -166,8 +165,7 @@ void FetchWeather(void) {
     puts("                 ");
     ESP8266_GetStatus(); // debugging
     // Fetch weather from server
-    if (!ESP8266_MakeTCPConnection("api.openweathermap.org", 80,
-                                   0)) { // open socket to web server on port 80
+    if (!ESP8266_MakeTCPConnection("api.openweathermap.org", 80)) {
         puts("Connection failed");
         Running = 0;
         OS_Kill();

@@ -1,30 +1,23 @@
-// Driver written by Steven Prickett (steven.prickett@gmail.com)
+// Driver originally written by Steven Prickett (steven.prickett@gmail.com)
 // Modified version by Dung Nguyen, Wally Guzman
 // Modified by Jonathan Valvano, March 28, 2017
 // Consolidated by Andreas Gerstlauer, April 6, 2020
 
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
-#define ESP8266_ENCRYPT_MODE_OPEN 0
-#define ESP8266_ENCRYPT_MODE_WEP 1
-#define ESP8266_ENCRYPT_MODE_WPA_PSK 2
-#define ESP8266_ENCRYPT_MODE_WPA2_PSK 3
-#define ESP8266_ENCRYPT_MODE_WPA_WPA2_PSK 4
-
-#define ESP8266_WIFI_MODE_CLIENT 1
-#define ESP8266_WIFI_MODE_AP 2
-#define ESP8266_WIFI_MODE_AP_AND_CLIENT 3
+typedef enum {
+    OPEN = 0,
+    WEP,
+    WPA_PSK,
+    WPA2_PSK,
+    WPA_WPA2_PSK,
+} ESP8266_ENCRYPT_MODE;
 
 // Baudrate for UART connection to ESP8266
 #define BAUDRATE 115200
-
-// Return values
-#define NORESPONSE (-1)
-#define BADVALUE (-1)
-#define SUCCESS 1
-#define FAILURE 0
 
 enum Menu_Status { RX = 0, TX, CONNECTED };
 
@@ -35,171 +28,97 @@ enum Menu_Status { RX = 0, TX, CONNECTED };
 #define ETX 3
 #define EOT 4
 
-//-------------------ESP8266_Init --------------
 // Initializes the module
-// Inputs: RX and/or TX echo for debugging
-// Outputs: 1 for success, 0 for failure (no ESP detected)
-int ESP8266_Init(int rx_echo, int tx_echo);
+bool ESP8266_Init(bool rx_echo, bool tx_echo);
 
-//-------------------ESP8266_Connect --------------
 // Bring interface up and connect to Wifi
-// Inputs: enable debug output
-// Outputs: 1 on success, 0 on failure
-int ESP8266_Connect(int verbose);
+bool ESP8266_Connect(bool verbose);
 
-//-------------------ESP8266_StartServer --------------
-// Start server on specific port
-// Inputs: port and server timeout
-// Outputs: 1 on success, 0 on failure
-int ESP8266_StartServer(uint16_t port, uint16_t timeout);
+// Start server on specific port (timeout is in seconds)
+bool ESP8266_StartServer(uint16_t port, uint16_t timeout);
 
-//-------------------ESP8266_StopServer --------------
 // Stop server and set to single-client mode
-// Inputs: none
-// Outputs: 1 on success, 0 on failure
-int ESP8266_StopServer(void);
+bool ESP8266_StopServer(void);
 
-//----------ESP8266_Reset------------
 // soft resets the esp8266 module
-// input:  none
-// output: 1 if success, 0 if fail
-int ESP8266_Reset(void);
+bool ESP8266_Reset(void);
 
-//---------ESP8266_Restore-----
 // restore the ESP8266 module to default values
-// Inputs: none
-// Outputs: 1 if success, 0 if fail
-int ESP8266_Restore(void);
+bool ESP8266_Restore(void);
 
 //---------ESP8266_GetVersionNumber----------
-// get status
-// Input: none
-// output: 1 if success, 0 if fail
-int ESP8266_GetVersionNumber(void);
+// get version number
+bool ESP8266_GetVersionNumber(void);
 
-//---------ESP8266_GetMACAddress----------
 // get MAC address
-// Input: none
-// output: 1 if success, 0 if fail
-int ESP8266_GetMACAddress(void);
+bool ESP8266_GetMACAddress(void);
 
-//---------ESP8266_SetWifiMode----------
+typedef enum { CLIENT = 1, AP, BOTH } ESP8266_WIFI_MODE;
+
 // configures the esp8266 to operate as a wifi client, access point, or both
-// Input: mode accepts ESP8266_WIFI_MODE constants
-// output: 1 if success, 0 if fail
-int ESP8266_SetWifiMode(uint8_t mode);
+bool ESP8266_SetWifiMode(ESP8266_WIFI_MODE mode);
 
-//---------ESP8266_SetConnectionMux----------
 // enables the esp8266 connection mux, required for starting tcp server
-// Input: 0 (single) or 1 (multiple)
-// output: 1 if success, 0 if fail
-int ESP8266_SetConnectionMux(uint8_t enabled);
+bool ESP8266_SetConnectionMux(bool multiple);
 
-//---------ESP8266_ListAccessPoints----------
 // lists available wifi access points
-// Input: none
-// output: 1 if success, 0 if fail
-int ESP8266_ListAccessPoints(void);
+bool ESP8266_ListAccessPoints(void);
 
-//----------ESP8266_JoinAccessPoint------------
 // joins a wifi access point using specified ssid and password
-// input:  SSID and PASSWORD
-// output: 1 if success, 0 if fail
-int ESP8266_JoinAccessPoint(const char* ssid, const char* password);
+bool ESP8266_JoinAccessPoint(const char* ssid, const char* password);
 
-// ----------ESP8266_QuitAccessPoint-------------
 // disconnects from currently connected wifi access point
-// Inputs: none
-// Outputs: 1 if success, 0 if fail
-int ESP8266_QuitAccessPoint(void);
+bool ESP8266_QuitAccessPoint(void);
 
-//----------ESP8266_ConfigureAccessPoint------------
-// configures esp8266 wifi soft access point settings
+// Configures esp8266 wifi soft access point settings
 // use this function only when in AP mode (and not in client mode)
-// input:  SSID, Password, channel, security
-// output: 1 if success, 0 if fail
-int ESP8266_ConfigureAccessPoint(const char* ssid, const char* password,
-                                 uint8_t channel, uint8_t encryptMode);
+bool ESP8266_ConfigureAccessPoint(const char* ssid, const char* password,
+                                  uint8_t channel, uint8_t encryptMode);
 
-//---------ESP8266_GetIPAddress----------
 // Get local IP address
-// Input: none
-// output: 1 if success, 0 if fail
-int ESP8266_GetIPAddress(void);
+bool ESP8266_GetIPAddress(void);
 
-//---------ESP8266_MakeTCPConnection----------
 // Establish TCP connection
-// Inputs: IP address or web page as a string, port, and keepalive time (0 if
-// none) output: 1 if success, 0 if fail
-int ESP8266_MakeTCPConnection(char* IPaddress, uint16_t port,
-                              uint16_t keepalive);
+// takes IP address or URL and a port number
+bool ESP8266_MakeTCPConnection(char* address, uint16_t port);
 
-//---------ESP8266_Send----------
 // Send a packet to server
-// Input: payload to send
-// output: 1 if success, 0 if fail
-int ESP8266_Send(const char* fetch);
+bool ESP8266_Send(const char* fetch);
 
-//---------ESP8266_SendBuffered----------
 // Send a string to server using ESP TCP-send buffer
-// Input: payload to send
-// output: 1 if success, 0 if fail
-int ESP8266_SendBuffered(const char* fetch);
-int ESP8266_SendMessage(const char* fetch);
+bool ESP8266_SendBuffered(const char* fetch);
+bool ESP8266_SendMessage(const char* fetch);
 
-//---------ESP8266_SendBuferedStatus----------
 // Check status of last buffered segment
-// Input: none
-// output: 1 if success, 0 if fail
-int ESP8266_SendBufferedStatus(void);
+bool ESP8266_SendBufferedStatus(void);
 
-//---------ESP8266_Receive----------
 // Receive a string from server
 // Reads from data input until end of line or max length is reached
 // Input: buffer and max length
 // Output: 1 and null-terminated string if success, 0 if fail (disconnected)
-int ESP8266_Receive(char* fetch, uint32_t max);
-int ESP8266_ReceiveMessage(char* fetch, uint32_t max);
-int ESP8266_ReceiveEcho();
+bool ESP8266_Receive(char* fetch, uint32_t max);
+bool ESP8266_ReceiveMessage(char* fetch, uint32_t max);
+bool ESP8266_ReceiveEcho();
 
-//---------ESP8266_CloseTCPConnection----------
 // Close TCP connection
-// Input: none
-// output: 1 if success, 0 if fail
-int ESP8266_CloseTCPConnection(void);
+bool ESP8266_CloseTCPConnection(void);
 
-//---------ESP8266_SetDataTransmissionMode----------
 // set data transmission passthrough mode
-// Input: 0 not data mode, 1 data mode; return "Link is builded"
-// output: 1 if success, 0 if fail
-int ESP8266_SetDataTransmissionMode(uint8_t mode);
+// Mode: 0 not data mode
+//       1 data mode; return "Link is builded"
+bool ESP8266_SetDataTransmissionMode(uint8_t mode);
 
-//---------ESP8266_GetStatus----------
 // get network connection status
-// Input: none
-// output: 1 if success, 0 if fail
-int ESP8266_GetStatus(void);
+bool ESP8266_GetStatus(void);
 
-// --------ESP8266_EnableServer------------------
 // enables tcp server on specified port
-// Inputs: port number
-// Outputs: 1 if success, 0 if fail
-int ESP8266_EnableServer(uint16_t port);
+bool ESP8266_EnableServer(uint16_t port);
 
-// ----------ESP8266_SetServerTimeout--------------
 // set connection timeout for tcp server, 0-28800 seconds
-// Inputs: timeout parameter
-// Outputs: 1 if success, 0 if fail
-int ESP8266_SetServerTimeout(uint16_t timeout);
+bool ESP8266_SetServerTimeout(uint16_t timeout);
 
-// ----------ESP8266_WaitForConnection--------------
 // wait for incoming connection on server
-// Inputs: none
-// Outputs: 1 if success, 0 if fail
-int ESP8266_WaitForConnection(void);
+bool ESP8266_WaitForConnection(void);
 
-//---------ESP8266_DisableServer----------
 // disables tcp server
-// Input: none
-// output: 1 if success, 0 if fail
-int ESP8266_DisableServer(void);
+bool ESP8266_DisableServer(void);

@@ -3,7 +3,7 @@
 #pragma once
 
 // choices: telnet_server, rpc_server, rpc_client
-#define rpc_client
+#define rpc_server
 
 char ibuffer[64];
 #if defined(telnet_server) || defined(rpc_server)
