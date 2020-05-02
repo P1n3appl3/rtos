@@ -166,7 +166,7 @@ bool littlefs_ls(void) {
         } else if (info.type == LFS_TYPE_DIR) {
             continue; // we are only concerned with the root
         }
-        iprintf("%-32s %d bytes\n\r", info.name, info.size);
+        printf("%-32s %d bytes\n\r", info.name, info.size);
     }
     return !lfs_dir_close(lfs, &dir);
 }

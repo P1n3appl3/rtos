@@ -23,18 +23,6 @@ void PortD_Init(void) {
     ROM_GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, 0x0F);
 }
 
-//------------------Idle Task--------------------------------
-// foreground thread, runs when nothing else does
-// never blocks, never sleeps, never dies
-// inputs:  none
-// outputs: none
-void Idle(void) {
-    while (1) {
-        PD0 ^= 0x01;
-        wait_for_interrupts();
-    }
-}
-
 char Response[64];
 Sema4 WebServerSema;
 void ServeTelnetRequest(void) {
@@ -47,15 +35,12 @@ void ServeTelnetRequest(void) {
     OS_Kill();
 }
 
-void TelnetServer(void) {
-    // Initialize and bring up Wifi adapter
+void RPCServer(void) {
     if (!ESP8266_Init(true, false)) { // verbose rx echo on UART for debugging
         puts("No Wifi adapter");
         OS_Kill();
     }
-    // Get Wifi adapter version (for debugging)
     ESP8266_GetVersionNumber();
-    // Connect to access point
     if (!ESP8266_Connect(true)) {
         puts("No Wifi network");
         OS_Kill();
@@ -66,16 +51,9 @@ void TelnetServer(void) {
         OS_Kill();
     }
     puts("Server started");
-
     while (1) {
-        // Wait for connection
         ESP8266_WaitForConnection();
-
-        // Launch thread with higher priority to serve request
         OS_AddThread(&ServeTelnetRequest, "ServeTelnetRequest", 2048, 1);
-
-        // The ESP driver only supports one connection, wait for the thread
-        // to complete
         OS_Wait(&WebServerSema);
     }
 }
@@ -110,23 +88,11 @@ void RPCClient(void) {
     }
 }
 
-//--------------end of Idle Task-----------------------------
-
-//*******************final user main - bare bones OS, extend with your
-// code**********
-int realmain(void) { // realmain
-    OS_Init();       // initialize, disable interrupts
-    PortD_Init();    // debugging profile
-    heap_init();     // initialize heap
-
+int realmain(void) {
+    OS_Init();
+    PortD_Init();
     OS_InitSemaphore(&WebServerSema, 0);
-    // hardware init
-    adc_init(0); // sequencer 3, channel 0, PE3, sampling in Interpreter
-
-    // attach background tasks
-    OS_AddPeriodicThread(&disk_timerproc, ms(1),
-                         0); // time out routines for disk
-    OS_InitSemaphore(&WebServerSema, 0);
+    adc_init(0);
 
     // create initial foreground threads
     // NumCreated += OS_AddThread(&interpreter, "Interpreter", 128, 2);
@@ -380,12 +346,9 @@ void Testmain3(void) {
     OS_Init();
     PortD_Init();
     OS_InitSemaphore(&WebServerSema, 0);
-
-    // create initial foreground threads
-    OS_AddThread(&Idle, "Idle", 128, 3);
-    OS_AddThread(&WebServer, "WebServer", 1024, 2);
-
-    OS_Launch(ms(10)); // doesn't return, interrupts enabled in here
+    OS_AddThread(Idle, "Idle", 128, 3);
+    OS_AddThread(WebServer, "WebServer", 1024, 2);
+    OS_Launch(ms(10));
 }
 
 void testmain_littlefs(void) {
@@ -394,11 +357,8 @@ void testmain_littlefs(void) {
     OS_Launch(ms(10));
 }
 
-//*******************Trampoline for selecting main to execute**********
-
-int main(void) {
+void main(void) {
     realmain();
     // Testmain3();
     // testmain_littlefs();
-    return 0;
 }

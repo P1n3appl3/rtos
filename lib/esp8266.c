@@ -337,7 +337,7 @@ bool ESP8266_Init(bool rx_echo, bool tx_echo) {
 
     // Hard reset
     ROM_GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_1, 0); // reset low
-    busy_wait(9, ms(10));
+    busy_wait(7, ms(10));
     ROM_GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_1, GPIO_PIN_1); // reset high
 
     // Wait for ready status with timeout
@@ -376,12 +376,12 @@ bool ESP8266_Connect(bool verbose) {
 }
 
 bool ESP8266_StartServer(uint16_t port, uint16_t timeout) {
-    return ESP8266_SetConnectionMux(1) && ESP8266_EnableServer(port) &&
+    return ESP8266_SetConnectionMux(true) && ESP8266_EnableServer(port) &&
            ESP8266_SetServerTimeout(timeout);
 }
 
 bool ESP8266_StopServer(void) {
-    return ESP8266_DisableServer() && ESP8266_SetConnectionMux(0);
+    return ESP8266_DisableServer() && ESP8266_SetConnectionMux(false);
 }
 
 bool ESP8266_Reset(void) {
