@@ -23,93 +23,23 @@ void PortD_Init(void) {
     ROM_GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, 0x0F);
 }
 
-char Response[64];
-Sema4 WebServerSema;
-void ServeTelnetRequest(void) {
-    puts("Connected           ");
-
-    interpreter();
-
-    ESP8266_CloseTCPConnection();
-    OS_Signal(&WebServerSema);
-    OS_Kill();
+void local_interpreter(void) {
+    interpreter(false);
 }
 
-void RPCServer(void) {
-    if (!ESP8266_Init(true, false)) { // verbose rx echo on UART for debugging
-        puts("No Wifi adapter");
-        OS_Kill();
-    }
-    ESP8266_GetVersionNumber();
-    if (!ESP8266_Connect(true)) {
-        puts("No Wifi network");
-        OS_Kill();
-    }
-    puts("Wifi connected");
-    if (!ESP8266_StartServer(23, 600)) { // port 80, 5min timeout
-        puts("Server failure");
-        OS_Kill();
-    }
-    puts("Server started");
-    while (1) {
-        ESP8266_WaitForConnection();
-        OS_AddThread(&ServeTelnetRequest, "ServeTelnetRequest", 2048, 1);
-        OS_Wait(&WebServerSema);
-    }
-}
-
-void RPCClient(void) {
-    // Initialize and bring up Wifi adapter
-    if (!ESP8266_Init(true, false)) { // verbose rx echo on UART for debugging
-        puts("No Wifi adapter");
-        OS_Kill();
-    }
-    // Get Wifi adapter version (for debugging)
-    ESP8266_GetVersionNumber();
-    // Connect to access point
-    if (!ESP8266_Connect(true)) {
-        puts("No Wifi network");
-        OS_Kill();
-    }
-    puts("Wifi connected");
-    if (!ESP8266_MakeTCPConnection("71.135.6.224", 23)) {
-        puts("Client failure");
-        OS_Kill();
-    }
-    puts("Client started");
-
-    while (1) {
-        // Launch thread with higher priority to serve request
-        OS_AddThread(&iclient, "iclient", 2048, 1);
-
-        // The ESP driver only supports one connection, wait for the thread
-        // to complete
-        OS_Wait(&WebServerSema);
-    }
-}
-
-int realmain(void) {
+void realmain(void) {
     OS_Init();
     PortD_Init();
-    OS_InitSemaphore(&WebServerSema, 0);
     adc_init(0);
-
-    // create initial foreground threads
-    // NumCreated += OS_AddThread(&interpreter, "Interpreter", 128, 2);
-    OS_AddThread(&Idle, "Idle", 128, 5); // at lowest priority
-#if defined(rpc_client)
-    OS_AddThread(&RPCClient, "RPC Client", 1024, 2);
-#else
-    OS_AddThread(&TelnetServer, "TelnetServer", 1024, 2);
-#endif
-
-    OS_Launch(ms(2)); // doesn't return, interrupts enabled in here
-    return 0;         // this never executes
+    OS_AddThread(local_interpreter, "Interpreter", 2048, 2);
+    OS_Launch(ms(2));
 }
 
 //*****************Test project 2*************************
 // ESP8266 Wifi client test, fetch weather info from internet
 
+char Response[64];
+Sema4 WebServerSema;
 const char Fetch[] =
     "GET /data/2.5/weather?q=Austin&APPID=1bc54f645c5f1c75e681c102ed4bbca4 "
     "HTTP/1.1\r\nHost:api.openweathermap.org\r\n\r\n";
@@ -250,17 +180,8 @@ int HTTP_ServePage(const char* body) {
     char contentLength[16];
     sprintf(contentLength, "%d\r\n\r\n\0", strlen(body));
 
-    if (!ESP8266_SendBuffered(header))
-        return 0;
-    if (!ESP8266_SendBuffered(contentLength))
-        return 0;
-    if (!ESP8266_SendBuffered(body))
-        return 0;
-
-    if (!ESP8266_SendBufferedStatus())
-        return 0;
-
-    return 1;
+    return ESP8266_SendBuffered(header) &&
+           ESP8266_SendBuffered(contentLength) && ESP8266_SendBuffered(body);
 }
 void ServeHTTPRequest(void) {
     puts("Connected           ");
@@ -346,7 +267,6 @@ void Testmain3(void) {
     OS_Init();
     PortD_Init();
     OS_InitSemaphore(&WebServerSema, 0);
-    OS_AddThread(Idle, "Idle", 128, 3);
     OS_AddThread(WebServer, "WebServer", 1024, 2);
     OS_Launch(ms(10));
 }

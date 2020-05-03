@@ -1,5 +1,5 @@
-#include "FIFO.h"
 #include "OS.h"
+#include "fifo.h"
 #include "interrupts.h"
 #include "std.h"
 #include "tivaware/gpio.h"
@@ -15,19 +15,19 @@
 // Speeds up transmission but annoying when debugging
 // #define USE_OUTPUT_BUFFER
 
-ADDFIFO(tx, 128, uint8_t)
-ADDFIFO(rx, 128, uint8_t)
+static FIFO* txfifo;
+static FIFO* rxfifo;
 
 static void hw_to_sw_fifo() {
     do {
-        rxfifo_put(ROM_UARTCharGet(UART0_BASE));
+        fifo_try_put(rxfifo, ROM_UARTCharGet(UART0_BASE));
     } while (ROM_UARTCharsAvail(UART0_BASE));
 }
 
 static void sw_to_hw_fifo() {
     uint8_t temp;
     while (ROM_UARTSpaceAvail(UART0_BASE)) {
-        if (!txfifo_get(&temp)) {
+        if (!fifo_try_get(txfifo, &temp)) {
             break;
         }
         ROM_UARTCharPutNonBlocking(UART0_BASE, temp);
@@ -47,6 +47,8 @@ void uart0_handler(void) {
 }
 
 void uart_init(void) {
+    txfifo = fifo_new(128);
+    rxfifo = fifo_new(128);
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
     ROM_GPIOPinConfigure(GPIO_PA0_U0RX);
@@ -66,8 +68,6 @@ void uart_init(void) {
 
     ROM_IntEnable(INT_UART0);
     ROM_UARTEnable(UART0_BASE);
-    txfifo_init();
-    rxfifo_init();
 }
 
 void uart_change_speed(uint32_t baud) {
@@ -76,15 +76,15 @@ void uart_change_speed(uint32_t baud) {
                                 UART_CONFIG_PAR_NONE);
 }
 
-bool putchar(char x) {
+bool uart_putchar(char x) {
 #ifdef USE_OUTPUT_BUFFER
     // Skip the buffer and go straight to the hardware fifo if possible
-    if (txfifo_empty() && ROM_UARTCharPutNonBlocking(UART0_BASE, x)) {
+    if (fifo_empty(txfifo) && ROM_UARTCharPutNonBlocking(UART0_BASE, x)) {
         return true;
     }
-    while (txfifo_full()) { OS_Suspend(); }
+    while (fifo_full(txfifo)) { OS_Suspend(); }
     uint32_t crit = start_critical();
-    txfifo_put(x);
+    fifi_try_put(txfifo, x);
     end_critical(crit);
     sw_to_hw_fifo();
     return true;
@@ -98,21 +98,20 @@ bool putchar(char x) {
 
 char getchar(void) {
     uint8_t temp;
-    while (!rxfifo_get(&temp)) { OS_Suspend(); };
+    while (!fifo_try_get(rxfifo, &temp)) { OS_Suspend(); };
     return temp;
 }
 
-bool puts(const char* str) {
-    while (*str) { putchar(*str++); }
-    putchar('\n');
-    putchar('\r');
-    return true;
+void uart_puts(const char* str) {
+    while (*str) { uart_putchar(*str++); }
+    uart_putchar('\n');
+    uart_putchar('\r');
 }
 
-uint16_t gets(char* str, uint16_t len) {
+uint16_t gets(char* str, uint16_t max) {
     char temp = '\0';
     uint16_t count = 0;
-    while (temp != '\n' && temp != '\r' && len--) {
+    while (temp != '\n' && temp != '\r' && max--) {
         temp = getchar();
         str[count++] = temp;
     }
@@ -120,28 +119,28 @@ uint16_t gets(char* str, uint16_t len) {
     return count;
 }
 
-uint16_t readline(char* str, uint16_t len) {
+uint16_t readline(char* str, uint16_t max) {
     int received = 0;
     char current = '\0';
-    while (len--) {
+    while (max--) {
         switch (current = getchar()) {
         case '\n':
         case '\r':
-            putchar('\n');
-            putchar('\r');
+            uart_putchar('\n');
+            uart_putchar('\r');
             *str = '\0';
             return ++received;
         case 127:
             if (received > 0) {
-                putchar('\b');
-                putchar(' ');
-                putchar('\b');
+                uart_putchar('\b');
+                uart_putchar(' ');
+                uart_putchar('\b');
                 --str;
                 --received;
             }
             break;
         default:
-            putchar(current);
+            uart_putchar(current);
             *str++ = current;
             ++received;
         }
