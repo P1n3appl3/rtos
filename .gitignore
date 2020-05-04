@@ -3,7 +3,10 @@
 !.gitignore
 !src/
 !inc/
+!inc/tivaware
+!inc/usblib
 !lib/
+!lib/usblib
 !sim/
 !misc/
 !userprog/
