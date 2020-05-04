@@ -204,6 +204,20 @@ char* itoa(int32_t value, char* s, uint8_t radix) {
     return reverse(s);
 }
 
+void memcpy(void* dest, const void* src, uint32_t n) {
+    uint32_t* wide_a = dest;
+    const uint32_t* wide_b = src;
+    if (!((uint32_t)src & 3 || (uint32_t)dest & 3)) {
+        while (n >= 4) {
+            *wide_a++ = *wide_b++;
+            n -= 4;
+        }
+    }
+    uint8_t* a = (uint8_t*)wide_a;
+    const uint8_t* b = (const uint8_t*)wide_b;
+    while (n--) { *a++ = *b++; }
+}
+
 // Compiler generated intrinsics
 
 void __aeabi_memclr4(void* mem, size_t bytes) {
@@ -224,11 +238,5 @@ void __aeabi_memcpy4(void* dest, const void* src, uint32_t n) {
     }
 }
 
-void memcpy(void* dest, const void* src, uint32_t n)
-    __attribute__((alias("__aeabi_memcpy")));
-
-void __aeabi_memcpy(void* dest, const void* src, uint32_t n) {
-    uint8_t* a = (uint8_t*)dest;
-    const uint8_t* b = (const uint8_t*)src;
-    while (n--) { *a++ = *b++; }
-}
+__attribute__((alias("memcpy"))) void
+__aeabi_memcpy(void* dest, const void* src, uint32_t n);
