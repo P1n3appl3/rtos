@@ -34,6 +34,7 @@ static char* HELPSTRING =
     "Available commands:\n\n\r"
     "led COLOR [on, off, or toggle]\tcontrol the onboard RGB led\n\r"
     "adc\t\t\t\tread a single sample from the ADC\n\r"
+    "temp\t\t\t\tget the internal system temperature\n\r"
     "time [get/reset]\t\tOS time helpers\n\n\r"
 
 #ifdef TRACK_JITTER
@@ -143,6 +144,8 @@ void interpret_command(char* raw_command, char* token, bool remote) {
         }
     } else if (streq(token, "adc")) {
         printf("ADC reading: %d\n\r", adc_in());
+    } else if (streq(token, "temp")) {
+        printf("%d degrees F\n\r", (int32_t)temperature());
     } else if (streq(token, "jitter")) {
         OS_ReportJitter();
     } else if (streq(token, "heap")) {
@@ -310,7 +313,6 @@ void interpret_command(char* raw_command, char* token, bool remote) {
 }
 
 void interpreter(bool remote) {
-    busy_wait(7, ms(1000));
     char* token = malloc(32);
     char* raw_command = malloc(COMMAND_BUF_LEN);
     if (remote) {

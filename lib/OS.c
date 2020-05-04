@@ -1,4 +1,5 @@
 #include "OS.h"
+#include "ADC.h"
 #include "ST7735.h"
 #include "eDisk.h"
 #include "esp8266.h"
@@ -21,7 +22,6 @@
 #include "tivaware/hw_types.h"
 #include "tivaware/mpu.h"
 #include "tivaware/rom.h"
-#include "tivaware/sysctl.h"
 #include "tivaware/timer.h"
 #include <stdint.h>
 #include <stdnoreturn.h>
@@ -66,11 +66,6 @@ static uint8_t thread_count = 0;
 static PCB processes[MAX_PROCESSES];
 static uint8_t process_count = 0;
 
-bool os_running;
-
-uint32_t criticaltime;
-volatile uint32_t time_disabled = 0;
-
 extern uint32_t _eheap;
 static TCB idle = {
     .next_tcb = &idle,
@@ -83,13 +78,14 @@ static TCB idle = {
     .stack = (uint32_t*)&_eheap,
 };
 
+volatile TCB* current_thread = &idle;
+bool os_running;
+
 static noreturn void idle_task(void) {
     os_running = true;
     enable_interrupts();
     while (true) { wait_for_interrupts(); }
 }
-
-TCB* current_thread = &idle;
 
 static void insert_behind(TCB* a, TCB* b) {
     a->next_tcb = b;
@@ -113,7 +109,7 @@ static void insert_thread(TCB* adding) {
         insert_behind(adding,
                       (current_thread->blocked || current_thread->asleep)
                           ? current_thread->next_tcb
-                          : current_thread);
+                          : (TCB*)current_thread);
     }
     end_critical(crit);
 }
@@ -154,13 +150,12 @@ static void portd_init(void) {
 void OS_Init(void) {
     disable_interrupts();
     os_running = false;
-    ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
-                       SYSCTL_OSC_MAIN);
     heap_init();
     launchpad_init();
     enable_button_interupts(3);
     portd_init();
     uart_init();
+    temperature_init();
     SSI0_Init(10);
 }
 
@@ -178,7 +173,7 @@ void OS_Wait(Sema4* sem) {
     }
     current_thread->blocked = true;
     if (!sem->blocked_head) {
-        sem->blocked_head = current_thread;
+        sem->blocked_head = (TCB*)current_thread;
     } else {
         TCB* tail = sem->blocked_head;
         while (tail->next_blocked &&
@@ -186,7 +181,7 @@ void OS_Wait(Sema4* sem) {
             tail = tail->next_blocked;
         }
         current_thread->next_blocked = tail->next_blocked;
-        tail->next_blocked = current_thread;
+        tail->next_blocked = (TCB*)current_thread;
     }
     remove_current_thread();
     end_critical(crit);

@@ -1,4 +1,6 @@
+#include "std.h"
 #include "tivaware/rom.h"
+#include "tivaware/sysctl.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -269,13 +271,14 @@ extern uint32_t _data;
 extern uint32_t _edata;
 
 void default_reset_handler(void) {
-    uint32_t* src = &_etext;
-    uint32_t* dest = &_data;
-    while (dest < &_edata) { *dest++ = *src++; }
-
-    dest = &_bss;
-    while (dest < &_ebss) { *dest++ = 0; }
-
+    // set PLL to 80MHz
+    ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
+                       SYSCTL_OSC_MAIN);
+    // move data into ram
+    memcpy((uint32_t*)&_data, (uint32_t*)&_etext,
+           (uint32_t)&_edata - (uint32_t)&_data);
+    // clear bss
+    memset((uint32_t*)&_bss, 0, (uint32_t)&_ebss - (uint32_t)&_bss);
     ROM_FPUEnable();
     main();
     while (true) {}

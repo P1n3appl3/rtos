@@ -289,13 +289,12 @@ bool ESP8266_Init(bool rx_echo, bool tx_echo) {
 
     ROM_IntDisable(INT_UART2);
     ESP8266_InitUART(rx_echo, tx_echo);
-    // Reset pin
-    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_1);
+    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_1); // Reset pin
 
     // Hard reset
-    ROM_GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_1, 0); // reset low
+    ROM_GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_1, 0);
     busy_wait(7, ms(10));
-    ROM_GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_1, GPIO_PIN_1); // reset high
+    ROM_GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_1, GPIO_PIN_1);
 
     // Wait for ready status with timeout
     // Use low-level UART communication, interrupts disabled
@@ -457,12 +456,10 @@ bool ESP8266_Receive(char* buf, uint32_t max) {
         if (fifo_size(rxdata_fifo) ||
             ESP8266_DataAvailable) { // data (about to be) available?
             while (fifo_try_get(rxdata_fifo, &letter) == false) {};
-            // ROM_IntDisable(INT_UART2);  // critical section
             sr = start_critical();
             if (ESP8266_DataAvailable)
                 ESP8266_DataAvailable--;
             end_critical(sr);
-            // ROM_IntEnable(INT_UART2);
             if (letter == '\r')
                 continue;
             if (letter == '\n')
@@ -491,12 +488,10 @@ bool ESP8266_ReceiveEcho() {
         if (fifo_size(rxdata_fifo) ||
             ESP8266_DataAvailable) { // data (about to be) available?
             while (fifo_try_get(rxdata_fifo, &letter) == false) {};
-            // ROM_IntDisable(INT_UART2);  // critical section
             sr = start_critical();
             if (ESP8266_DataAvailable)
                 ESP8266_DataAvailable--;
             end_critical(sr);
-            // ROM_IntEnable(INT_UART2);
             if (letter == '\x03') // ETX
                 break;
             uart_putchar(letter);

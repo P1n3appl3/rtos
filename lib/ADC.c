@@ -24,6 +24,16 @@ bool adc_init(uint8_t channel_num) {
     return true;
 }
 
+void temperature_init(void) {
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
+    while (!ROM_SysCtlPeripheralReady(SYSCTL_PERIPH_ADC0)) {}
+    ROM_ADCSequenceConfigure(ADC0_BASE, 2, ADC_TRIGGER_PROCESSOR, 3);
+    ROM_ADCSequenceStepConfigure(ADC0_BASE, 2, 0,
+                                 ADC_CTL_TS | ADC_CTL_IE | ADC_CTL_END);
+    ROM_ADCSequenceEnable(ADC0_BASE, 2);
+    ROM_ADCIntClear(ADC0_BASE, 2);
+}
+
 uint16_t adc_in(void) {
     uint32_t temp;
     ROM_ADCProcessorTrigger(ADC0_BASE, 3);
@@ -31,6 +41,15 @@ uint16_t adc_in(void) {
     ROM_ADCIntClear(ADC0_BASE, 3);
     ROM_ADCSequenceDataGet(ADC0_BASE, 3, &temp);
     return temp;
+}
+
+float temperature(void) {
+    uint32_t temp;
+    ROM_ADCProcessorTrigger(ADC0_BASE, 2);
+    while (!ROM_ADCIntStatus(ADC0_BASE, 2, false)) {}
+    ROM_ADCIntClear(ADC0_BASE, 2);
+    ROM_ADCSequenceDataGet(ADC0_BASE, 2, &temp);
+    return 32 + 1.8f * (147.5f - 75 * temp * 3.3f / 4096);
 }
 
 static void (*process_sample)(uint16_t);
@@ -41,6 +60,7 @@ void adc1_sequence0_handler(void) {
     ROM_ADCSequenceDataGet(ADC1_BASE, 0, &temp);
     process_sample(temp);
 }
+
 bool adc_timer_init(uint8_t channel_num, uint8_t timer_num, uint32_t period,
                     uint8_t priority, void (*task)(uint16_t)) {
     period = max(period, hz(10000)); // max sample rate = 10kHz

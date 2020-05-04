@@ -63,11 +63,11 @@ void memset(void* dest, uint8_t value, uint32_t n) {
     while (n--) { *temp++ = value; }
 }
 
-int memcmp(const void* s1, const void* s2, uint32_t n) {
+int32_t memcmp(const void* s1, const void* s2, uint32_t n) {
     uint8_t* a = (uint8_t*)s1;
     uint8_t* b = (uint8_t*)s2;
 
-    for (int32_t i = 0; i < n; i++) {
+    for (uint32_t i = 0; i < n; i++) {
         if (a[i] < b[i]) {
             return -1;
         } else if (a[i] > b[i]) {
@@ -89,7 +89,7 @@ char* strcpy(char* dest, const char* src) {
     return dest;
 }
 
-char* strchr(const char* str, int c) {
+char* strchr(const char* str, int32_t c) {
     int16_t ret = find(str, c);
     if (ret > -1) {
         return (char*)(str + ret);
@@ -207,7 +207,7 @@ char* itoa(int32_t value, char* s, uint8_t radix) {
 void memcpy(void* dest, const void* src, uint32_t n) {
     uint32_t* wide_a = dest;
     const uint32_t* wide_b = src;
-    if (!((uint32_t)src & 3 || (uint32_t)dest & 3)) {
+    if (!((uint32_t)src % 4 || (uint32_t)dest % 4)) {
         while (n >= 4) {
             *wide_a++ = *wide_b++;
             n -= 4;

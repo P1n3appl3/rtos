@@ -9,7 +9,7 @@ void local_interpreter(void) {
 
 void main(void) {
     OS_Init();
-    OS_AddThread(mouse_init, "usb mouse", 1024, 3);
-    OS_AddThread(local_interpreter, "debug shell", 1024, 3);
+    // OS_AddThread(mouse_init, "usb mouse", 1024, 3);
+    OS_AddThread(local_interpreter, "debug shell", 2048, 3);
     OS_Launch(ms(2));
 }

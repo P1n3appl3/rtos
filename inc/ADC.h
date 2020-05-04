@@ -21,12 +21,18 @@
 // 10: PC6
 // 11: PC7
 
-// sets up a channel (0 to 11) to be software triggered for single samples using
-// adc 0 sequencer 3
+// sets up a channel (0 to 11) and corresponding GPIO pin to be software
+// triggered for single samples using adc 0 sequence 3
 bool adc_init(uint8_t channel_num);
 
 // software trigger adc 0 sequence 3 and return 12 bit result
 uint16_t adc_in(void);
+
+// sets up adc 0 channel 0 sequence 2 to do software triggered temperature reads
+void temperature_init(void);
+
+// read temperature in degrees Farenheit
+float temperature(void);
 
 // uses adc 1 sequence 0 with the specified channel and timer to provide samples
 // at a consistent rate
