@@ -1,5 +1,7 @@
 #include "OS.h"
+#include "ST7735.h"
 #include "eDisk.h"
+#include "esp8266.h"
 #include "heap.h"
 #include "interpreter.h"
 #include "interrupts.h"
@@ -40,6 +42,7 @@ typedef struct TCB {
 
     uint32_t id;
     const char* name;
+    OutputDevice out_device;
 
     struct TCB* next_blocked;
 
@@ -218,6 +221,7 @@ bool OS_AddThread(void (*task)(void), const char* name, uint32_t stack_size,
     adding->id = thread_uuid++;
     adding->name = name;
     adding->next_tcb = adding->prev_tcb = &idle;
+    adding->out_device = UART;
 
     // initialize stack
     stack_size = max(stack_size, MIN_STACK_SIZE) + 32; // extra is for MPU
@@ -457,64 +461,6 @@ void OS_Suspend(void) {
     ROM_IntPendSet(FAULT_PENDSV);
 }
 
-static Sema4 fifo_data_available;
-static uint32_t* os_fifo_buf = 0;
-static uint16_t os_fifo_head;
-static uint16_t os_fifo_tail;
-static uint16_t os_fifo_size;
-bool OS_Fifo_Init(uint32_t size) {
-    if (os_fifo_buf) {
-        free(os_fifo_buf);
-    }
-    ++size; // need an extra space to tell empty from full
-    os_fifo_buf = malloc(size * sizeof(uint32_t));
-    os_fifo_head = os_fifo_tail = 0;
-    os_fifo_size = size;
-    OS_InitSemaphore(&fifo_data_available, -1);
-    return !!os_fifo_buf;
-}
-
-bool OS_Fifo_Put(uint32_t data) {
-    if (OS_Fifo_Size() == os_fifo_size - 1) {
-        return false;
-    }
-    os_fifo_buf[os_fifo_head++] = data;
-    os_fifo_head %= os_fifo_size;
-    OS_Signal(&fifo_data_available);
-    return true;
-}
-
-uint32_t OS_Fifo_Get(void) {
-    OS_Wait(&fifo_data_available);
-    uint32_t temp = os_fifo_buf[os_fifo_tail++];
-    os_fifo_tail %= os_fifo_size;
-    return temp;
-}
-
-int32_t OS_Fifo_Size(void) {
-    return (os_fifo_size + os_fifo_head - os_fifo_tail) % os_fifo_size;
-}
-
-uint32_t mailbox_data;
-Sema4 BoxFree, DataValid;
-void OS_MailBox_Init(void) {
-    OS_InitSemaphore(&BoxFree, 0);
-    OS_InitSemaphore(&DataValid, -1);
-}
-
-void OS_MailBox_Send(uint32_t data) {
-    OS_Wait(&BoxFree);
-    mailbox_data = data;
-    OS_Signal(&DataValid);
-}
-
-uint32_t OS_MailBox_Recv(void) {
-    OS_Wait(&DataValid);
-    uint32_t temp = mailbox_data;
-    OS_Signal(&BoxFree);
-    return temp;
-}
-
 void OS_ClearTime(void) {
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_WTIMER5);
     ROM_TimerConfigure(WTIMER5_BASE, TIMER_CFG_PERIODIC_UP);
@@ -575,6 +521,7 @@ void OS_ReportJitter(void) {
 void memory_management_fault_handler(void) {
     HeapNode* stack_allocation = heap_node_from_alloc(current_thread->stack);
     uint16_t stack_size = stack_allocation->size - 32;
+    OS_RedirectOutput(UART);
     printf("\n\n\rSTACK OVERFLOW\n\rThread '%s' overflowed its %d byte stack, "
            "Consider increasing it.\n\r",
            current_thread->name, stack_size);
@@ -587,6 +534,7 @@ void memory_management_fault_handler(void) {
 }
 
 void hardfault_handler(void) {
+    OS_RedirectOutput(UART);
     printf("\n\n\rHARD FAULT in thread '%s'\n\r", current_thread->name);
     printf("FAULTSTAT:  0x%08x\n\r", HWREG(NVIC_FAULT_STAT));
     printf("HFAULTSTAT: 0x%08x\n\r", HWREG(NVIC_HFAULT_STAT));
@@ -602,13 +550,8 @@ typedef struct {
     void* ptr;
 } Symbol;
 
-#if defined(rpc_server) || defined(telnet_server)
-static const Symbol symtab[] = {{"OS_Id", (void*)OS_Id},
-                                {"printf", (void*)user_printf}};
-#else
 static const Symbol symtab[] = {{"OS_Id", (void*)OS_Id},
                                 {"printf", (void*)printf}};
-#endif
 
 void* OS_function_lookup(const char* name) {
     for (int i = 0; i < sizeof(symtab) / sizeof(Symbol); ++i) {
@@ -623,5 +566,41 @@ void OS_LoadProgram(char* name) {
     printf("Loading: '%s'...\n\r", name);
     if (!exec_elf(name)) {
         puts("load program error");
+    }
+}
+
+void OS_RedirectOutput(OutputDevice device) {
+    current_thread->out_device = device;
+}
+
+void OS_RedirectString(const char* str) {
+    if (current_thread->out_device & UART) {
+        uart_puts(str);
+    }
+    if (current_thread->out_device & ESP) {
+        ESP8266_Send(str);
+        ESP8266_Send("\n\r");
+    }
+    if (current_thread->out_device & FS) {
+        // TODO: write to open file
+    }
+    if (current_thread->out_device & SCREEN) {
+        lcd_puts(str);
+    }
+}
+
+void OS_RedirectChar(char c) {
+    char buf[2] = {c, '\0'};
+    if (current_thread->out_device & UART) {
+        uart_putchar(c);
+    }
+    if (current_thread->out_device & ESP) {
+        ESP8266_Send(buf);
+    }
+    if (current_thread->out_device & FS) {
+        // TODO: write to open file
+    }
+    if (current_thread->out_device & SCREEN) {
+        lcd_putchar(c);
     }
 }

@@ -11,21 +11,21 @@
 #include "timer.h"
 #include <stdint.h>
 
+#define ERROR(...)                                                             \
+    printf(RED "ERROR: " NORMAL __VA_ARGS__);                                  \
+    return;
+
 const size_t COMMAND_BUF_LEN = 128;
 
-char* raw_command;
-char* current;
-char* token;
-
-static bool next_token() {
-    while (is_whitespace(*current)) { ++current; }
-    if (!(token[0] = *current)) {
+static bool next_token(char** current, char* token) {
+    while (is_whitespace(**current)) { ++*current; }
+    if (!**current) {
         return false;
     }
     uint8_t tok_idx = 0;
     do {
-        token[tok_idx++] = *current++;
-    } while (*current && !is_whitespace(*current));
+        token[tok_idx++] = *(*current)++;
+    } while (**current && !is_whitespace(**current));
     token[tok_idx] = '\0';
     return true;
 }
@@ -43,8 +43,7 @@ static char* HELPSTRING =
 
     "mount\t\t\t\tmount the sd card\n\r"
     "unmount\t\t\t\tunmount the sd card\n\r"
-    "format yes really\t\tformat the sd card\n\n\r"
-
+    "format yes really\t\tformat the sd card\n\r"
     "upload FILENAME\t\t\ttransfer a file over UART\n\r"
     "exec FILENAME\t\t\tload and run process from file\n\r"
     "touch FILENAME\t\t\tcreates a new file\n\r"
@@ -54,29 +53,73 @@ static char* HELPSTRING =
     "mv FILENAME NEWNAME\t\tmove a file\n\r"
     "cp FILENAME NEWNAME\t\tcopy a file\n\r"
     "rm FILENAME\t\t\tdelete a file\n\r"
-    "checksum FILENAME\t\tcompute a checksum of a file\n\r";
+    "checksum FILENAME\t\tcompute a checksum of a file\n\n\r"
 
-void client_command(void) {
-    ESP8266_ReceiveEcho();
-    ireadline(raw_command, COMMAND_BUF_LEN);
-    ESP8266_SendMessage(raw_command);
+    "server\t\t\t\tspawn remote interpreter\n\r"
+    "connect IPV4\t\t\tspawn remote client\n\r"
+    "exit\t\t\t\tleave this session\n\r";
+
+static uint32_t server_id = 0;
+static void server(void) {
+    server_id = OS_Id();
+    if (!ESP8266_Init(true, false)) { // verbose rx echo on UART for debugging
+        ERROR("No Wifi adapter");
+    }
+    ESP8266_GetVersionNumber();
+    if (!ESP8266_Connect(true)) { // verbose
+        ERROR("No Wifi network");
+    }
+    puts("Wifi connected");
+    if (!ESP8266_StartServer(23, 600)) { // port 80, 5min timeout
+        ERROR("Server failure");
+        OS_Kill();
+    }
+    puts("Server started");
+    while (true) {
+        ESP8266_WaitForConnection();
+        puts("Connected");
+        interpreter(true);
+        ESP8266_CloseTCPConnection();
+    }
 }
 
-void interpret_command(void) {
-    iprintf("\n\r\xF0\x9F\x8D\x8D> \x03");
-#ifdef rpc_server
-    ESP8266_ReceiveMessage(raw_command, COMMAND_BUF_LEN);
-#else
-    ireadline(raw_command, COMMAND_BUF_LEN);
-#endif
-    current = raw_command;
-    if (!next_token()) {
+static char* temp_ip;
+static void client(void) {
+    char ip[32];
+    strcpy(ip, temp_ip); // hack to pass in an "argument" to this thread
+    if (!ESP8266_Init(true, false)) { // verbose rx echo on UART for debugging
+        puts("No Wifi adapter");
+        OS_Kill();
+    }
+    ESP8266_GetVersionNumber(); //(for debugging)
+    if (!ESP8266_Connect(true)) {
+        puts("No Wifi network");
+        OS_Kill();
+    }
+    puts("Wifi connected");
+    if (!ESP8266_MakeTCPConnection(ip, 23)) {
+        puts("Client failure");
+        OS_Kill();
+    }
+    puts("Client started");
+
+    char* raw_command = malloc(COMMAND_BUF_LEN);
+    while (true) {
+        ESP8266_ReceiveEcho();
+        readline(raw_command, COMMAND_BUF_LEN);
+        ESP8266_Send(raw_command);
+    }
+}
+
+void interpret_command(char* raw_command, char* token, bool remote) {
+    char* current = raw_command;
+    if (!next_token(&current, token)) {
         ERROR("enter a command\n\r");
     } else if (streq(token, "help") || streq(token, "h")) {
-        iputs(HELPSTRING);
+        puts(HELPSTRING);
     } else if (streq(token, "led")) {
         uint8_t led;
-        if (!next_token()) {
+        if (!next_token(&current, token)) {
             ERROR("expected another argument for color\n\r");
         } else if (streq(token, "red") || streq(token, "r")) {
             led = RED_LED;
@@ -87,7 +130,8 @@ void interpret_command(void) {
         } else {
             ERROR("invalid color '%s'\n\rTry red, green, or blue\n\r", token);
         }
-        if (!next_token() || streq(token, "toggle") || streq(token, "t")) {
+        if (!next_token(&current, token) || streq(token, "toggle") ||
+            streq(token, "t")) {
             led_toggle(led);
         } else if (streq(token, "on") || streq(token, "1")) {
             led_write(led, true);
@@ -97,16 +141,16 @@ void interpret_command(void) {
             ERROR("invalid action '%s'\n\rTry on, off, or toggle\n\r", token);
         }
     } else if (streq(token, "adc")) {
-        iprintf("ADC reading: %d\n\r", adc_in());
+        printf("ADC reading: %d\n\r", adc_in());
     } else if (streq(token, "jitter")) {
         OS_ReportJitter();
     } else if (streq(token, "heap")) {
         heap_stats();
     } else if (streq(token, "time")) {
-        if (!next_token() || streq(token, "get")) {
-            iprintf("Current time: %dms\n\r", (uint32_t)to_ms(OS_Time()));
+        if (!next_token(&current, token) || streq(token, "get")) {
+            printf("Current time: %dms\n\r", (uint32_t)to_ms(OS_Time()));
         } else if (streq(token, "reset")) {
-            iprintf("OS time reset\n\r");
+            puts("OS time reset");
             OS_ClearTime();
         } else {
             ERROR("expected 'get' or 'reset', got '%s'\n\r", token);
@@ -118,8 +162,8 @@ void interpret_command(void) {
     } else if (streq(token, "unmount")) {
         littlefs_unmount();
     } else if (streq(token, "format")) {
-        if (next_token() && streq(token, "yes") && next_token() &&
-            streq(token, "really")) {
+        if (next_token(&current, token) && streq(token, "yes") &&
+            next_token(&current, token) && streq(token, "really")) {
             if (!littlefs_format()) {
                 ERROR("formatting failed\n\r");
             }
@@ -129,35 +173,28 @@ void interpret_command(void) {
     } else if (streq(token, "ls")) {
         littlefs_ls();
     } else if (streq(token, "touch")) {
-        if (!next_token()) {
+        if (!next_token(&current, token)) {
             ERROR("must pass a filename\n\r");
         } else if (!(littlefs_open_file(token, true) &&
                      littlefs_close_file())) {
             ERROR("couldn't create file\n\r");
         }
     } else if (streq(token, "cat")) {
-        if (!next_token()) {
+        if (!next_token(&current, token)) {
             ERROR("must pass a filename\n\r");
         } else if (!littlefs_open_file(token, false)) {
             ERROR("couldn't open file '%s'\n\r", token);
         }
-#if defined(telnet_server) || defined(rpc_server)
-        while (littlefs_read_line(raw_command, COMMAND_BUF_LEN)) {
-            ESP8266_SendBuffered(raw_command);
-        }
-        ESP8266_SendBuffered(raw_command);
-#else
         char temp;
         while (littlefs_read((uint8_t*)&temp)) { putchar(temp); }
-#endif
-        iprintf("\n\r");
+        printf("\n\r");
         littlefs_close_file();
     } else if (streq(token, "append")) {
-        if (!next_token()) {
+        if (!next_token(&current, token)) {
             ERROR("must pass a filename\n\r");
         } else if (!littlefs_open_file_append(token, true)) {
             ERROR("couldn't open file\n\r", token);
-        } else if (!next_token()) {
+        } else if (!next_token(&current, token)) {
             littlefs_close_file();
             ERROR("must pass some characters to append\n\r");
         }
@@ -167,20 +204,20 @@ void interpret_command(void) {
         if (!ret) {
             ERROR("failed to write to the file\n\r");
         }
-        iprintf("Wrote %d bytes\n\r", len);
+        printf("Wrote %d bytes\n\r", len);
     } else if (streq(token, "rm")) {
-        if (!next_token()) {
+        if (!next_token(&current, token)) {
             ERROR("must pass a filename\n\r");
         } else if (!littlefs_remove(token)) {
             ERROR("couldn't remove file '%s'\n\r", token);
         }
     } else if (streq(token, "mv")) {
-        if (!next_token()) {
+        if (!next_token(&current, token)) {
             ERROR("must pass a filename\n\r");
         }
         char filename[32];
         memcpy(filename, token, sizeof(filename));
-        if (!next_token()) {
+        if (!next_token(&current, token)) {
             ERROR("must pass another filename\n\r");
         } else if (!littlefs_move(filename, token)) {
             ERROR("failed to move file\n\r");
@@ -189,36 +226,36 @@ void interpret_command(void) {
         // TODO
         ERROR("unimplemented\n\r");
     } else if (streq(token, "exec")) {
-        if (!next_token()) {
+        if (!next_token(&current, token)) {
             ERROR("must pass a filename\n\r");
         }
         OS_LoadProgram(token);
         OS_Sleep(ms(1000));
     } else if (streq(token, "upload")) {
-        if (!next_token()) {
+        if (!next_token(&current, token)) {
             ERROR("must pass a filename\n\r");
         }
         if (!littlefs_open_file(token, true)) {
             ERROR("failed to open file\n\r");
         }
-        iprintf("Are you using the file transfer utility? [Y/n]\n\r");
+        puts("Are you using the file transfer utility? [Y/n]");
         bool file_transfer = !(getchar() == 'n');
         bool binary = false;
         if (file_transfer) {
-            iprintf("Is the file you're transferring binary? [y/N]\n\r");
+            puts("Is the file you're transferring binary? [y/N]");
             binary = getchar() == 'y';
         }
         char sizebuf[16];
         if (file_transfer) {
-            iprintf("Close this session and run the file transfer utility...");
+            puts("Close this session and run the file transfer utility...");
             uart_change_speed(9600);
         } else {
-            iprintf("Enter your file's size in bytes: ");
+            printf("Enter your file's size in bytes: ");
         }
         readline(sizebuf, sizeof(sizebuf));
         uint32_t size = atoi(sizebuf);
         if (!file_transfer) {
-            iprintf("Now paste the contents of your file...");
+            puts("Now paste the contents of your file...");
         }
         while (size--) {
             char temp = getchar();
@@ -237,10 +274,26 @@ void interpret_command(void) {
         if (file_transfer) {
             uart_change_speed(115200);
         }
-        iprintf("   Successfully Uploaded!\n\r");
+        puts("Successfully Uploaded!");
         littlefs_close_file();
+
+    } else if (streq(token, "server")) {
+        if (server_id) {
+            ERROR("Server already running");
+        }
+        OS_AddThread(server, "Remote Intepreter", 2048, 2);
+    } else if (streq(token, "client")) {
+        if (!next_token(&current, token)) {
+            ERROR("must pass an IPV4 address\n\r");
+        }
+        temp_ip = current;
+        OS_AddThread(client, "Remote Client", 2048, 2);
+    } else if (streq(token, "exit")) {
+        free(token);
+        free(raw_command);
+        OS_Kill();
     } else if (streq(token, "checksum")) {
-        if (!next_token()) {
+        if (!next_token(&current, token)) {
             ERROR("must pass a filename\n\r");
         } else if (!littlefs_open_file(token, false)) {
             ERROR("couldn't open file '%s'\n\r", token);
@@ -248,35 +301,39 @@ void interpret_command(void) {
         char temp;
         uint32_t checksum = 0;
         while (littlefs_read((uint8_t*)&temp)) { checksum += temp; }
-        iprintf("0x%08x\n\r", checksum);
+        printf("0x%08x\n\r", checksum);
         littlefs_close_file();
     } else {
         ERROR("unrecognized command '%s', try 'help'\n\r", token);
     }
 }
 
-void iclient(void) {
-    token = malloc(32);
-    raw_command = malloc(COMMAND_BUF_LEN);
-
-    ESP8266_ReceiveEcho();
-    ireadline(raw_command, COMMAND_BUF_LEN);
-    ESP8266_SendMessage(raw_command);
-
-    while (true) { client_command(); }
-}
-
-void interpreter(void) {
+void interpreter(bool remote) {
     busy_wait(7, ms(1000));
-    token = malloc(32);
-    raw_command = malloc(COMMAND_BUF_LEN);
-    iprintf("\x1b[1;1H\x1b[2JPress Enter to begin...\x03");
-    ireadline(raw_command, COMMAND_BUF_LEN);
-    iputs(HELPSTRING);
-    if (littlefs_init() && littlefs_mount()) {
-        iputs(GREEN "Filesystem mounted" NORMAL);
-    } else {
-        iputs(RED "Filesystem failed to mount" NORMAL);
+    char* token = malloc(32);
+    char* raw_command = malloc(COMMAND_BUF_LEN);
+    if (remote) {
+        OS_RedirectOutput(ESP);
     }
-    while (true) { interpret_command(); }
+    printf("\x1b[1;1H\x1b[2JPress Enter to begin...\x03");
+    if (remote) {
+        ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
+    } else {
+        readline(raw_command, COMMAND_BUF_LEN);
+    }
+    puts(HELPSTRING);
+    if (littlefs_init() && littlefs_mount()) {
+        puts(GREEN "Filesystem is mounted" NORMAL);
+    } else {
+        puts(RED "Filesystem failed to mount" NORMAL);
+    }
+    while (true) {
+        printf("\n\r\xF0\x9F\x8D\x8D> \x03");
+        if (remote) {
+            ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
+        } else {
+            readline(raw_command, COMMAND_BUF_LEN);
+        }
+        interpret_command(raw_command, token, true);
+    }
 }

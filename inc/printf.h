@@ -62,7 +62,6 @@ void _putchar(char character);
  */
 #define printf printf_
 int printf_(const char* format, ...);
-int user_printf(const char* format, ...);
 
 /**
  * Tiny sprintf implementation

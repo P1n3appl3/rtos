@@ -58,16 +58,18 @@ void OS_InitSemaphore(Sema4* semaPt, int32_t value);
 void OS_Wait(Sema4* semaPt);   // block until a semaphore is available
 void OS_Signal(Sema4* semaPt); // increment semaphore value (may wake thread)
 
-bool OS_Fifo_Init(uint32_t size); // attempt initialize the fifo to be empty
-bool OS_Fifo_Put(uint32_t data);  // attempt to add element
-uint32_t OS_Fifo_Get(void);       // remove element (blocks if empty)
-int32_t OS_Fifo_Size(void);       // get the number of elements in the fifo
-
-void OS_MailBox_Init(void);          // initialize the mailbox to be empty
-void OS_MailBox_Send(uint32_t data); // add data. blocks if full
-uint32_t OS_MailBox_Recv(void);      // pull out data. blocks if empty
-
 // These are used to dynamically load user code
 bool OS_AddProcess(void (*entry)(void), void* text, void* data,
                    uint32_t stack_size, uint32_t priority);
 void OS_LoadProgram(char* name);
+
+typedef enum {
+    UART = 1,
+    ESP = 2,
+    FS = 4,
+    SCREEN = 8,
+} OutputDevice;
+
+void OS_RedirectOutput(OutputDevice device);
+void OS_RedirectString(const char* str);
+void OS_RedirectChar(char c);

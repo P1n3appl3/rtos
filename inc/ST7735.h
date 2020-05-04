@@ -152,7 +152,7 @@ void lcd_putchar(char ch);
 
 // Print a string of characters
 // The string will not automatically wrap
-void lcd_puts(char* str);
+void lcd_puts(const char* str);
 
 // Sets the color in which characters will be printed
 // Background color is fixed at black

@@ -578,7 +578,7 @@ void lcd_putchar(char ch) {
     return;
 }
 
-void lcd_puts(char* s) {
+void lcd_puts(const char* s) {
     while (*s) { lcd_putchar(*s), ++s; }
 }
 
