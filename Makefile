@@ -1,7 +1,7 @@
 build_dir = out
 target = $(build_dir)/out.elf
 
-SRCS = $(wildcard src/*.c) $(wildcard lib/*.c)
+SRCS = $(wildcard src/*.c) $(wildcard lib/*.c) $(wildcard lib/usblib/*.c)
 ASM_SRCS = $(wildcard src/*.s) $(wildcard lib/*.s)
 OBJS = $(addprefix $(build_dir)/,$(notdir $(SRCS:.c=.o)))
 OBJS += $(addprefix $(build_dir)/,$(notdir $(ASM_SRCS:.s=.o)))
@@ -23,6 +23,9 @@ SHELL := /bin/zsh
 all: $(target)
 
 $(build_dir)/%.o: src/%.c Makefile
+	$(CC) -o $@ $< -c $(CFLAGS)
+
+$(build_dir)/%.o: lib/usblib/%.c Makefile
 	$(CC) -o $@ $< -c $(CFLAGS)
 
 $(build_dir)/%.o: lib/%.c Makefile

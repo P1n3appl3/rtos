@@ -3,7 +3,6 @@
 !.gitignore
 !src/
 !inc/
-!inc/tivaware
 !lib/
 !sim/
 !misc/
