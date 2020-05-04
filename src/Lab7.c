@@ -1,21 +1,15 @@
 #include "OS.h"
-#include "heap.h"
+#include "interpreter.h"
 #include "mouse.h"
 #include "printf.h"
-#include "tivaware/rom.h"
 
-void PortD_Init(void) {
-    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
-    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, 0x0F);
+void local_interpreter(void) {
+    interpreter(false);
 }
 
-int main(void) {
+void main(void) {
     OS_Init();
-    PortD_Init();
-    heap_init();
-
-    OS_AddThread(mouse_init, "usb mouse", 1024, 0);
-
+    OS_AddThread(mouse_init, "usb mouse", 1024, 3);
+    OS_AddThread(local_interpreter, "debug shell", 1024, 3);
     OS_Launch(ms(2));
-    return 0;
 }

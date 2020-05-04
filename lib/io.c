@@ -123,6 +123,7 @@ uint16_t readline(char* str, uint16_t max) {
     int received = 0;
     char current = '\0';
     while (max--) {
+        // TODO: left/right, tab, history
         switch (current = getchar()) {
         case '\n':
         case '\r':

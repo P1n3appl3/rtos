@@ -85,28 +85,29 @@ static void server(void) {
 
 static char* temp_ip;
 static void client(void) {
-    char ip[32];
-    strcpy(ip, temp_ip); // hack to pass in an "argument" to this thread
-    if (!ESP8266_Init(true, false)) { // verbose rx echo on UART for debugging
+    if (!ESP8266_Init(false, false)) {
         puts("No Wifi adapter");
         OS_Kill();
     }
-    ESP8266_GetVersionNumber(); //(for debugging)
-    if (!ESP8266_Connect(true)) {
+    // ESP8266_GetVersionNumber();
+    if (!ESP8266_Connect(false)) {
         puts("No Wifi network");
         OS_Kill();
     }
     puts("Wifi connected");
-    if (!ESP8266_MakeTCPConnection(ip, 23)) {
+    if (!ESP8266_MakeTCPConnection(temp_ip, 23)) {
         puts("Client failure");
         OS_Kill();
     }
+    free(temp_ip);
     puts("Client started");
 
     char* raw_command = malloc(COMMAND_BUF_LEN);
     while (true) {
         ESP8266_ReceiveEcho();
-        readline(raw_command, COMMAND_BUF_LEN);
+        int len = readline(raw_command, COMMAND_BUF_LEN - 1);
+        raw_command[len] = '\n';
+        raw_command[len + 1] = '\0';
         ESP8266_Send(raw_command);
     }
 }
@@ -276,18 +277,18 @@ void interpret_command(char* raw_command, char* token, bool remote) {
         }
         puts("Successfully Uploaded!");
         littlefs_close_file();
-
     } else if (streq(token, "server")) {
         if (server_id) {
             ERROR("Server already running");
         }
         OS_AddThread(server, "Remote Intepreter", 2048, 2);
-    } else if (streq(token, "client")) {
+    } else if (streq(token, "connect")) {
         if (!next_token(&current, token)) {
             ERROR("must pass an IPV4 address\n\r");
         }
-        temp_ip = current;
-        OS_AddThread(client, "Remote Client", 2048, 2);
+        temp_ip = calloc(strlen(token) + 1);
+        strcpy(temp_ip, token);
+        OS_AddThread(client, "Remote Client", 2048, 1);
     } else if (streq(token, "exit")) {
         free(token);
         free(raw_command);

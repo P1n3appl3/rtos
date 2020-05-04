@@ -151,6 +151,7 @@ static bool ReceiveDataFilter(char letter) {
 
 #define UART_ESP8266(identifier) HWREG(UART2_BASE + UART_##identifier)
 
+const uint32_t baud = 115200;
 void ESP8266_InitUART(int rx_echo, int tx_echo) {
     rxfifo = fifo_new(FIFOSIZE);
     rxdata_fifo = fifo_new(FIFOSIZE);
@@ -168,9 +169,8 @@ void ESP8266_InitUART(int rx_echo, int tx_echo) {
     // Initialize the UART. Set the baud rate, number of data bit
     UART_ESP8266(O_CTL) &=
         ~UART_CTL_UARTEN; // Clear UART enable bit during config
-    UART_ESP8266(O_IBRD) = (80000000 / 16) / BAUDRATE;
-    UART_ESP8266(O_FBRD) =
-        ((64 * ((80000000 / 16) % BAUDRATE)) + BAUDRATE / 2) / BAUDRATE;
+    UART_ESP8266(O_IBRD) = (80000000 / 16) / baud;
+    UART_ESP8266(O_FBRD) = ((64 * ((80000000 / 16) % baud)) + baud / 2) / baud;
     // UART_ESP8266(_IBRD_R) = 43;   // IBRD = int(80,000,000 / (16 * 115,200))
     // = int(43.403) UART_ESP8266(_FBRD_R) = 26;   // FBRD = round(0.4028 * 64 )
     // = 26
@@ -497,7 +497,7 @@ bool ESP8266_ReceiveEcho() {
                 ESP8266_DataAvailable--;
             end_critical(sr);
             // ROM_IntEnable(INT_UART2);
-            if (letter == '\x04')
+            if (letter == '\x03') // ETX
                 break;
             uart_putchar(letter);
         } else { // wait for next packet or connection close

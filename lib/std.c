@@ -84,13 +84,8 @@ uint16_t strlen(const char* s) {
 }
 
 char* strcpy(char* dest, const char* src) {
-    char* a = dest;
-    const char* b = src;
-    while (*a && *b) {
-        *a = *b;
-        a++;
-        b++;
-    }
+    while (*src) { *dest++ = *src++; }
+    *dest = '\0';
     return dest;
 }
 

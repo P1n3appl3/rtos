@@ -1,28 +1,11 @@
 // Driver originally written by Steven Prickett (steven.prickett@gmail.com)
-// Modified version by Dung Nguyen, Wally Guzman
-// Modified by Jonathan Valvano, March 28, 2017
-// Consolidated by Andreas Gerstlauer, April 6, 2020
+// Modified by Dung Nguyen, Wally Guzman, and Jonathan Valvano
+// Consolidated by Andreas Gerstlauer
 
 #pragma once
 
 #include <stdbool.h>
 #include <stdint.h>
-
-typedef enum {
-    OPEN = 0,
-    WEP,
-    WPA_PSK,
-    WPA2_PSK,
-    WPA_WPA2_PSK,
-} ESP8266_ENCRYPT_MODE;
-
-// Baudrate for UART connection to ESP8266
-#define BAUDRATE 115200
-
-enum Menu_Status { RX = 0, TX, CONNECTED };
-
-#define ETX 3
-#define EOT 4
 
 // Initializes the module
 bool ESP8266_Init(bool rx_echo, bool tx_echo);

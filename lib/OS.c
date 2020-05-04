@@ -146,6 +146,11 @@ static void remove_current_thread() {
     OS_Suspend();
 }
 
+static void portd_init(void) {
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
+    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTD_BASE, 0x0F);
+}
+
 void OS_Init(void) {
     disable_interrupts();
     os_running = false;
@@ -154,6 +159,7 @@ void OS_Init(void) {
     heap_init();
     launchpad_init();
     enable_button_interupts(3);
+    portd_init();
     uart_init();
     SSI0_Init(10);
 }
