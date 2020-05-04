@@ -230,9 +230,9 @@ void __aeabi_memcpy4(void* dest, const void* src, uint32_t n) {
 }
 
 void memcpy(void* dest, const void* src, uint32_t n)
-    __attribute__((alias("__aebi_memcpy")));
+    __attribute__((alias("__aeabi_memcpy")));
 
-void __aebi_memcpy(void* dest, const void* src, uint32_t n) {
+void __aeabi_memcpy(void* dest, const void* src, uint32_t n) {
     uint8_t* a = (uint8_t*)dest;
     const uint8_t* b = (const uint8_t*)src;
     while (n--) { *a++ = *b++; }

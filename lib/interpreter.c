@@ -19,12 +19,12 @@ const size_t COMMAND_BUF_LEN = 128;
 
 static bool next_token(char** current, char* token) {
     while (is_whitespace(**current)) { ++*current; }
-    if (!(token[0] = **current)) {
+    if (!**current) {
         return false;
     }
     uint8_t tok_idx = 0;
     do {
-        token[tok_idx++] = **current++;
+        token[tok_idx++] = *(*current)++;
     } while (**current && !is_whitespace(**current));
     token[tok_idx] = '\0';
     return true;
@@ -187,7 +187,7 @@ void interpret_command(char* raw_command, char* token, bool remote) {
         }
         char temp;
         while (littlefs_read((uint8_t*)&temp)) { putchar(temp); }
-        puts("");
+        printf("\n\r");
         littlefs_close_file();
     } else if (streq(token, "append")) {
         if (!next_token(&current, token)) {
@@ -316,7 +316,11 @@ void interpreter(bool remote) {
         OS_RedirectOutput(ESP);
     }
     printf("\x1b[1;1H\x1b[2JPress Enter to begin...\x03");
-    readline(raw_command, COMMAND_BUF_LEN);
+    if (remote) {
+        ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
+    } else {
+        readline(raw_command, COMMAND_BUF_LEN);
+    }
     puts(HELPSTRING);
     if (littlefs_init() && littlefs_mount()) {
         puts(GREEN "Filesystem is mounted" NORMAL);
@@ -325,10 +329,11 @@ void interpreter(bool remote) {
     }
     while (true) {
         printf("\n\r\xF0\x9F\x8D\x8D> \x03");
-        if (remote)
+        if (remote) {
             ESP8266_Receive(raw_command, COMMAND_BUF_LEN);
-        else
+        } else {
             readline(raw_command, COMMAND_BUF_LEN);
+        }
         interpret_command(raw_command, token, true);
     }
 }

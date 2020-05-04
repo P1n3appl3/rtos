@@ -58,6 +58,7 @@ static const char* ESP8266_SENDOK_RESPONSE = "\r\nSEND OK\r\n";
 // Globals for UART driver
 bool ESP8266_EchoResponse = false;
 bool ESP8266_EchoCommand = false;
+bool ESP8266_ConnectionMux = false;
 
 #define FIFOSIZE 1024 // size of the FIFOs
 static FIFO* rxfifo;
@@ -103,7 +104,7 @@ static bool ReceiveDataFilter(char letter) {
             ReceiveDataSearchIndex++;
             if (ReceiveDataSearchString[ReceiveDataSearchIndex] == 0) {
                 // end of match string
-                ReceiveDataState = 3;
+                ReceiveDataState = ESP8266_ConnectionMux ? 2 : 3;
                 ReceiveDataSearchIndex = 0;
                 ReceiveDataStream = 0;
                 ReceiveDataLen = 0;
@@ -190,12 +191,12 @@ void ESP8266_InitUART(int rx_echo, int tx_echo) {
 
 // Copies TX buffer (software defined FIFO) to uart
 void static ESP8266BufferToTx(void) {
-    char letter;
+    uint8_t letter;
     while (((UART_ESP8266(O_FR) & UART_FR_TXFF) == 0) &&
            (!fifo_empty(txfifo))) {
-        letter = fifo_get(txfifo);
+        fifo_try_get(txfifo, &letter);
         if (ESP8266_EchoCommand) {
-            putchar(letter);
+            uart_putchar(letter);
         }
         UART_ESP8266(O_DR) = letter;
     }
@@ -207,7 +208,7 @@ static void ESP8266RxToBuffer(void) {
     while (((UART_ESP8266(O_FR) & UART_FR_RXFE) == 0) && !fifo_full(rxfifo)) {
         letter = UART_ESP8266(O_DR);
         if (ESP8266_EchoResponse) {
-            putchar(letter);
+            uart_putchar(letter);
         }
         if (!ReceiveDataFilter(letter)) {
             fifo_try_put(rxfifo, letter);
@@ -238,7 +239,7 @@ void uart2_handler(void) {
 }
 
 static void esp_putc(char data) {
-    while (!fifo_try_put(rxfifo, data)) {};
+    while (!fifo_try_put(txfifo, data)) {};
     UART_ESP8266(O_IM) &= ~UART_IM_TXIM; // disable TX FIFO interrupt
     ESP8266BufferToTx();
     UART_ESP8266(O_IM) |= UART_IM_TXIM; // enable TX FIFO interrupt
@@ -306,8 +307,7 @@ bool ESP8266_Init(bool rx_echo, bool tx_echo) {
             break;
         c = (char)(UART_ESP8266(O_DR) & 0xFF);
         if (rx_echo)
-            putchar(c); // echo, requires UART0 to be operational,
-                        // will print garbage
+            uart_putchar(c); // will print garbage
         if (c == *s) {
             s++;
         } else {
@@ -316,8 +316,6 @@ bool ESP8266_Init(bool rx_echo, bool tx_echo) {
                 s++;
         }
     }
-
-    // Finally enable interrupt
     ROM_IntPrioritySet(INT_UART2, 4 << 5);
     ROM_IntEnable(INT_UART2);
 
@@ -332,7 +330,19 @@ bool ESP8266_Connect(bool verbose) {
            (verbose ? ESP8266_GetIPAddress() : true);
 }
 
+bool ESP8266_SetConnectionMux(bool multiple) {
+    char TXBuffer[32];
+    sprintf(TXBuffer, "AT+CIPMUX=%d\r\n", multiple);
+    esp_puts(TXBuffer);
+    if (ESP8266_WaitForResponse(ESP8266_OK_RESPONSE, 0)) {
+        ESP8266_ConnectionMux = multiple;
+        return true;
+    }
+    return false;
+}
+
 bool ESP8266_StartServer(uint16_t port, uint16_t timeout) {
+    ESP8266_SetConnectionMux(true);
     char TXBuffer[32];
     sprintf(TXBuffer, "AT+CIPSERVER=1,%d\r\n", port);
     esp_puts(TXBuffer);
@@ -346,7 +356,8 @@ bool ESP8266_StartServer(uint16_t port, uint16_t timeout) {
 bool ESP8266_StopServer(void) {
     esp_puts("AT+CIPSERVER=0\r\n");
     ESP8266_Server = 0;
-    return ESP8266_WaitForResponse(ESP8266_OK_RESPONSE, 0);
+    return ESP8266_WaitForResponse(ESP8266_OK_RESPONSE, 0) &&
+           ESP8266_SetConnectionMux(false);
 }
 
 bool ESP8266_Reset(void) {
@@ -411,7 +422,11 @@ bool ESP8266_MakeTCPConnection(char* IPaddress, uint16_t port) {
 
 bool ESP8266_Send(const char* str) {
     char TXBuffer[32];
-    sprintf(TXBuffer, "AT+CIPSEND=%d\r\n", strlen(str));
+    if (ESP8266_ConnectionMux) {
+        sprintf(TXBuffer, "AT+CIPSEND=%d,%d\r\n", 0, strlen(str));
+    } else {
+        sprintf(TXBuffer, "AT+CIPSEND=%d\r\n", strlen(str));
+    }
     esp_puts(TXBuffer);
     if (!ESP8266_WaitForResponse(">", ESP8266_ERROR_RESPONSE))
         return false;
@@ -422,7 +437,11 @@ bool ESP8266_Send(const char* str) {
 
 bool ESP8266_SendBuffered(const char* str) {
     char TXBuffer[32];
-    sprintf(TXBuffer, "AT+CIPSENDBUF=%d\r\n", strlen(str));
+    if (ESP8266_ConnectionMux) {
+        sprintf(TXBuffer, "AT+CIPSEND=%d,%d\r\n", 0, strlen(str));
+    } else {
+        sprintf(TXBuffer, "AT+CIPSEND=%d\r\n", strlen(str));
+    }
     esp_puts(TXBuffer);
     if (!ESP8266_WaitForResponse(">", ESP8266_ERROR_RESPONSE))
         return false;
@@ -433,7 +452,6 @@ bool ESP8266_SendBuffered(const char* str) {
 
 bool ESP8266_Receive(char* buf, uint32_t max) {
     long sr;
-    const char* s;
     uint8_t letter;
     while (max > 1) {
         if (fifo_size(rxdata_fifo) ||
@@ -453,8 +471,9 @@ bool ESP8266_Receive(char* buf, uint32_t max) {
             buf++;
             max--;
         } else { // wait for next packet or connection close
-            s = "CLOSED";
-            if (!ESP8266_WaitForResponse(ReceiveDataSearchString, s)) {
+            if (!ESP8266_WaitForResponse(ReceiveDataSearchString,
+                                         ESP8266_ConnectionMux ? "0,CLOSED"
+                                                               : "CLOSED")) {
                 *buf = 0; // connection closed
                 return false;
             }
@@ -467,7 +486,6 @@ bool ESP8266_Receive(char* buf, uint32_t max) {
 
 bool ESP8266_ReceiveEcho() {
     long sr;
-    const char* s;
     uint8_t letter;
     while (true) {
         if (fifo_size(rxdata_fifo) ||
@@ -481,10 +499,11 @@ bool ESP8266_ReceiveEcho() {
             // ROM_IntEnable(INT_UART2);
             if (letter == '\x04')
                 break;
-            putchar(letter);
+            uart_putchar(letter);
         } else { // wait for next packet or connection close
-            s = "CLOSED";
-            if (!ESP8266_WaitForResponse(ReceiveDataSearchString, s)) {
+            if (!ESP8266_WaitForResponse(ReceiveDataSearchString,
+                                         ESP8266_ConnectionMux ? "0,CLOSED"
+                                                               : "CLOSED")) {
                 return false;
             }
             while (esp_getc() != ':') {} // wait for DataAvailable to be updated
@@ -494,7 +513,7 @@ bool ESP8266_ReceiveEcho() {
 }
 
 bool ESP8266_CloseTCPConnection(void) {
-    esp_puts("AT+CIPCLOSE\r\n");
+    esp_puts(ESP8266_ConnectionMux ? "AT+CIPCLOSE=0\r\n" : "AT+CIPCLOSE\r\n");
     fifo_clear(rxdata_fifo);
     return ESP8266_WaitForResponse(ESP8266_OK_RESPONSE, ESP8266_ERROR_RESPONSE);
 }
@@ -512,5 +531,6 @@ bool ESP8266_SetServerTimeout(uint16_t timeout) {
 }
 
 bool ESP8266_WaitForConnection(void) {
-    return ESP8266_Server && ESP8266_WaitForResponse("0,CONNECT\r\n", 0);
+    return ESP8266_ConnectionMux && ESP8266_Server &&
+           ESP8266_WaitForResponse("0,CONNECT\r\n", 0);
 }

@@ -88,4 +88,4 @@ clean:
 
 $(shell mkdir -p $(build_dir))
 
-.PHONY: all clean debug debug_gui flash run ram_size rom_size space quick_debug quick_uart
+.PHONY: all clean debug debug_gui run ram_size rom_size space

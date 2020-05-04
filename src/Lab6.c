@@ -139,7 +139,7 @@ void ConnectWifi(void) {
     }
     puts("Wifi connected");
     // Launch thread to fetch weather
-    OS_AddThread(&FetchWeather, "FetchWeather", 1024, 1);
+    OS_AddThread(FetchWeather, "FetchWeather", 1024, 1);
     // Kill thread (should really loop to check and reconnect if necessary
     OS_Kill();
 }
@@ -147,7 +147,7 @@ void ConnectWifi(void) {
 void SW1Push2(void) {
     if (!Running) {
         Running = 1; // don't start twice
-        OS_AddThread(&FetchWeather, "FetchWeather", 1024, 1);
+        OS_AddThread(FetchWeather, "FetchWeather", 1024, 1);
     }
 }
 
@@ -156,8 +156,8 @@ void Testmain2(void) {
     PortD_Init();
     heap_init();
     Running = 1;
-    OS_AddSW1Task(&SW1Push2);
-    OS_AddThread(&ConnectWifi, "ConnectWifi", 1024, 2);
+    OS_AddSW1Task(SW1Push2);
+    OS_AddThread(ConnectWifi, "ConnectWifi", 1024, 2);
     OS_Launch(ms(10));
 }
 
@@ -180,8 +180,8 @@ int HTTP_ServePage(const char* body) {
     char contentLength[16];
     sprintf(contentLength, "%d\r\n\r\n\0", strlen(body));
 
-    return ESP8266_SendBuffered(header) &&
-           ESP8266_SendBuffered(contentLength) && ESP8266_SendBuffered(body);
+    return ESP8266_Send(header) && ESP8266_Send(contentLength) &&
+           ESP8266_Send(body);
 }
 void ServeHTTPRequest(void) {
     puts("Connected           ");
@@ -279,6 +279,7 @@ void testmain_littlefs(void) {
 
 void main(void) {
     realmain();
+    // Testmain2();
     // Testmain3();
     // testmain_littlefs();
 }
