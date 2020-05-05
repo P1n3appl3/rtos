@@ -271,12 +271,12 @@ extern uint32_t _data;
 extern uint32_t _edata;
 
 void default_reset_handler(void) {
-    // set PLL to 80MHz
-    ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
-                       SYSCTL_OSC_MAIN);
     // move data into ram and clear bss
     memcpy(&_data, &_etext, (uint32_t)&_edata - (uint32_t)&_data);
     memset(&_bss, 0, (uint32_t)&_ebss - (uint32_t)&_bss);
+    // set PLL to 80MHz
+    ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
+                       SYSCTL_OSC_MAIN);
     ROM_FPUEnable();
     main();
     while (true) {}

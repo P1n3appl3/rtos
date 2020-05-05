@@ -14,6 +14,11 @@
 // #define LFS_NO_WARN
 
 #define NULL 0
+#define PRIu8 "u"
+#define PRIu16 "u"
+#define PRIu32 "u"
+#define PRIx16 "x"
+#define PRIx32 "x"
 
 // Users can override lfs_util.h with their own configuration by defining
 // LFS_CONFIG as a header file to include (-DLFS_CONFIG=lfs_config.h).
@@ -28,7 +33,6 @@
 #else
 
 // System includes
-#include "inttypes.h"
 #include "std.h"
 #include <stdbool.h>
 #include <stdint.h>

@@ -8,3 +8,4 @@
 -   mutual exclusion for LCD display functions
 -   Document resources used (timers/adc channels/pins/uarts/spi)
 -   64 bit time for more range (currently limited to 53 seconds)
+-   Switch littlefs backend to DMA for block transfer
