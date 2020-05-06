@@ -93,8 +93,8 @@ tUSBDHIDMouseDevice mouse_dev = {
 
 typedef enum { LEFT = 1, RIGHT, MIDDLE } MouseButton;
 
+static bool held_down[3] = {false, false, false};
 void mouse_toggle(MouseButton button) {
-    static bool held_down[3] = {false, false, false};
     --button;
     while (!ready) {}
     ready = false;
@@ -113,14 +113,36 @@ void mouse_move(int8_t x, int8_t y) {
     USBDHIDMouseStateChange(&mouse_dev, x, y, 0);
 }
 
-void mouse_center(void) {}
-
 static char continuous_dir = ' ';
 void mouse_continuous(void) {
+    const uint8_t s = 3;
+    const int frequency = hz(60);
     while (true) {
-        OS_Sleep(ms(10));
+        OS_Sleep(frequency);
         switch (continuous_dir) {
-        case 'A': break;
+        case 'Q': mouse_move(-s, -s); break;
+        case 'W': mouse_move(0, -s); break;
+        case 'E': mouse_move(s, -s); break;
+        case 'A': mouse_move(-s, 0); break;
+        case 'D': mouse_move(s, 0); break;
+        case 'Z': mouse_move(-s, s); break;
+        case 'X': mouse_move(0, s); break;
+        case 'C': mouse_move(s, s); break;
+        }
+    }
+}
+
+void mouse_center(void) {
+    continuous_dir = ' ';
+    const uint16_t width = 1920;
+    const uint16_t height = 1080;
+    for (int i = 0; i < width / 100; ++i) { mouse_move(-100, 0); }
+    for (int i = 0; i < width / 100 / 2; ++i) { mouse_move(100, 0); }
+    for (int i = 0; i < height / 100; ++i) { mouse_move(0, -100); }
+    for (int i = 0; i < height / 100 / 2; ++i) { mouse_move(0, 100); }
+    for (int i = 0; i < 3; ++i) {
+        if (held_down[i]) {
+            mouse_toggle(i + 1);
         }
     }
 }
@@ -140,11 +162,20 @@ bool mouse_cmd(char c) {
     case 'w': mouse_move(0, -s); break;
     case 'e': mouse_move(s, -s); break;
     case 'a': mouse_move(-s, 0); break;
-    case 's': mouse_move(0, 0); break;
     case 'd': mouse_move(s, 0); break;
     case 'z': mouse_move(-s, s); break;
     case 'x': mouse_move(0, s); break;
     case 'c': mouse_move(s, s); break;
+    case 's':
+    case 'Q':
+    case 'W':
+    case 'E':
+    case 'A':
+    case 'S':
+    case 'D':
+    case 'Z':
+    case 'X':
+    case 'C': continuous_dir = c; break;
     }
     return true;
 }
@@ -157,5 +188,6 @@ void mouse_init(void) {
         printf("error: hidmouseinit\n\r");
     }
     while (!ready) {}
+    OS_AddThread(mouse_continuous, "Continuous mouse movement", 512, 1);
     OS_Sleep(ms(1500));
 }
