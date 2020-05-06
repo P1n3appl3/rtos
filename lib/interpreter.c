@@ -6,6 +6,7 @@
 #include "io.h"
 #include "launchpad.h"
 #include "littlefs.h"
+#include "mouse.h"
 #include "printf.h"
 #include "std.h"
 #include "timer.h"
@@ -111,6 +112,63 @@ static void client(void) {
         raw_command[len + 1] = '\0';
         ESP8266_Send(raw_command);
     }
+}
+
+static void mouse_server(void) {
+    server_id = OS_Id();
+    if (!ESP8266_Init(true, false)) { // verbose rx echo on UART for debugging
+        ERROR("No Wifi adapter");
+    }
+    ESP8266_GetVersionNumber();
+    if (!ESP8266_Connect(true)) { // verbose
+        ERROR("No Wifi network");
+    }
+    puts("Wifi connected");
+    if (!ESP8266_StartServer(23, 600)) { // port 80, 5min timeout
+        ERROR("Server failure");
+        OS_Kill();
+    }
+    puts("Server started");
+    ESP8266_WaitForConnection();
+    puts("Connected");
+
+    mouse_init();
+    char msg[] = "   ";
+    ESP8266_Receive(msg, 3);
+    while (mouse_cmd(msg[0])) { ESP8266_Receive(msg, 3); }
+    ESP8266_CloseTCPConnection();
+    OS_Kill();
+}
+
+bool echo_mouse(void) {
+    char c = getchar();
+    char msg[] = "   ";
+    sprintf_(msg, "%c\n\r", c);
+    ESP8266_SendBuffered(msg);
+    if (c == 'q')
+        return false;
+    return true;
+}
+
+void mouse_client(void) {
+    if (!ESP8266_Init(false, false)) {
+        puts("No Wifi adapter");
+        OS_Kill();
+    }
+    // ESP8266_GetVersionNumber();
+    if (!ESP8266_Connect(false)) {
+        puts("No Wifi network");
+        OS_Kill();
+    }
+    puts("Wifi connected");
+    if (!ESP8266_MakeTCPConnection(temp_ip, 23)) {
+        puts("Client failure");
+        OS_Kill();
+    }
+    free(temp_ip);
+    puts("Client started");
+    while (echo_mouse()) {}
+    OS_Kill();
 }
 
 void interpret_command(char* raw_command, char* token, bool remote) {
@@ -307,6 +365,10 @@ void interpret_command(char* raw_command, char* token, bool remote) {
         while (littlefs_read((uint8_t*)&temp)) { checksum += temp; }
         printf("0x%08x\n\r", checksum);
         littlefs_close_file();
+    } else if (streq(token, "mouse_server")) {
+        OS_AddThread(&mouse_server, "mouse_server", 2048, 2);
+    } else if (streq(token, "mouse_client")) {
+        OS_AddThread(&mouse_client, "mouse_client", 2048, 2);
     } else {
         ERROR("unrecognized command '%s', try 'help'\n\r", token);
     }

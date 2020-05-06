@@ -129,12 +129,31 @@ tUSBDHIDMouseDevice mouse_dev = {
     // (1 + (5 * (num languages))).
     .ui32NumStringDescriptors = NUM_STRING_DESCRIPTORS};
 
-void mouse_action(void) {
+void mouse_click(void) {
     while (!ready) {}
     ready = false;
-    USBDHIDMouseStateChange(&mouse_dev, 40, 40, MOUSE_REPORT_BUTTON_1);
+    USBDHIDMouseStateChange(&mouse_dev, 0, 0, MOUSE_REPORT_BUTTON_1);
     while (!ready) {}
-    USBDHIDMouseStateChange(&mouse_dev, 40, 40, 0);
+    ready = false;
+    USBDHIDMouseStateChange(&mouse_dev, 0, 0, 0);
+}
+
+void mouse_move(int8_t x, int8_t y) {
+    while (!ready) {}
+    ready = false;
+    USBDHIDMouseStateChange(&mouse_dev, x, y, 0);
+}
+
+bool mouse_cmd(char c) {
+    switch (c) {
+    case 'q': return false;
+    case 'e': mouse_click(); break;
+    case 'w': mouse_move(0, -10); break;
+    case 'a': mouse_move(-10, 0); break;
+    case 's': mouse_move(0, 10); break;
+    case 'd': mouse_move(10, 0); break;
+    }
+    return true;
 }
 
 void mouse_init(void) {
@@ -146,8 +165,4 @@ void mouse_init(void) {
     }
     while (!ready) {}
     OS_Sleep(ms(1500));
-
-    mouse_action();
-    // USBDHIDMouseTerm(&mouse_dev);
-    OS_Kill();
 }
