@@ -5,7 +5,11 @@
 
 typedef uint32_t size_t;
 
+#define PI 3.14159265f
+
 int32_t abs(int32_t n);
+float sin(float x);
+float cos(float x);
 uint32_t difference(uint32_t a, uint32_t b);
 int32_t min(int32_t a, int32_t b);
 int32_t max(int32_t a, int32_t b);

@@ -10,6 +10,24 @@ int32_t abs(int32_t n) {
     return n < 0 ? -n : n;
 }
 
+float sin(float x) {
+    while (x > PI) { x -= 2 * PI; }
+    while (x < -PI) { x += 2 * PI; }
+    // Taylor series
+    float x_cubed = x * x * x;
+    float x_fifth = x_cubed * x * x;
+    return x - x_cubed / 6 + x_fifth / 120;
+}
+
+float cos(float x) {
+    while (x > PI) { x -= 2 * PI; }
+    while (x < -PI) { x += 2 * PI; }
+    // Taylor series
+    float x_squared = x * x;
+    float x_forth = x_squared * x * x;
+    return 1 - x_squared / 2 + x_forth / 24;
+}
+
 int32_t min(int32_t a, int32_t b) {
     return a < b ? a : b;
 }

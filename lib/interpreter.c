@@ -76,6 +76,8 @@ static char* MOUSEHELP =
     "normally they perform a single click, but holding shift (so < > and ?)\n\r"
     "makes them toggle holding the button.\n\n\r"
 
+    "o makes the mouse start circling (press again to stop)\n\n\r"
+
     "Space makes the cursor move to the center of the screen,\n\r"
     "stops all mouse movement, and releases all mouse buttons\n\r";
 
@@ -311,7 +313,7 @@ void interpret_command(char* raw_command, char* token, bool remote) {
         printf("0x%08x\n\r", checksum);
         littlefs_close_file();
     } else if (streq(token, "connect")) {
-        if (!next_token(&current, token)) {
+        if (next_token(&current, token)) {
             ERROR("Unimplimented\n\r");
         } else if (wifi) {
             ERROR("Already connected\n\r");

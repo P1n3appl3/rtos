@@ -1,6 +1,7 @@
 #include "mouse.h"
 #include "OS.h"
 #include "printf.h"
+#include "std.h"
 #include "tivaware/gpio.h"
 #include "tivaware/hw_memmap.h"
 #include "tivaware/rom.h"
@@ -111,10 +112,9 @@ void mouse_move(int8_t x, int8_t y) {
 
 static char continuous_dir = ' ';
 void mouse_continuous(void) {
-    const uint8_t s = 3;
-    const int frequency = hz(60);
+    const int8_t s = 3;
     while (true) {
-        OS_Sleep(frequency);
+        OS_Sleep(hz(60));
         switch (continuous_dir) {
         case 'Q': mouse_move(-s, -s); break;
         case 'W': mouse_move(0, -s); break;
@@ -128,8 +128,24 @@ void mouse_continuous(void) {
     }
 }
 
+static bool circle = false;
+void mouse_circle(void) {
+    const float s = 5;
+    const float f = 1; // in radians per second
+    float t = 0;
+    while (circle) {
+        mouse_move(s * cos(t), s * sin(t));
+        t += f / 60;
+        if (t > PI) {
+            t -= 2 * PI;
+        }
+        OS_Sleep(hz(60));
+    }
+}
+
 void mouse_center(void) {
     continuous_dir = ' ';
+    circle = false;
     const uint16_t width = 1920;
     const uint16_t height = 1080;
     for (int i = 0; i < width / 100; ++i) { mouse_move(-100, 0); }
@@ -172,6 +188,14 @@ bool mouse_cmd(char c) {
     case 'Z':
     case 'X':
     case 'C': continuous_dir = c; break;
+    case 'o':
+        if (circle) {
+            circle = false;
+        } else {
+            circle = true;
+            OS_AddThread(mouse_circle, "spin", 256, 1);
+        }
+        break;
     }
     return true;
 }
@@ -186,5 +210,5 @@ void mouse_init(void) {
     }
     OS_Wait(&mouse_ready);
     OS_AddThread(mouse_continuous, "Continuous mouse movement", 512, 1);
-    OS_Sleep(ms(1500));
+    OS_Sleep(seconds(1.5f));
 }
