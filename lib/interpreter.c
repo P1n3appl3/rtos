@@ -67,9 +67,17 @@ static char* HELPSTRING =
     "exit\t\t\t\tleave this session\n\r";
 
 static char* MOUSEHELP =
-    "Use wasd to move the mouse around\n\r"
-    "press c to move to the center of the screen (if 1920x1080)\n\r"
-    "hold shift to modify velocity instead of position\n\r";
+    "\n\nMouse Controls:\n\r"
+    "q w e      These keys all make the mouse move a slight amount\n\r"
+    "a s d      in the given direction. Holding shift makes them modify\n\r"
+    "z x c      velocity instead of position. s stops this movement.\n\n\r"
+
+    ", . and / act as the left, middle, and right mouse buttons\n\r"
+    "normally they perform a single click, but holding shift (so < > and ?)\n\r"
+    "makes them toggle holding the button.\n\n\r"
+
+    "Space makes the cursor move to the center of the screen,\n\r"
+    "stops all mouse movement, and releases all mouse buttons\n\r";
 
 static uint32_t server_id = 0;
 static void server(void) {
@@ -361,14 +369,14 @@ void interpret_command(char* raw_command, char* token, bool remote) {
             char c = getchar();
             msg[0] = c;
             ESP8266_Send(msg);
-            if (c == 'q')
+            if (c == 127)
                 break;
         }
     } else if (streq(token, "mouse")) {
         mouse_init();
         puts(MOUSEHELP);
         char c;
-        while ((c = getchar()) != 'q') { mouse_cmd(c); }
+        while ((c = getchar()) != 127) { mouse_cmd(c); }
     } else {
         ERROR("unrecognized command '%s', try 'help'\n\r", token);
     }

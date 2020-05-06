@@ -25,50 +25,12 @@ const uint8_t SerialNumberString[] = {(8 + 1) * 2, USB_DTYPE_STRING,
                                       '6',         0,
                                       '7',         0,
                                       '8',         0};
-const uint8_t HIDInterfaceString[] = {(19 + 1) * 2, USB_DTYPE_STRING,
-                                      'H',          0,
-                                      'I',          0,
-                                      'D',          0,
-                                      ' ',          0,
-                                      'M',          0,
-                                      'o',          0,
-                                      'u',          0,
-                                      's',          0,
-                                      'e',          0,
-                                      ' ',          0,
-                                      'I',          0,
-                                      'n',          0,
-                                      't',          0,
-                                      'e',          0,
-                                      'r',          0,
-                                      'f',          0,
-                                      'a',          0,
-                                      'c',          0,
-                                      'e',          0};
-const uint8_t ConfigString[] = {(23 + 1) * 2, USB_DTYPE_STRING,
-                                'H',          0,
-                                'I',          0,
-                                'D',          0,
-                                ' ',          0,
-                                'M',          0,
-                                'o',          0,
-                                'u',          0,
-                                's',          0,
-                                'e',          0,
-                                ' ',          0,
-                                'C',          0,
-                                'o',          0,
-                                'n',          0,
-                                'f',          0,
-                                'i',          0,
-                                'g',          0,
-                                'u',          0,
-                                'r',          0,
-                                'a',          0,
-                                't',          0,
-                                'i',          0,
-                                'o',          0,
-                                'n',          0};
+const uint8_t HIDInterfaceString[] =
+    "(\x03H\0I\0D\0 \0M\0o\0u\0s\0e\0 \0I\0n\0t\0e\0r\0f\0a\0c\0e";
+
+const uint8_t ConfigString[] =
+    "0\x03H\0I\0D\0 \0M\0o\0u\0s\0e\0 \0C\0o\0n\0f\0i\0g\0u\0r\0a\0t\0i\0o\0n";
+
 #define NUM_STRING_DESCRIPTORS (sizeof(StringDescriptors) / sizeof(uint8_t*))
 
 const uint8_t* const StringDescriptors[] = {
@@ -89,7 +51,7 @@ uint32_t mouse_handler(void* pvCBData, uint32_t ui32Event, uint32_t ui32MsgData,
         break;
     }
     case USB_EVENT_TX_COMPLETE: {
-        printf("TX complete\n\r");
+        // printf("TX complete\n\r");
         ready = true;
         break;
     }
@@ -129,13 +91,20 @@ tUSBDHIDMouseDevice mouse_dev = {
     // (1 + (5 * (num languages))).
     .ui32NumStringDescriptors = NUM_STRING_DESCRIPTORS};
 
-void mouse_click(void) {
+typedef enum { LEFT = 1, RIGHT, MIDDLE } MouseButton;
+
+void mouse_toggle(MouseButton button) {
+    static bool held_down[3] = {false, false, false};
+    --button;
     while (!ready) {}
     ready = false;
-    USBDHIDMouseStateChange(&mouse_dev, 0, 0, MOUSE_REPORT_BUTTON_1);
-    while (!ready) {}
-    ready = false;
-    USBDHIDMouseStateChange(&mouse_dev, 0, 0, 0);
+    USBDHIDMouseStateChange(&mouse_dev, 0, 0,
+                            held_down[button] ? 0 : 1 << button);
+    held_down[button] = !held_down[button];
+}
+
+void mouse_click(MouseButton button) {
+    mouse_toggle(button), mouse_toggle(button);
 }
 
 void mouse_move(int8_t x, int8_t y) {
@@ -144,14 +113,38 @@ void mouse_move(int8_t x, int8_t y) {
     USBDHIDMouseStateChange(&mouse_dev, x, y, 0);
 }
 
+void mouse_center(void) {}
+
+static char continuous_dir = ' ';
+void mouse_continuous(void) {
+    while (true) {
+        OS_Sleep(ms(10));
+        switch (continuous_dir) {
+        case 'A': break;
+        }
+    }
+}
+
 bool mouse_cmd(char c) {
+    const int8_t s = 10;
     switch (c) {
-    case 'q': return false;
-    case 'e': mouse_click(); break;
-    case 'w': mouse_move(0, -10); break;
-    case 'a': mouse_move(-10, 0); break;
-    case 's': mouse_move(0, 10); break;
-    case 'd': mouse_move(10, 0); break;
+    case 127: return false;
+    case ',': mouse_click(LEFT); break;
+    case '.': mouse_click(MIDDLE); break;
+    case '/': mouse_click(RIGHT); break;
+    case '<': mouse_toggle(LEFT); break;
+    case '>': mouse_toggle(MIDDLE); break;
+    case '?': mouse_toggle(RIGHT); break;
+    case ' ': mouse_center(); break;
+    case 'q': mouse_move(-s, -s); break;
+    case 'w': mouse_move(0, -s); break;
+    case 'e': mouse_move(s, -s); break;
+    case 'a': mouse_move(-s, 0); break;
+    case 's': mouse_move(0, 0); break;
+    case 'd': mouse_move(s, 0); break;
+    case 'z': mouse_move(-s, s); break;
+    case 'x': mouse_move(0, s); break;
+    case 'c': mouse_move(s, s); break;
     }
     return true;
 }
