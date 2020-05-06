@@ -14,18 +14,22 @@ float sin(float x) {
     while (x > PI) { x -= 2 * PI; }
     while (x < -PI) { x += 2 * PI; }
     // Taylor series
-    float x_cubed = x * x * x;
-    float x_fifth = x_cubed * x * x;
-    return x - x_cubed / 6 + x_fifth / 120;
+    float x3 = x * x * x;
+    float x5 = x3 * x * x;
+    float x7 = x3 * x * x;
+    float x9 = x3 * x * x;
+    return x - x3 / 6 + x5 / 120 - x7 / 5040 + x9 / 362880;
 }
 
 float cos(float x) {
     while (x > PI) { x -= 2 * PI; }
     while (x < -PI) { x += 2 * PI; }
     // Taylor series
-    float x_squared = x * x;
-    float x_forth = x_squared * x * x;
-    return 1 - x_squared / 2 + x_forth / 24;
+    float x2 = x * x;
+    float x4 = x2 * x * x;
+    float x6 = x4 * x * x;
+    float x8 = x6 * x * x;
+    return 1 - x2 / 2 + x4 / 24 - x6 / 720 + x8 / 40320;
 }
 
 int32_t min(int32_t a, int32_t b) {

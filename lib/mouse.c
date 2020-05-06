@@ -111,30 +111,30 @@ void mouse_move(int8_t x, int8_t y) {
 }
 
 static char continuous_dir = ' ';
+static int8_t speed = 5;
+static bool circle = false;
+
 void mouse_continuous(void) {
-    const int8_t s = 3;
     while (true) {
         OS_Sleep(hz(60));
         switch (continuous_dir) {
-        case 'Q': mouse_move(-s, -s); break;
-        case 'W': mouse_move(0, -s); break;
-        case 'E': mouse_move(s, -s); break;
-        case 'A': mouse_move(-s, 0); break;
-        case 'D': mouse_move(s, 0); break;
-        case 'Z': mouse_move(-s, s); break;
-        case 'X': mouse_move(0, s); break;
-        case 'C': mouse_move(s, s); break;
+        case 'q': mouse_move(-speed, -speed); break;
+        case 'w': mouse_move(0, -speed); break;
+        case 'e': mouse_move(speed, -speed); break;
+        case 'a': mouse_move(-speed, 0); break;
+        case 'd': mouse_move(speed, 0); break;
+        case 'z': mouse_move(-speed, speed); break;
+        case 'x': mouse_move(0, speed); break;
+        case 'c': mouse_move(speed, speed); break;
         }
     }
 }
 
-static bool circle = false;
 void mouse_circle(void) {
-    const float s = 5;
     const float f = 1; // in radians per second
     float t = 0;
     while (circle) {
-        mouse_move(s * cos(t), s * sin(t));
+        mouse_move(speed * cos(t), speed * sin(t));
         t += f / 60;
         if (t > PI) {
             t -= 2 * PI;
@@ -163,6 +163,14 @@ bool mouse_cmd(char c) {
     const int8_t s = 10;
     switch (c) {
     case 127: return false;
+    case '=':
+    case '+': ++speed; goto show;
+    case '-':
+    case '_':
+        --speed;
+    show:
+        printf("\x1b[K\x1b[GSpeed %d", speed);
+        break;
     case ',': mouse_click(LEFT); break;
     case '.': mouse_click(MIDDLE); break;
     case '/': mouse_click(RIGHT); break;
@@ -170,30 +178,31 @@ bool mouse_cmd(char c) {
     case '>': mouse_toggle(MIDDLE); break;
     case '?': mouse_toggle(RIGHT); break;
     case ' ': mouse_center(); break;
-    case 'q': mouse_move(-s, -s); break;
-    case 'w': mouse_move(0, -s); break;
-    case 'e': mouse_move(s, -s); break;
-    case 'a': mouse_move(-s, 0); break;
-    case 'd': mouse_move(s, 0); break;
-    case 'z': mouse_move(-s, s); break;
-    case 'x': mouse_move(0, s); break;
-    case 'c': mouse_move(s, s); break;
-    case 's':
-    case 'Q':
-    case 'W':
-    case 'E':
-    case 'A':
+    case 'Q': mouse_move(-s, -s); break;
+    case 'W': mouse_move(0, -s); break;
+    case 'E': mouse_move(s, -s); break;
+    case 'A': mouse_move(-s, 0); break;
+    case 'D': mouse_move(s, 0); break;
+    case 'Z': mouse_move(-s, s); break;
+    case 'X': mouse_move(0, s); break;
+    case 'C': mouse_move(s, s); break;
     case 'S':
-    case 'D':
-    case 'Z':
-    case 'X':
-    case 'C': continuous_dir = c; break;
+    case 's':
+    case 'q':
+    case 'w':
+    case 'e':
+    case 'a':
+    case 'd':
+    case 'z':
+    case 'x':
+    case 'c': continuous_dir = c; break;
+    case 'O':
     case 'o':
         if (circle) {
             circle = false;
         } else {
             circle = true;
-            OS_AddThread(mouse_circle, "spin", 256, 1);
+            OS_AddThread(mouse_circle, "spin", 256, 2);
         }
         break;
     }
@@ -209,6 +218,6 @@ void mouse_init(void) {
         printf("error: hidmouseinit\n\r");
     }
     OS_Wait(&mouse_ready);
-    OS_AddThread(mouse_continuous, "Continuous mouse movement", 512, 1);
+    OS_AddThread(mouse_continuous, "Continuous mouse movement", 512, 2);
     OS_Sleep(seconds(1.5f));
 }

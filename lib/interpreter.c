@@ -68,13 +68,15 @@ static char* HELPSTRING =
 
 static char* MOUSEHELP =
     "\n\nMouse Controls:\n\r"
-    "q w e      These keys all make the mouse move a slight amount\n\r"
-    "a s d      in the given direction. Holding shift makes them modify\n\r"
-    "z x c      velocity instead of position. s stops this movement.\n\n\r"
+    "q w e      These keys all make the mouse move a straight direction\n\r"
+    "a s d      Holding shift allows you to make slight adjustments to\n\r"
+    "z x c      the cursor position. s stops this movement.\n\n\r"
 
     ", . and / act as the left, middle, and right mouse buttons\n\r"
     "normally they perform a single click, but holding shift (so < > and ?)\n\r"
     "makes them toggle holding the button.\n\n\r"
+
+    "+ and - increase and decrease the speed of continuous movements\n\n\r"
 
     "o makes the mouse start circling (press again to stop)\n\n\r"
 
