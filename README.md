@@ -57,7 +57,67 @@ are some notable features that extend upon the ones required for the class.
     C standard library) it should be relatively easy to compile our OS on a new
     toolchain.
 
-## Hardware usage
+## Final Lab
+
+To demonstrate the capabilities of our OS, our final lab project was to
+integrate a USB device stack and use it to remotely control each other's mice
+through the remote interpreter. We did this in a way that allowed multiple
+movements in different threads to be performed simultaneously such as linear and
+circular motions combining to create a spiral. Here is the list of commands
+available for our project demo:
+
+```
+led COLOR [on, off, or toggle]  control the onboard RGB led
+adc                             read a single sample from the ADC
+temp                            get the internal system temperature
+time [get/reset]                OS time helpers
+
+jitter                          show periodic task jitter stats
+heap                            show heap usage information
+
+mount                           mount the sd card
+unmount                         unmount the sd card
+format yes really               format the sd card
+upload FILENAME                 transfer a file over UART
+exec FILENAME                   load and run process from file
+touch FILENAME                  creates a new file
+cat FILENAME                    display the contents of a file
+append FILENAME WORD            append a word to a file
+ls                              list the files in the directory
+mv FILENAME NEWNAME             move a file
+cp FILENAME NEWNAME             copy a file
+rm FILENAME                     delete a file
+checksum FILENAME               compute a checksum of a file
+
+connect [SSID PASS]             connect to a wifi network.
+server                          spawn remote interpreter
+client IPV4                     spawn remote client
+mouse_server                    spawn remote mouse server
+mouse_client IPV4               spawn remote mouse controller
+mouse                           control the mouse locally
+exit                            leave this session
+```
+
+And these are the controls from within the mouse control app:
+
+```
+q w e      These keys all make the mouse move a straight direction
+a s d      Holding shift allows you to make slight adjustments to
+z x c      the cursor position. s stops this movement.
+
+, . and / act as the left, middle, and right mouse buttons
+normally they perform a single click, but holding shift (so < > and ?)
+makes them toggle holding the button.
+
++ and - increase and decrease the speed of continuous movements
+
+o makes the mouse start circling (press again to stop)
+
+Space makes the cursor move to the center of the screen,
+stops all mouse movement, and releases all mouse buttons
+```
+
+## Hardware
 
 ### GPIO Pins:
 
