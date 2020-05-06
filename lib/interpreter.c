@@ -17,6 +17,7 @@
     return;
 
 const size_t COMMAND_BUF_LEN = 128;
+static bool wifi = false;
 
 static bool next_token(char** current, char* token) {
     while (is_whitespace(**current)) { ++*current; }
@@ -57,22 +58,23 @@ static char* HELPSTRING =
     "rm FILENAME\t\t\tdelete a file\n\r"
     "checksum FILENAME\t\tcompute a checksum of a file\n\n\r"
 
+    "connect [SSID PASS]\t\tconnect to a wifi network.\n\r"
     "server\t\t\t\tspawn remote interpreter\n\r"
-    "connect IPV4\t\t\tspawn remote client\n\r"
+    "client IPV4\t\t\tspawn remote client\n\r"
+    "mouse_server\t\t\tspawn remote mouse server\n\r"
+    "mouse_client IPV4\t\tspawn remote mouse controller\n\r"
+    "mouse\t\t\t\tcontrol the mouse locally\n\r"
     "exit\t\t\t\tleave this session\n\r";
+
+static char* MOUSEHELP =
+    "Use wasd to move the mouse around\n\r"
+    "press c to move to the center of the screen (if 1920x1080)\n\r"
+    "hold shift to modify velocity instead of position\n\r";
 
 static uint32_t server_id = 0;
 static void server(void) {
     server_id = OS_Id();
-    if (!ESP8266_Init(true, false)) { // verbose rx echo on UART for debugging
-        ERROR("No Wifi adapter");
-    }
-    ESP8266_GetVersionNumber();
-    if (!ESP8266_Connect(true)) { // verbose
-        ERROR("No Wifi network");
-    }
-    puts("Wifi connected");
-    if (!ESP8266_StartServer(23, 600)) { // port 80, 5min timeout
+    if (!ESP8266_StartServer(23, 600)) { // port 23, 5min timeout
         ERROR("Server failure");
         OS_Kill();
     }
@@ -85,46 +87,9 @@ static void server(void) {
     }
 }
 
-static char* temp_ip;
-static void client(void) {
-    if (!ESP8266_Init(false, false)) {
-        puts("No Wifi adapter");
-        OS_Kill();
-    }
-    // ESP8266_GetVersionNumber();
-    if (!ESP8266_Connect(false)) {
-        puts("No Wifi network");
-        OS_Kill();
-    }
-    puts("Wifi connected");
-    if (!ESP8266_MakeTCPConnection(temp_ip, 23)) {
-        puts("Client failure");
-        OS_Kill();
-    }
-    free(temp_ip);
-    puts("Client started");
-
-    char* raw_command = malloc(COMMAND_BUF_LEN);
-    while (true) {
-        ESP8266_ReceiveEcho();
-        int len = readline(raw_command, COMMAND_BUF_LEN - 1);
-        raw_command[len] = '\n';
-        raw_command[len + 1] = '\0';
-        ESP8266_Send(raw_command);
-    }
-}
-
 static void mouse_server(void) {
     server_id = OS_Id();
-    if (!ESP8266_Init(true, false)) { // verbose rx echo on UART for debugging
-        ERROR("No Wifi adapter");
-    }
-    ESP8266_GetVersionNumber();
-    if (!ESP8266_Connect(true)) { // verbose
-        ERROR("No Wifi network");
-    }
-    puts("Wifi connected");
-    if (!ESP8266_StartServer(23, 600)) { // port 80, 5min timeout
+    if (!ESP8266_StartServer(23, 600)) {
         ERROR("Server failure");
         OS_Kill();
     }
@@ -140,35 +105,23 @@ static void mouse_server(void) {
     OS_Kill();
 }
 
-bool echo_mouse(void) {
-    char c = getchar();
-    char msg[] = "   ";
-    sprintf_(msg, "%c\n\r", c);
-    ESP8266_SendBuffered(msg);
-    if (c == 'q')
-        return false;
-    return true;
-}
-
-void mouse_client(void) {
-    if (!ESP8266_Init(false, false)) {
-        puts("No Wifi adapter");
-        OS_Kill();
-    }
-    // ESP8266_GetVersionNumber();
-    if (!ESP8266_Connect(false)) {
-        puts("No Wifi network");
-        OS_Kill();
-    }
-    puts("Wifi connected");
+static char* temp_ip;
+static void client(void) {
     if (!ESP8266_MakeTCPConnection(temp_ip, 23)) {
         puts("Client failure");
         OS_Kill();
     }
     free(temp_ip);
     puts("Client started");
-    while (echo_mouse()) {}
-    OS_Kill();
+
+    char* raw_command = malloc(COMMAND_BUF_LEN);
+    while (true) {
+        ESP8266_ReceiveEcho();
+        int len = readline(raw_command, COMMAND_BUF_LEN - 1);
+        raw_command[len] = '\n';
+        raw_command[len + 1] = '\0';
+        ESP8266_Send(raw_command);
+    }
 }
 
 void interpret_command(char* raw_command, char* token, bool remote) {
@@ -338,22 +291,6 @@ void interpret_command(char* raw_command, char* token, bool remote) {
         }
         puts("Successfully Uploaded!");
         littlefs_close_file();
-    } else if (streq(token, "server")) {
-        if (server_id) {
-            ERROR("Server already running");
-        }
-        OS_AddThread(server, "Remote Intepreter", 2048, 2);
-    } else if (streq(token, "connect")) {
-        if (!next_token(&current, token)) {
-            ERROR("must pass an IPV4 address\n\r");
-        }
-        temp_ip = calloc(strlen(token) + 1);
-        strcpy(temp_ip, token);
-        OS_AddThread(client, "Remote Client", 2048, 1);
-    } else if (streq(token, "exit")) {
-        free(token);
-        free(raw_command);
-        OS_Kill();
     } else if (streq(token, "checksum")) {
         if (!next_token(&current, token)) {
             ERROR("must pass a filename\n\r");
@@ -365,10 +302,73 @@ void interpret_command(char* raw_command, char* token, bool remote) {
         while (littlefs_read((uint8_t*)&temp)) { checksum += temp; }
         printf("0x%08x\n\r", checksum);
         littlefs_close_file();
+    } else if (streq(token, "connect")) {
+        if (!next_token(&current, token)) {
+            ERROR("Unimplimented\n\r");
+        } else if (wifi) {
+            ERROR("Already connected\n\r");
+        }
+        if (!ESP8266_Init(false, false)) {
+            ERROR("No Wifi adapter\n\r");
+        }
+        ESP8266_GetVersionNumber();
+        if (!ESP8266_Connect(true)) {
+            ERROR("No Wifi network\n\r");
+        }
+        wifi = true;
+        puts("Wifi connected");
+    } else if (streq(token, "server")) {
+        if (server_id) {
+            ERROR("Server already running\n\r");
+        } else if (!wifi) {
+            ERROR("Connect to a wifi network\n\r");
+        }
+        OS_AddThread(server, "Remote Intepreter", 2048, 2);
+    } else if (streq(token, "client")) {
+        if (!next_token(&current, token)) {
+            ERROR("Must pass an IPV4 address\n\r");
+        } else if (!wifi) {
+            ERROR("Connect to a wifi network\n\r");
+        }
+        temp_ip = calloc(strlen(token) + 1);
+        strcpy(temp_ip, token);
+        OS_AddThread(client, "Remote Client", 2048, 1);
+    } else if (streq(token, "exit")) {
+        free(token);
+        free(raw_command);
+        OS_Kill();
     } else if (streq(token, "mouse_server")) {
-        OS_AddThread(&mouse_server, "mouse_server", 2048, 2);
+        if (!wifi) {
+            ERROR("Connect to a wifi network\n\r");
+        }
+        OS_AddThread(mouse_server, "mouse_server", 2048, 2);
     } else if (streq(token, "mouse_client")) {
-        OS_AddThread(&mouse_client, "mouse_client", 2048, 2);
+        if (!next_token(&current, token)) {
+            ERROR("must pass an IPV4 address\n\r");
+        } else if (!wifi) {
+            ERROR("Connect to a wifi network\n\r");
+        }
+        temp_ip = calloc(strlen(token) + 1);
+        strcpy(temp_ip, token);
+        if (!ESP8266_MakeTCPConnection(temp_ip, 23)) {
+            ERROR("Client failure");
+        }
+        puts("Client started");
+        free(temp_ip);
+        puts(MOUSEHELP);
+        char msg[2] = " ";
+        while (true) {
+            char c = getchar();
+            msg[0] = c;
+            ESP8266_Send(msg);
+            if (c == 'q')
+                break;
+        }
+    } else if (streq(token, "mouse")) {
+        mouse_init();
+        puts(MOUSEHELP);
+        char c;
+        while ((c = getchar()) != 'q') { mouse_cmd(c); }
     } else {
         ERROR("unrecognized command '%s', try 'help'\n\r", token);
     }

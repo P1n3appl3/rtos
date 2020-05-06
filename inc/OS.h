@@ -2,7 +2,8 @@
 #include <stdint.h>
 
 #pragma once
-// #define TRACK_JITTER
+
+#define TRACK_JITTER
 
 struct TCB;
 typedef struct {
